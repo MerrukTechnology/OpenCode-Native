@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/opencode-ai/opencode/internal/config"
-	"github.com/opencode-ai/opencode/internal/diff"
-	"github.com/opencode-ai/opencode/internal/history"
-	"github.com/opencode-ai/opencode/internal/logging"
-	"github.com/opencode-ai/opencode/internal/lsp"
-	"github.com/opencode-ai/opencode/internal/permission"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/diff"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/history"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/permission"
 )
 
 type MultiEditItem struct {

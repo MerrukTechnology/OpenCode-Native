@@ -10,10 +10,10 @@ import (
 	"strings"
 
 	"cloud.google.com/go/auth"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/models"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
 	sdkoption "github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/anthropics/anthropic-sdk-go/vertex"
-	"github.com/opencode-ai/opencode/internal/llm/models"
-	"github.com/opencode-ai/opencode/internal/logging"
 
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"

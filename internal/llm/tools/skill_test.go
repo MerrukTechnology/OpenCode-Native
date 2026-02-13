@@ -9,9 +9,9 @@ import (
 
 	"go.uber.org/mock/gomock"
 
-	"github.com/opencode-ai/opencode/internal/config"
-	mock_permission "github.com/opencode-ai/opencode/internal/permission/mocks"
-	"github.com/opencode-ai/opencode/internal/skill"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
+	mock_permission "github.com/MerrukTechnology/OpenCode-Native/internal/permission/mocks"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/skill"
 )
 
 func TestMatchWildcard(t *testing.T) {

@@ -1,5 +1,5 @@
 > [!NOTE]
-> Fork of now archived https://github.com/opencode-ai/opencode
+> Fork of now archived https://github.com/MerrukTechnology/OpenCode-Native
 > The focus is changed towards headless experience oriented towards autonomous agents.
 
 # ⌬ OpenCode
@@ -24,28 +24,28 @@ OpenCode is a CLI tool that brings AI assistance to your terminal. It provides b
 ### Install Script
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/opencode-ai/opencode/refs/heads/main/install | bash
+curl -fsSL https://raw.githubusercontent.com/MerrukTechnology/OpenCode-Native/refs/heads/main/install | bash
 
 # Specific version
-curl -fsSL https://raw.githubusercontent.com/opencode-ai/opencode/refs/heads/main/install | VERSION=0.1.0 bash
+curl -fsSL https://raw.githubusercontent.com/MerrukTechnology/OpenCode-Native/refs/heads/main/install | VERSION=0.1.0 bash
 ```
 
 ### Homebrew
 
 ```bash
-brew install opencode-ai/tap/opencode
+brew install obukhovaa/tap/opencode
 ```
 
 ### AUR (Arch Linux)
 
 ```bash
-yay -S opencode-ai-bin
+yay -S obukhovaa-bin
 ```
 
 ### Go
 
 ```bash
-go install github.com/obukhovaa/opencode@latest
+go install github.com/MerrukTechnology/OpenCode-Native@latest
 ```
 
 ## Usage
@@ -384,7 +384,7 @@ export LOCAL_ENDPOINT_API_KEY=secret
 ### Building from Source
 
 ```bash
-git clone https://github.com/obukhovaa/opencode.git
+git clone https://github.com/MerrukTechnology/OpenCode-Native.git
 cd opencode
 make build
 ```

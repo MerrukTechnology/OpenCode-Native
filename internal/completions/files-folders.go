@@ -6,10 +6,10 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/MerrukTechnology/OpenCode-Native/internal/fileutil"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/components/dialog"
 	"github.com/lithammer/fuzzysearch/fuzzy"
-	"github.com/opencode-ai/opencode/internal/fileutil"
-	"github.com/opencode-ai/opencode/internal/logging"
-	"github.com/opencode-ai/opencode/internal/tui/components/dialog"
 )
 
 type filesAndFoldersContextGroup struct {

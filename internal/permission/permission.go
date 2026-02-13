@@ -6,9 +6,9 @@ import (
 	"slices"
 	"sync"
 
+	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/pubsub"
 	"github.com/google/uuid"
-	"github.com/opencode-ai/opencode/internal/config"
-	"github.com/opencode-ai/opencode/internal/pubsub"
 )
 
 var ErrorPermissionDenied = errors.New("permission denied")

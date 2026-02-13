@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/MerrukTechnology/OpenCode-Native/internal/db"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/models"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/tools"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/pubsub"
 	"github.com/google/uuid"
-	"github.com/opencode-ai/opencode/internal/db"
-	"github.com/opencode-ai/opencode/internal/llm/models"
-	"github.com/opencode-ai/opencode/internal/llm/tools"
-	"github.com/opencode-ai/opencode/internal/pubsub"
 )
 
 type CreateMessageParams struct {

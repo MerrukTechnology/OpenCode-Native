@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/opencode-ai/opencode/internal/logging"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
 )
 
 var projectIDCache sync.Map // map[string]string
@@ -62,8 +62,8 @@ func getProjectIDFromGit(workingDir string) (string, error) {
 
 // normalizeGitURL normalizes a Git URL to a consistent project ID format.
 // Examples:
-//   - https://github.com/opencode-ai/opencode.git → github.com/opencode-ai/opencode
-//   - git@github.com:opencode-ai/opencode.git → github.com/opencode-ai/opencode
+//   - https://github.com/MerrukTechnology/OpenCode-Native.git → github.com/MerrukTechnology/OpenCode-Native
+//   - git@github.com:MerrukTechnology/OpenCode-Native.git → github.com/MerrukTechnology/OpenCode-Native
 //   - https://gitlab.com/myteam/myproject → gitlab.com/myteam/myproject
 func normalizeGitURL(url string) string {
 	// Remove trailing slashes first

@@ -23,7 +23,9 @@ type Model struct {
 }
 
 const (
-	ProviderBedrock ModelProvider = "bedrock"
+	// Provider Constants
+	ProviderBedrock    ModelProvider = "bedrock"
+
 	// ForTests
 	ProviderMock          ModelProvider = "__mock"
 	BedrockClaude45Sonnet ModelID       = "bedrock.claude-4.5-sonnet"
@@ -31,11 +33,16 @@ const (
 
 // Providers in order of popularity
 var ProviderPopularity = map[ModelProvider]int{
-	ProviderVertexAI:  1,
-	ProviderAnthropic: 2,
-	ProviderOpenAI:    3,
-	ProviderGemini:    4,
-	ProviderBedrock:   5,
+	ProviderVertexAI:   1,
+	ProviderAnthropic:  2,
+	ProviderOpenAI:     3,
+	ProviderGemini:     4,
+	ProviderGrok:       5,
+	ProviderXAI:        6,
+	ProviderOpenRouter: 7,
+	ProviderDeepSeek:   8,
+	ProviderBedrock:    9,
+	ProviderLocal:      10,
 }
 
 var SupportedModels = map[ModelID]Model{

@@ -6,11 +6,11 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/opencode-ai/opencode/internal/llm/models"
-	"github.com/opencode-ai/opencode/internal/llm/tools"
-	toolsPkg "github.com/opencode-ai/opencode/internal/llm/tools"
-	"github.com/opencode-ai/opencode/internal/logging"
-	"github.com/opencode-ai/opencode/internal/message"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/models"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/tools"
+	toolsPkg "github.com/MerrukTechnology/OpenCode-Native/internal/llm/tools"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/message"
 )
 
 type EventType string
@@ -82,6 +82,7 @@ type providerClientOptions struct {
 	openaiOptions    []OpenAIOption
 	geminiOptions    []GeminiOption
 	bedrockOptions   []BedrockOption
+	deepSeekOptions  []DeepSeekOption
 }
 
 func (opts *providerClientOptions) asHeader() *http.Header {
@@ -141,6 +142,34 @@ func NewProvider(providerName models.ModelProvider, opts ...ProviderClientOption
 			options: clientOptions,
 			client:  newBedrockClient(clientOptions),
 		}, nil
+	case models.ProviderGrok:
+		clientOptions.openaiOptions = append(clientOptions.openaiOptions,
+			WithOpenAIBaseURL("https://api.groq.com/openai/v1"),
+		)
+		return &baseProvider[OpenAIClient]{
+			options: clientOptions,
+			client:  newOpenAIClient(clientOptions),
+		}, nil
+	case models.ProviderOpenRouter:
+		clientOptions.openaiOptions = append(clientOptions.openaiOptions,
+			WithOpenAIBaseURL("https://openrouter.ai/api/v1"),
+			WithOpenAIExtraHeaders(map[string]string{
+				"HTTP-Referer": "opencode.ai",
+				"X-Title":      "OpenCode",
+			}),
+		)
+		return &baseProvider[OpenAIClient]{
+			options: clientOptions,
+			client:  newOpenAIClient(clientOptions),
+		}, nil
+	case models.ProviderXAI:
+		clientOptions.openaiOptions = append(clientOptions.openaiOptions,
+			WithOpenAIBaseURL("https://api.x.ai/v1"),
+		)
+		return &baseProvider[OpenAIClient]{
+			options: clientOptions,
+			client:  newOpenAIClient(clientOptions),
+		}, nil
 	case models.ProviderLocal:
 		if clientOptions.baseURL == "" {
 			clientOptions.baseURL = os.Getenv("LOCAL_ENDPOINT")
@@ -148,6 +177,11 @@ func NewProvider(providerName models.ModelProvider, opts ...ProviderClientOption
 		return &baseProvider[OpenAIClient]{
 			options: clientOptions,
 			client:  newOpenAIClient(clientOptions),
+		}, nil
+	case models.ProviderDeepSeek:
+		return &baseProvider[DeepSeekClient]{
+			options: clientOptions,
+			client:  newDeepSeekClient(clientOptions),
 		}, nil
 	case models.ProviderMock:
 		// TODO: implement mock client for test
@@ -305,5 +339,11 @@ func WithGeminiOptions(geminiOptions ...GeminiOption) ProviderClientOption {
 func WithBedrockOptions(bedrockOptions ...BedrockOption) ProviderClientOption {
 	return func(options *providerClientOptions) {
 		options.bedrockOptions = bedrockOptions
+	}
+}
+
+func WithDeepSeekOptions(deepSeekOptions ...DeepSeekOption) ProviderClientOption {
+	return func(options *providerClientOptions) {
+		options.deepSeekOptions = deepSeekOptions
 	}
 }

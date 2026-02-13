@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/MerrukTechnology/OpenCode-Native/internal/pubsub"
 	"github.com/go-logfmt/logfmt"
-	"github.com/opencode-ai/opencode/internal/pubsub"
 )
 
 const (

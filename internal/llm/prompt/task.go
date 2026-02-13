@@ -3,7 +3,7 @@ package prompt
 import (
 	"fmt"
 
-	"github.com/opencode-ai/opencode/internal/llm/models"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/models"
 )
 
 func TaskPrompt(_ models.ModelProvider) string {

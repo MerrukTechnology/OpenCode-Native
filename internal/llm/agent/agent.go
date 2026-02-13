@@ -9,16 +9,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/opencode-ai/opencode/internal/config"
-	"github.com/opencode-ai/opencode/internal/llm/models"
-	"github.com/opencode-ai/opencode/internal/llm/prompt"
-	"github.com/opencode-ai/opencode/internal/llm/provider"
-	"github.com/opencode-ai/opencode/internal/llm/tools"
-	"github.com/opencode-ai/opencode/internal/logging"
-	"github.com/opencode-ai/opencode/internal/message"
-	"github.com/opencode-ai/opencode/internal/permission"
-	"github.com/opencode-ai/opencode/internal/pubsub"
-	"github.com/opencode-ai/opencode/internal/session"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/models"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/prompt"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/provider"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/tools"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/message"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/permission"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/pubsub"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/session"
 )
 
 // Common errors

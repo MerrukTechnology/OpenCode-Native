@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/opencode-ai/opencode/internal/config"
-	"github.com/opencode-ai/opencode/internal/llm/tools"
-	"github.com/opencode-ai/opencode/internal/lsp"
-	"github.com/opencode-ai/opencode/internal/message"
-	"github.com/opencode-ai/opencode/internal/permission"
-	"github.com/opencode-ai/opencode/internal/session"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/tools"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/message"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/permission"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/session"
 )
 
 type agentTool struct {

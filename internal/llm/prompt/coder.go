@@ -8,9 +8,9 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/opencode-ai/opencode/internal/config"
-	"github.com/opencode-ai/opencode/internal/llm/models"
-	"github.com/opencode-ai/opencode/internal/llm/tools"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/models"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/tools"
 )
 
 func CoderPrompt(provider models.ModelProvider) string {

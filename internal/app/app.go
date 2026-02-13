@@ -13,17 +13,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/opencode-ai/opencode/internal/config"
-	"github.com/opencode-ai/opencode/internal/db"
-	"github.com/opencode-ai/opencode/internal/format"
-	"github.com/opencode-ai/opencode/internal/history"
-	"github.com/opencode-ai/opencode/internal/llm/agent"
-	"github.com/opencode-ai/opencode/internal/logging"
-	"github.com/opencode-ai/opencode/internal/lsp"
-	"github.com/opencode-ai/opencode/internal/message"
-	"github.com/opencode-ai/opencode/internal/permission"
-	"github.com/opencode-ai/opencode/internal/session"
-	"github.com/opencode-ai/opencode/internal/tui/theme"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/db"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/format"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/history"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/agent"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/message"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/permission"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/session"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/theme"
 )
 
 type App struct {

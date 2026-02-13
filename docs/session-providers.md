@@ -117,7 +117,7 @@ Migrations run automatically on first connection.
 
 Sessions are automatically scoped by project to ensure isolation:
 
-- **Git repositories** use the remote origin URL as project ID (e.g., `github.com/opencode-ai/opencode`)
+- **Git repositories** use the remote origin URL as project ID (e.g., `github.com/MerrukTechnology/OpenCode-Native`)
 - **Non-git directories** fall back to the base directory name (e.g., `my-app`)
 
 This ensures teams working on the same repository share sessions when using MySQL, while different projects remain isolated.

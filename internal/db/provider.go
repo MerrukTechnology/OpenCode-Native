@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/opencode-ai/opencode/internal/config"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 )
 
 // Provider defines the interface for database connection providers.

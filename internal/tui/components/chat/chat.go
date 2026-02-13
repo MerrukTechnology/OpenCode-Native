@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp/install"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/message"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/session"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/styles"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/theme"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/version"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/opencode-ai/opencode/internal/config"
-	"github.com/opencode-ai/opencode/internal/lsp/install"
-	"github.com/opencode-ai/opencode/internal/message"
-	"github.com/opencode-ai/opencode/internal/session"
-	"github.com/opencode-ai/opencode/internal/tui/styles"
-	"github.com/opencode-ai/opencode/internal/tui/theme"
-	"github.com/opencode-ai/opencode/internal/version"
 )
 
 type SendMsg struct {

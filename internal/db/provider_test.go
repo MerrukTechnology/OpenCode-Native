@@ -3,7 +3,7 @@ package db
 import (
 	"testing"
 
-	"github.com/opencode-ai/opencode/internal/config"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 )
 
 func TestSQLiteProvider_Type(t *testing.T) {

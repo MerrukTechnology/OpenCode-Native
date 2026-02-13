@@ -12,7 +12,7 @@ builds:
       - amd64
       - arm64
     ldflags:
-      - -s -w -X github.com/opencode-ai/opencode/internal/version.Version={{.Version}}
+      - -s -w -X github.com/MerrukTechnology/OpenCode-Native/internal/version.Version={{.Version}}
     main: ./main.go
 
 archives:
@@ -34,14 +34,14 @@ checksum:
 snapshot:
   name_template: "0.0.0-{{ .Timestamp }}"
 aurs:
-  - name: opencode-ai
-    homepage: "https://github.com/opencode-ai/opencode"
+  - name: obukhovaa
+    homepage: "https://github.com/MerrukTechnology/OpenCode-Native"
     description: "terminal based agent that can build anything"
     maintainers:
       - "kujtimiihoxha <kujtimii.h@gmail.com>"
     license: "MIT"
     private_key: "{{ .Env.AUR_KEY }}"
-    git_url: "ssh://aur@aur.archlinux.org/opencode-ai-bin.git"
+    git_url: "ssh://aur@aur.archlinux.org/obukhovaa-bin.git"
     provides:
       - opencode
     conflicts:
@@ -50,7 +50,7 @@ aurs:
       install -Dm755 ./opencode "${pkgdir}/usr/bin/opencode"
 brews:
   - repository:
-      owner: opencode-ai
+      owner: obukhovaa
       name: homebrew-tap
 nfpms:
   - maintainer: kujtimiihoxha

@@ -2,14 +2,15 @@ package dialog
 
 import (
 	"fmt"
+
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/opencode-ai/opencode/internal/tui/styles"
-	"github.com/opencode-ai/opencode/internal/tui/theme"
-	"github.com/opencode-ai/opencode/internal/tui/util"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/styles"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/theme"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/util"
 )
 
 type argumentsDialogKeyMap struct {

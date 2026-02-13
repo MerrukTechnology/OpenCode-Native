@@ -5,18 +5,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/models"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp/protocol"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/pubsub"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/session"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/components/chat"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/styles"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/theme"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/util"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/opencode-ai/opencode/internal/config"
-	"github.com/opencode-ai/opencode/internal/llm/models"
-	"github.com/opencode-ai/opencode/internal/lsp"
-	"github.com/opencode-ai/opencode/internal/lsp/protocol"
-	"github.com/opencode-ai/opencode/internal/pubsub"
-	"github.com/opencode-ai/opencode/internal/session"
-	"github.com/opencode-ai/opencode/internal/tui/components/chat"
-	"github.com/opencode-ai/opencode/internal/tui/styles"
-	"github.com/opencode-ai/opencode/internal/tui/theme"
-	"github.com/opencode-ai/opencode/internal/tui/util"
 )
 
 type StatusCmp interface {

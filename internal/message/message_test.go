@@ -3,8 +3,8 @@ package message
 import (
 	"testing"
 
-	"github.com/opencode-ai/opencode/internal/llm/tools"
-	mock_tools "github.com/opencode-ai/opencode/internal/llm/tools/mocks"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/tools"
+	mock_tools "github.com/MerrukTechnology/OpenCode-Native/internal/llm/tools/mocks"
 	"go.uber.org/mock/gomock"
 )
 

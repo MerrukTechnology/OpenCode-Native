@@ -54,6 +54,7 @@ For VertexAI models: the API model name format differs (e.g. `claude-sonnet-4-5@
 | Anthropic | `anthropic.go` | `AnthropicModels` | `ProviderAnthropic` |
 | OpenAI | `openai.go` | `OpenAIModels` | `ProviderOpenAI` |
 | Gemini | `gemini.go` | `GeminiModels` | `ProviderGemini` |
+| DeepSeek | `deepseek.go` | `DeepSeekModels` | `ProviderDeepSeek` |
 | VertexAI (Gemini) | `vertexai.go` | `VertexAIGeminiModels` | `ProviderVertexAI` |
 | VertexAI (Anthropic) | `vertexai.go` | `VertexAIAnthropicModels` | `ProviderVertexAI` |
 | Bedrock | `models.go` | `SupportedModels` (inline) | `ProviderBedrock` |

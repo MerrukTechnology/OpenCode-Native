@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/opencode-ai/opencode/internal/config"
-	"github.com/opencode-ai/opencode/internal/logging"
-	"github.com/opencode-ai/opencode/internal/lsp"
-	"github.com/opencode-ai/opencode/internal/lsp/install"
-	"github.com/opencode-ai/opencode/internal/lsp/watcher"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp/install"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp/watcher"
 )
 
 func (app *App) initLSPClients(ctx context.Context) {

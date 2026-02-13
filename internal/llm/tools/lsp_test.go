@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/opencode-ai/opencode/internal/lsp"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp"
 	"github.com/stretchr/testify/assert"
 )
 

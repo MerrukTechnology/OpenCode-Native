@@ -8,19 +8,19 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/MerrukTechnology/OpenCode-Native/internal/app"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/message"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/session"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/components/dialog"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/layout"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/styles"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/theme"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/util"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/opencode-ai/opencode/internal/app"
-	"github.com/opencode-ai/opencode/internal/logging"
-	"github.com/opencode-ai/opencode/internal/message"
-	"github.com/opencode-ai/opencode/internal/session"
-	"github.com/opencode-ai/opencode/internal/tui/components/dialog"
-	"github.com/opencode-ai/opencode/internal/tui/layout"
-	"github.com/opencode-ai/opencode/internal/tui/styles"
-	"github.com/opencode-ai/opencode/internal/tui/theme"
-	"github.com/opencode-ai/opencode/internal/tui/util"
 )
 
 type editorCmp struct {

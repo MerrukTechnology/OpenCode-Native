@@ -8,19 +8,22 @@ import (
 	"io"
 	"time"
 
+	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/models"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/tools"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/message"
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
 	"github.com/openai/openai-go/shared"
-	"github.com/opencode-ai/opencode/internal/config"
-	"github.com/opencode-ai/opencode/internal/llm/models"
-	"github.com/opencode-ai/opencode/internal/llm/tools"
-	"github.com/opencode-ai/opencode/internal/logging"
-	"github.com/opencode-ai/opencode/internal/message"
 )
 
 type openaiOptions struct {
 	disableCache    bool
 	reasoningEffort string
+	// Added to support Groq, xAI, OpenRouter
+	baseURL      string
+	extraHeaders map[string]string
 }
 
 type OpenAIOption func(*openaiOptions)
@@ -45,11 +48,23 @@ func newOpenAIClient(opts providerClientOptions) OpenAIClient {
 	if opts.apiKey != "" {
 		openaiClientOptions = append(openaiClientOptions, option.WithAPIKey(opts.apiKey))
 	}
-	if opts.baseURL != "" {
+	// --- FIX START: Logic to support Groq/xAI/OpenRouter BaseURLs ---
+	// If a specific BaseURL was passed via WithOpenAIBaseURL (from provider.go), use it.
+	if openaiOpts.baseURL != "" {
+		openaiClientOptions = append(openaiClientOptions, option.WithBaseURL(openaiOpts.baseURL))
+	} else if opts.baseURL != "" {
+		// Fallback to generic provider options
 		openaiClientOptions = append(openaiClientOptions, option.WithBaseURL(opts.baseURL))
 	}
+	// Handle generic headers
 	if opts.headers != nil {
 		for key, value := range opts.headers {
+			openaiClientOptions = append(openaiClientOptions, option.WithHeader(key, value))
+		}
+	}
+	// Handle specific headers (needed for OpenRouter)
+	if openaiOpts.extraHeaders != nil {
+		for key, value := range openaiOpts.extraHeaders {
 			openaiClientOptions = append(openaiClientOptions, option.WithHeader(key, value))
 		}
 	}
@@ -418,5 +433,19 @@ func WithReasoningEffort(effort string) OpenAIOption {
 			logging.Warn("Invalid reasoning effort, using default: medium")
 		}
 		options.reasoningEffort = defaultReasoningEffort
+	}
+}
+
+// --- FIX START: New Functions required by provider.go to support Groq/xAI/OpenRouter ---
+
+func WithOpenAIBaseURL(baseURL string) OpenAIOption {
+	return func(options *openaiOptions) {
+		options.baseURL = baseURL
+	}
+}
+
+func WithOpenAIExtraHeaders(headers map[string]string) OpenAIOption {
+	return func(options *openaiOptions) {
+		options.extraHeaders = headers
 	}
 }

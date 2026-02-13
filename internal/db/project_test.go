@@ -12,8 +12,8 @@ func TestNormalizeGitURL(t *testing.T) {
 	}{
 		{
 			name:     "HTTPS URL with .git suffix",
-			input:    "https://github.com/opencode-ai/opencode.git",
-			expected: "github.com/opencode-ai/opencode",
+			input:    "https://github.com/MerrukTechnology/OpenCode-Native.git",
+			expected: "github.com/MerrukTechnology/OpenCode-Native",
 		},
 		{
 			name:     "HTTPS URL without .git suffix",
@@ -22,8 +22,8 @@ func TestNormalizeGitURL(t *testing.T) {
 		},
 		{
 			name:     "SSH URL with .git suffix",
-			input:    "git@github.com:opencode-ai/opencode.git",
-			expected: "github.com/opencode-ai/opencode",
+			input:    "git@github.com:MerrukTechnology/OpenCode-Native.git",
+			expected: "github.com/MerrukTechnology/OpenCode-Native",
 		},
 		{
 			name:     "SSH URL without .git suffix",
@@ -32,23 +32,23 @@ func TestNormalizeGitURL(t *testing.T) {
 		},
 		{
 			name:     "HTTP URL with .git suffix",
-			input:    "http://github.com/opencode-ai/opencode.git",
-			expected: "github.com/opencode-ai/opencode",
+			input:    "http://github.com/MerrukTechnology/OpenCode-Native.git",
+			expected: "github.com/MerrukTechnology/OpenCode-Native",
 		},
 		{
 			name:     "URL with trailing slash",
-			input:    "https://github.com/opencode-ai/opencode/",
-			expected: "github.com/opencode-ai/opencode",
+			input:    "https://github.com/MerrukTechnology/OpenCode-Native/",
+			expected: "github.com/MerrukTechnology/OpenCode-Native",
 		},
 		{
 			name:     "URL with trailing slash and .git",
-			input:    "https://github.com/opencode-ai/opencode.git/",
-			expected: "github.com/opencode-ai/opencode",
+			input:    "https://github.com/MerrukTechnology/OpenCode-Native.git/",
+			expected: "github.com/MerrukTechnology/OpenCode-Native",
 		},
 		{
 			name:     "Plain URL without protocol",
-			input:    "github.com/opencode-ai/opencode",
-			expected: "github.com/opencode-ai/opencode",
+			input:    "github.com/MerrukTechnology/OpenCode-Native",
+			expected: "github.com/MerrukTechnology/OpenCode-Native",
 		},
 	}
 

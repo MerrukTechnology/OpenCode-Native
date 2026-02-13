@@ -14,7 +14,7 @@
 ### Imports
 - Three groups: stdlib, external, internal (separated by blank lines)
 - Sort alphabetically within groups
-- Internal imports: `github.com/opencode-ai/opencode/internal/...`
+- Internal imports: `github.com/MerrukTechnology/OpenCode-Native/internal/...`
 
 ### Naming
 - Variables: camelCase (`filePath`, `contextWindow`)

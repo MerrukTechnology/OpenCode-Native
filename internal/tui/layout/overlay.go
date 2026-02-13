@@ -3,14 +3,14 @@ package layout
 import (
 	"strings"
 
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/styles"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/theme"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/util"
 	"github.com/charmbracelet/lipgloss"
 	chAnsi "github.com/charmbracelet/x/ansi"
 	"github.com/muesli/ansi"
 	"github.com/muesli/reflow/truncate"
 	"github.com/muesli/termenv"
-	"github.com/opencode-ai/opencode/internal/tui/styles"
-	"github.com/opencode-ai/opencode/internal/tui/theme"
-	"github.com/opencode-ai/opencode/internal/tui/util"
 )
 
 // Most of this code is borrowed from

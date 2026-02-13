@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/opencode-ai/opencode/internal/llm/models"
-	"github.com/opencode-ai/opencode/internal/llm/tools"
-	mock_tools "github.com/opencode-ai/opencode/internal/llm/tools/mocks"
-	"github.com/opencode-ai/opencode/internal/message"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/models"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/tools"
+	mock_tools "github.com/MerrukTechnology/OpenCode-Native/internal/llm/tools/mocks"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/message"
 	"go.uber.org/mock/gomock"
 )
 

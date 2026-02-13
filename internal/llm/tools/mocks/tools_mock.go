@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	tools "github.com/opencode-ai/opencode/internal/llm/tools"
+	tools "github.com/MerrukTechnology/OpenCode-Native/internal/llm/tools"
 	gomock "go.uber.org/mock/gomock"
 )
 

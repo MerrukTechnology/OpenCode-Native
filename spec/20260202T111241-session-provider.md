@@ -25,9 +25,9 @@ The session provider abstraction will be implemented at the database connection 
 Sessions are scoped to projects using a `project_id` field. The project ID is determined by:
 
 1. **Git Repository**: If the current working directory is within a Git repository, use the Git remote origin URL as the project ID
-   - Example: `https://github.com/opencode-ai/opencode.git` → `github.com/opencode-ai/opencode`
+   - Example: `https://github.com/MerrukTechnology/OpenCode-Native.git` → `github.com/MerrukTechnology/OpenCode-Native`
    - Normalize by removing protocol, `.git` suffix, and trailing slashes
-   
+
 2. **Directory Name**: If no Git repository exists, use the base name of the current working directory
    - Example: `/Users/john/projects/my-app` → `my-app`
 
@@ -224,8 +224,8 @@ func getProjectIDFromGit(workingDir string) (string, error) {
 ```
 
 **Examples:**
-- `https://github.com/opencode-ai/opencode.git` → `github.com/opencode-ai/opencode`
-- `git@github.com:opencode-ai/opencode.git` → `github.com/opencode-ai/opencode`
+- `https://github.com/MerrukTechnology/OpenCode-Native.git` → `github.com/MerrukTechnology/OpenCode-Native`
+- `git@github.com:MerrukTechnology/OpenCode-Native.git` → `github.com/MerrukTechnology/OpenCode-Native`
 - `https://gitlab.com/myteam/myproject` → `gitlab.com/myteam/myproject`
 
 ### Directory-Based Fallback
@@ -430,7 +430,7 @@ The TUI status/info section will display:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ Project: github.com/opencode-ai/opencode | Provider: local  │
+│ Project: github.com/MerrukTechnology/OpenCode-Native | Provider: local  │
 │ Session: Implement session provider feature                 │
 └─────────────────────────────────────────────────────────────┘
 ```

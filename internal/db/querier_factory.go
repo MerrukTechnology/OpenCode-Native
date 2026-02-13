@@ -3,8 +3,8 @@ package db
 import (
 	"database/sql"
 
-	"github.com/opencode-ai/opencode/internal/config"
-	"github.com/opencode-ai/opencode/internal/logging"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
 )
 
 // NewQuerier creates a new Querier based on the configured provider type

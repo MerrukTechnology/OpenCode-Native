@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/opencode-ai/opencode/cmd"
-	"github.com/opencode-ai/opencode/internal/logging"
+	"github.com/MerrukTechnology/OpenCode-Native/cmd"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
 )
 
 func main() {

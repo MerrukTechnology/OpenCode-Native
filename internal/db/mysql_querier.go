@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 
-	mysqldb "github.com/opencode-ai/opencode/internal/db/mysql"
+	mysqldb "github.com/MerrukTechnology/OpenCode-Native/internal/db/mysql"
 )
 
 // MySQLQuerier wraps the MySQL-generated queries and implements the Querier interface

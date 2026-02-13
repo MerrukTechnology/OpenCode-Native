@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	mock_config "github.com/opencode-ai/opencode/internal/config/mocks"
+	mock_config "github.com/MerrukTechnology/OpenCode-Native/internal/config/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"

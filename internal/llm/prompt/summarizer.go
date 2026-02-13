@@ -1,11 +1,11 @@
 package prompt
 
-import "github.com/opencode-ai/opencode/internal/llm/models"
+import "github.com/MerrukTechnology/OpenCode-Native/internal/llm/models"
 
 func SummarizerPrompt(_ models.ModelProvider) string {
 	return `You are a helpful AI assistant tasked with summarizing conversations.
 
-When asked to summarize, provide a detailed but concise summary of the conversation. 
+When asked to summarize, provide a detailed but concise summary of the conversation.
 Focus on information that would be helpful for continuing the conversation, including:
 - What was done
 - What is currently being worked on

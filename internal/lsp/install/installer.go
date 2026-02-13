@@ -12,7 +12,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/opencode-ai/opencode/internal/logging"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
 )
 
 // BinDir returns the directory where auto-installed LSP binaries are stored.

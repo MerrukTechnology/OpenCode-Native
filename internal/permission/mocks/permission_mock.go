@@ -13,8 +13,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	permission "github.com/opencode-ai/opencode/internal/permission"
-	pubsub "github.com/opencode-ai/opencode/internal/pubsub"
+	permission "github.com/MerrukTechnology/OpenCode-Native/internal/permission"
+	pubsub "github.com/MerrukTechnology/OpenCode-Native/internal/pubsub"
 	gomock "go.uber.org/mock/gomock"
 )
 

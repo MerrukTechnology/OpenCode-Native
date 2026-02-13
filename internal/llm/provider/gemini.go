@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"cloud.google.com/go/auth"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/tools"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/message"
 	"github.com/google/uuid"
-	"github.com/opencode-ai/opencode/internal/config"
-	"github.com/opencode-ai/opencode/internal/llm/tools"
-	"github.com/opencode-ai/opencode/internal/logging"
-	"github.com/opencode-ai/opencode/internal/message"
 	"google.golang.org/genai"
 )
 
@@ -348,12 +348,16 @@ func (g *geminiClient) stream(ctx context.Context, messages []message.Message, t
 
 							return
 						case <-time.After(time.Duration(after) * time.Millisecond):
-							break
 						}
+						break
 					} else {
 						eventChan <- ProviderEvent{Type: EventError, Error: err}
 						return
 					}
+				}
+
+				if resp == nil {
+					continue
 				}
 
 				finalResp = resp

@@ -8,9 +8,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
-	"github.com/opencode-ai/opencode/internal/llm/models"
-	"github.com/opencode-ai/opencode/internal/logging"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/models"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
 	"github.com/spf13/viper"
 )
 
@@ -42,6 +43,17 @@ const (
 	AgentTask       AgentName = "task"
 	AgentTitle      AgentName = "title"
 )
+
+// providerDefinition defines which model to use for each specific agent
+type providerDefinition struct {
+	EnvKey          string
+	CheckFunc       func() bool
+	CoderModel      models.ModelID
+	SummarizerModel models.ModelID
+	TaskModel       models.ModelID
+	TitleModel      models.ModelID
+	FallbackModel   models.ModelID // Used if a specific agent model is empty
+}
 
 // Agent defines configuration for different LLM models and their token limits.
 type Agent struct {
@@ -175,11 +187,17 @@ type Configurator interface {
 }
 
 // Global configuration instance
-var cfg *Config
+var (
+    cfg *Config
+    mu  sync.RWMutex // Required for thread safety
+)
 
 // Reset clears the global configuration, allowing Load to be called again.
 // This is intended for use in tests only.
 func Reset() {
+	mu.Lock()
+	defer mu.Unlock()
+
 	cfg = nil
 }
 
@@ -187,6 +205,9 @@ func Reset() {
 // If debug is true, debug mode is enabled and log level is set to debug.
 // It returns an error if configuration loading fails.
 func Load(workingDir string, debug bool) (*Config, error) {
+	mu.Lock()
+	defer mu.Unlock()
+
 	if cfg != nil {
 		return cfg, nil
 	}
@@ -196,6 +217,7 @@ func Load(workingDir string, debug bool) (*Config, error) {
 		MCPServers: make(map[string]MCPServer),
 		Providers:  make(map[models.ModelProvider]Provider),
 		LSP:        make(map[string]LSPConfig),
+		Agents:     make(map[AgentName]Agent),
 	}
 
 	configureViper()
@@ -209,63 +231,27 @@ func Load(workingDir string, debug bool) (*Config, error) {
 	// Load and merge local config
 	mergeLocalConfig(workingDir)
 
-	setProviderDefaults()
+	// Map environment variables to viper
+	mapEnvVarsToViper()
 
 	// Apply configuration to the struct
 	if err := viper.Unmarshal(cfg); err != nil {
 		return cfg, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
+	// Set provider defaults based on available environment variables and configuration
+	setProviderDefaults()
+
 	applyDefaultValues()
-	defaultLevel := slog.LevelInfo
-	if cfg.Debug {
-		defaultLevel = slog.LevelDebug
-	}
-	if os.Getenv("OPENCODE_DEV_DEBUG") == "true" {
-		loggingFile := fmt.Sprintf("%s/%s", cfg.Data.Directory, "debug.log")
-		messagesPath := fmt.Sprintf("%s/%s", cfg.Data.Directory, "messages")
 
-		// if file does not exist create it
-		if _, err := os.Stat(loggingFile); os.IsNotExist(err) {
-			if err := os.MkdirAll(cfg.Data.Directory, 0o755); err != nil {
-				return cfg, fmt.Errorf("failed to create directory: %w", err)
-			}
-			if _, err := os.Create(loggingFile); err != nil {
-				return cfg, fmt.Errorf("failed to create log file: %w", err)
-			}
-		}
-
-		if _, err := os.Stat(messagesPath); os.IsNotExist(err) {
-			if err := os.MkdirAll(messagesPath, 0o756); err != nil {
-				return cfg, fmt.Errorf("failed to create directory: %w", err)
-			}
-		}
-		logging.MessageDir = messagesPath
-
-		sloggingFileWriter, err := os.OpenFile(loggingFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o666)
-		if err != nil {
-			return cfg, fmt.Errorf("failed to open log file: %w", err)
-		}
-		// Configure logger
-		logger := slog.New(slog.NewTextHandler(sloggingFileWriter, &slog.HandlerOptions{
-			Level: defaultLevel,
-		}))
-		slog.SetDefault(logger)
-	} else {
-		// Configure logger
-		logger := slog.New(slog.NewTextHandler(logging.NewWriter(), &slog.HandlerOptions{
-			Level: defaultLevel,
-		}))
-		slog.SetDefault(logger)
+	// Initialize logging
+	if err := initLogging(debug); err != nil {
+		return cfg, err
 	}
 
 	// Validate configuration
 	if err := Validate(); err != nil {
 		return cfg, fmt.Errorf("config validation failed: %w", err)
-	}
-
-	if cfg.Agents == nil {
-		cfg.Agents = make(map[AgentName]Agent)
 	}
 
 	// Override the max tokens for title agent
@@ -274,6 +260,47 @@ func Load(workingDir string, debug bool) (*Config, error) {
 		MaxTokens: 80,
 	}
 	return cfg, nil
+}
+
+// initLogging handles the creation of log files and logger initialization
+func initLogging(debug bool) error {
+	defaultLevel := slog.LevelInfo
+	if cfg.Debug || debug {
+		defaultLevel = slog.LevelDebug
+	}
+
+	// Check for dev debug mode override
+	if os.Getenv("OPENCODE_DEV_DEBUG") == "true" {
+		loggingFile := filepath.Join(cfg.Data.Directory, "debug.log")
+		messagesPath := filepath.Join(cfg.Data.Directory, "messages")
+
+		if err := os.MkdirAll(cfg.Data.Directory, 0o755); err != nil {
+			return fmt.Errorf("failed to create directory: %w", err)
+		}
+
+		// Create messages directory if it doesn't exist
+		if _, err := os.Stat(messagesPath); os.IsNotExist(err) {
+			if err := os.MkdirAll(messagesPath, 0o755); err != nil {
+				return fmt.Errorf("failed to create messages directory: %w", err)
+			}
+		}
+		logging.MessageDir = messagesPath
+
+		logFile, err := os.OpenFile(loggingFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o666)
+		if err != nil {
+			return fmt.Errorf("failed to open log file: %w", err)
+		}
+
+		slog.SetDefault(slog.New(slog.NewTextHandler(logFile, &slog.HandlerOptions{
+			Level: defaultLevel,
+		})))
+	} else {
+		// Standard Logger
+		slog.SetDefault(slog.New(slog.NewTextHandler(logging.NewWriter(), &slog.HandlerOptions{
+			Level: defaultLevel,
+		})))
+	}
+	return nil
 }
 
 // configureViper sets up viper's configuration paths and environment variables.
@@ -331,77 +358,58 @@ func setDefaults(debug bool) {
 	}
 }
 
-// setProviderDefaults configures LLM provider defaults based on provider provided by
-// environment variables and configuration file.
-func setProviderDefaults() {
-	// Set all API keys we can find in the environment
-	// Note: Viper does not default if the json apiKey is ""
-	if apiKey := os.Getenv("ANTHROPIC_API_KEY"); apiKey != "" {
-		viper.SetDefault("providers.anthropic.apiKey", apiKey)
-	}
-	if apiKey := os.Getenv("OPENAI_API_KEY"); apiKey != "" {
-		viper.SetDefault("providers.openai.apiKey", apiKey)
-	}
-	if apiKey := os.Getenv("GEMINI_API_KEY"); apiKey != "" {
-		viper.SetDefault("providers.gemini.apiKey", apiKey)
-	}
-	if apiKey := os.Getenv("VERTEXAI_PROJECT"); apiKey != "" {
-		viper.SetDefault("providers.vertexai.project", apiKey)
-	}
-	if apiKey := os.Getenv("VERTEXAI_LOCATION"); apiKey != "" {
-		viper.SetDefault("providers.vertexai.location", apiKey)
+// mapEnvVarsToViper maps standard Env Vars to the internal Viper config structure.
+func mapEnvVarsToViper() {
+	envMap := map[string]string{
+		"ANTHROPIC_API_KEY":  "providers.anthropic.apiKey",
+		"OPENAI_API_KEY":     "providers.openai.apiKey",
+		"GEMINI_API_KEY":     "providers.gemini.apiKey",
+		"GROQ_API_KEY":       "providers.groq.apiKey",
+		"OPENROUTER_API_KEY": "providers.openrouter.apiKey",
+		"XAI_API_KEY":        "providers.xai.apiKey",
+		"DEEPSEEK_API_KEY":   "providers.deepseek.apiKey",
+		"QWEN_API_KEY":       "providers.qwen.apiKey",
+		//"MOONSHOT_API_KEY":   "providers.moonshot.apiKey",
+		"VERTEXAI_PROJECT":   "providers.vertexai.project",
+		"VERTEXAI_LOCATION":  "providers.vertexai.location",
 	}
 
+	for envKey, configKey := range envMap {
+		if val := os.Getenv(envKey); val != "" {
+			viper.SetDefault(configKey, val)
+		}
+	}
+}
+
+// setProviderDefaults configures LLM provider defaults based on provider provided by
+// environment variables and configuration file.
+// checks if agents are configured in the file.
+// If not, it attempts to auto-configure them based on available Environment Variables.
+func setProviderDefaults() {
 	// Use this order to set the default models
 	// 1. Anthropic
 	// 2. OpenAI
 	// 3. Google Gemini
-	// 4. AWS Bedrock
-	// 5. Google Cloud VertexAI
+	// 4. Groq
+	// 5. OpenRouter
+	// 6. xAI
+	// 7. DeepSeek
+	// 8. Qwen
+	// 9. Moonshot
+	// 10. AWS Bedrock
+	// 11. Google Cloud VertexAI
 
-	// Anthropic configuration
-	if key := viper.GetString("providers.anthropic.apiKey"); strings.TrimSpace(key) != "" {
-		viper.SetDefault("agents.coder.model", models.Claude45Sonnet1M)
-		viper.SetDefault("agents.summarizer.model", models.Claude45Sonnet1M)
-		viper.SetDefault("agents.task.model", models.Claude45Sonnet1M)
-		viper.SetDefault("agents.title.model", models.Claude45Sonnet1M)
-		return
-	}
+	// Initialize Agents using the priority list
+	// We iterate through all agent types and try to set a default for them based on available keys
+	agentTypes := []AgentName{AgentCoder, AgentSummarizer, AgentTask, AgentTitle}
 
-	// OpenAI configuration
-	if key := viper.GetString("providers.openai.apiKey"); strings.TrimSpace(key) != "" {
-		viper.SetDefault("agents.coder.model", models.GPT5)
-		viper.SetDefault("agents.summarizer.model", models.GPT5)
-		viper.SetDefault("agents.task.model", models.O4Mini)
-		viper.SetDefault("agents.title.model", models.O4Mini)
-		return
-	}
-
-	// Google Gemini configuration
-	if key := viper.GetString("providers.gemini.apiKey"); strings.TrimSpace(key) != "" {
-		viper.SetDefault("agents.coder.model", models.Gemini30Pro)
-		viper.SetDefault("agents.summarizer.model", models.Gemini30Pro)
-		viper.SetDefault("agents.task.model", models.Gemini30Flash)
-		viper.SetDefault("agents.title.model", models.Gemini30Flash)
-		return
-	}
-
-	// AWS Bedrock configuration
-	if hasAWSCredentials() {
-		viper.SetDefault("agents.coder.model", models.BedrockClaude45Sonnet)
-		viper.SetDefault("agents.summarizer.model", models.BedrockClaude45Sonnet)
-		viper.SetDefault("agents.task.model", models.BedrockClaude45Sonnet)
-		viper.SetDefault("agents.title.model", models.BedrockClaude45Sonnet)
-		return
-	}
-
-	// Google Cloud VertexAI configuration
-	if hasVertexAICredentials() {
-		viper.SetDefault("agents.coder.model", models.VertexAIGemini30Pro)
-		viper.SetDefault("agents.summarizer.model", models.VertexAIGemini30Pro)
-		viper.SetDefault("agents.task.model", models.VertexAIGemini30Flash)
-		viper.SetDefault("agents.title.model", models.VertexAIGemini30Flash)
-		return
+	// We only want to set a default model if the user hasn't already configured one.
+	for _, agent := range agentTypes {
+		existing, exists := cfg.Agents[agent]
+		// If agent doesn't exist, or model is empty string, try to auto-configure
+		if !exists || existing.Model == "" {
+			setDefaultModelForAgent(agent)
+		}
 	}
 }
 
@@ -521,6 +529,10 @@ func validateAgent(cfg *Config, name AgentName, agent Agent) error {
 			}
 		} else {
 			// Add provider with API key from environment
+			// Initialize map if nil to avoid panic
+			if cfg.Providers == nil {
+				cfg.Providers = make(map[models.ModelProvider]Provider)
+			}
 			cfg.Providers[provider] = Provider{
 				APIKey: apiKey,
 			}
@@ -721,6 +733,14 @@ func getProviderAPIKey(provider models.ModelProvider) string {
 		return os.Getenv("OPENAI_API_KEY")
 	case models.ProviderGemini:
 		return os.Getenv("GEMINI_API_KEY")
+	case models.ProviderGrok:
+		return os.Getenv("GROQ_API_KEY")
+	case models.ProviderOpenRouter:
+		return os.Getenv("OPENROUTER_API_KEY")
+	case models.ProviderXAI:
+		return os.Getenv("XAI_API_KEY")
+	case models.ProviderDeepSeek:
+		return os.Getenv("DEEPSEEK_API_KEY")
 	case models.ProviderBedrock:
 		if hasAWSCredentials() {
 			return "aws-credentials-available"
@@ -733,102 +753,176 @@ func getProviderAPIKey(provider models.ModelProvider) string {
 	return ""
 }
 
-// setDefaultModelForAgent sets a default model for an agent based on available providers in desired preference order
+// setDefaultModelForAgent sets default models based on available providers in priority order
 func setDefaultModelForAgent(agent AgentName) bool {
-	if hasVertexAICredentials() {
-		switch agent {
-		case AgentTitle:
-			cfg.Agents[agent] = Agent{
-				Model:     models.VertexAISonnet45M,
-				MaxTokens: 80,
-			}
-		case AgentTask:
-			cfg.Agents[agent] = Agent{
-				Model:     models.VertexAIGemini30Pro,
-				MaxTokens: models.VertexAIAnthropicModels[models.VertexAIGemini30Pro].DefaultMaxTokens,
-			}
-		default:
-			cfg.Agents[agent] = Agent{
-				Model:     models.VertexAISonnet45M,
-				MaxTokens: models.VertexAIAnthropicModels[models.VertexAISonnet45M].DefaultMaxTokens,
-			}
-		}
-		return true
+	definitions := []providerDefinition{
+		// 1. Google Cloud VertexAI
+		{
+			CheckFunc:       hasVertexAICredentials,
+			CoderModel:      models.VertexAIGemini30Pro,
+			SummarizerModel: models.VertexAIGemini30Pro,
+			TaskModel:       models.VertexAIGemini30Flash,
+			TitleModel:      models.VertexAIGemini30Flash,
+			FallbackModel:   models.VertexAIGemini30Pro,
+		},
+		// 2. Anthropic
+		{
+			EnvKey:          "ANTHROPIC_API_KEY",
+			CoderModel:      models.Claude45Sonnet1M,
+			SummarizerModel: models.Claude45Sonnet1M,
+			TaskModel:       models.Claude45Sonnet1M,
+			TitleModel:      models.Claude45Sonnet1M,
+			FallbackModel:   models.Claude45Sonnet1M,
+		},
+		// 3. OpenAI
+		{
+			EnvKey:          "OPENAI_API_KEY",
+			CoderModel:      models.GPT5,
+			SummarizerModel: models.GPT5,
+			TaskModel:       models.O4Mini,
+			TitleModel:      models.O4Mini,
+			FallbackModel:   models.GPT5,
+		},
+		// 4. Google Gemini (API)
+		{
+			EnvKey:          "GEMINI_API_KEY",
+			CoderModel:      models.Gemini30Pro,
+			SummarizerModel: models.Gemini30Pro,
+			TaskModel:       models.Gemini30Flash,
+			TitleModel:      models.Gemini30Flash,
+			FallbackModel:   models.Gemini30Pro,
+		},
+		// 5. DeepSeek
+		{
+			EnvKey:          "DEEPSEEK_API_KEY",
+			CoderModel:      models.DeepSeekReasoner,
+			SummarizerModel: models.DeepSeekReasoner,
+			TaskModel:       models.DeepSeekChat,
+			TitleModel:      models.DeepSeekChat,
+			FallbackModel:   models.DeepSeekReasoner,
+		},
+		// 6. Groq
+		{
+			EnvKey:          "GROQ_API_KEY",
+			CoderModel:      models.QWENQwq,
+			SummarizerModel: models.QWENQwq,
+			TaskModel:       models.QWENQwq,
+			TitleModel:      models.QWENQwq,
+			FallbackModel:   models.QWENQwq,
+		},
+		// 7. OpenRouter
+		{
+			EnvKey:          "OPENROUTER_API_KEY",
+			CoderModel:      models.OpenRouterClaude37Sonnet,
+			SummarizerModel: models.OpenRouterClaude37Sonnet,
+			TaskModel:       models.OpenRouterClaude37Sonnet,
+			TitleModel:      models.OpenRouterClaude35Haiku,
+			FallbackModel:   models.OpenRouterClaude37Sonnet,
+		},
+		// 8. xAI
+		{
+			EnvKey:          "XAI_API_KEY",
+			CoderModel:      models.XAIGrokCodeFast1,
+			SummarizerModel: models.XAIGrok41FastReasoning,
+			TaskModel:       models.XAIGrok41FastReasoning,
+			TitleModel:      models.XAIGrok41FastNonReasoning,
+			FallbackModel:   models.XAIGrokCodeFast1,
+		},
+		// 9. Moonshot
+		//{
+		//	EnvKey:          "MOONSHOT_API_KEY",
+		//	CoderModel:      models.Kimi_K2,
+		//	SummarizerModel: models.Kimi_K2,
+		//	TaskModel:       models.Kimi_K2,
+		//	TitleModel:      models.MoonshotModels, // Using the smaller one for titles
+		//	FallbackModel:   models.Kimi_K2,
+		//},
+		// 10. Qwen
+		{
+			EnvKey:          "QWEN_API_KEY",
+			CoderModel:      models.QWENQwq,
+			SummarizerModel: models.QWENQwq,
+			TaskModel:       models.QWENQwq,
+			TitleModel:      models.QWENQwq,
+			FallbackModel:   models.QWENQwq,
+		},
+		// 11. AWS Bedrock
+		{
+			CheckFunc:       hasAWSCredentials,
+			CoderModel:      models.BedrockClaude45Sonnet,
+			SummarizerModel: models.BedrockClaude45Sonnet,
+			TaskModel:       models.BedrockClaude45Sonnet,
+			TitleModel:      models.BedrockClaude45Sonnet,
+			FallbackModel:   models.BedrockClaude45Sonnet,
+		},
 	}
 
-	if apiKey := os.Getenv("ANTHROPIC_API_KEY"); apiKey != "" {
-		maxTokens := models.AnthropicModels[models.Claude45Sonnet1M].DefaultMaxTokens
-		if agent == AgentTitle {
-			maxTokens = 80
-		}
-		cfg.Agents[agent] = Agent{
-			Model:     models.Claude45Sonnet1M,
-			MaxTokens: maxTokens,
-		}
-		return true
-	}
-
-	if apiKey := os.Getenv("OPENAI_API_KEY"); apiKey != "" {
-		var model models.ModelID
-		maxTokens := models.OpenAIModels[models.GPT5].DefaultMaxTokens
-		reasoningEffort := ""
-
-		switch agent {
-		case AgentTitle:
-			model = models.GPT5
-			maxTokens = 80
-		case AgentTask:
-			model = models.O4Mini
-		default:
-			model = models.GPT5
+	for _, def := range definitions {
+		// Check if this provider is configured/available
+		available := false
+		if def.CheckFunc != nil {
+			available = def.CheckFunc()
+		} else if def.EnvKey != "" {
+			available = os.Getenv(def.EnvKey) != ""
 		}
 
-		// Check if model supports reasoning
-		if modelInfo, ok := models.SupportedModels[model]; ok && modelInfo.CanReason {
-			reasoningEffort = "medium"
+		// If available, apply the specific agent's model
+		if available {
+			configureAgent(agent, def)
+			return true
 		}
-
-		cfg.Agents[agent] = Agent{
-			Model:           model,
-			MaxTokens:       maxTokens,
-			ReasoningEffort: reasoningEffort,
-		}
-		return true
-	}
-
-	if apiKey := os.Getenv("GEMINI_API_KEY"); apiKey != "" {
-		switch agent {
-		case AgentTitle:
-			cfg.Agents[agent] = Agent{
-				Model:     models.Gemini30Flash,
-				MaxTokens: 80,
-			}
-		default:
-			cfg.Agents[agent] = Agent{
-				Model:     models.Gemini30Pro,
-				MaxTokens: models.VertexAIAnthropicModels[models.Gemini30Pro].DefaultMaxTokens,
-			}
-		}
-		return true
-	}
-
-	if hasAWSCredentials() {
-		maxTokens := int64(5000)
-		if agent == AgentTitle {
-			maxTokens = 80
-		}
-
-		cfg.Agents[agent] = Agent{
-			Model:           models.BedrockClaude45Sonnet,
-			MaxTokens:       maxTokens,
-			ReasoningEffort: "medium", // Claude models support reasoning
-		}
-		return true
 	}
 
 	return false
 }
 
+// configureAgent applies the specific configuration for a single agent type
+func configureAgent(agent AgentName, def providerDefinition) {
+	var selectedModel models.ModelID
+	var maxTokens int64
+
+	// 1. Explicitly match the requested agent to its dedicated model
+	switch agent {
+	case AgentCoder:
+		selectedModel = def.CoderModel
+	case AgentSummarizer:
+		selectedModel = def.SummarizerModel
+	case AgentTask:
+		selectedModel = def.TaskModel
+	case AgentTitle:
+		selectedModel = def.TitleModel
+		maxTokens = 80 // Hard limit for titles to save costs/time
+	}
+
+	// Safety fallback in case a field was accidentally left empty
+	if selectedModel == "" {
+		selectedModel = def.FallbackModel
+	}
+
+	// 2. Determine Max Tokens (if not restricted by the Title agent)
+	if maxTokens == 0 {
+		if info, ok := models.SupportedModels[selectedModel]; ok && info.DefaultMaxTokens > 0 {
+			maxTokens = info.DefaultMaxTokens
+		} else {
+			maxTokens = MaxTokensFallbackDefault
+		}
+	}
+
+	// 3. Determine Reasoning Effort dynamically
+	reasoningEffort := ""
+	if info, ok := models.SupportedModels[selectedModel]; ok && info.CanReason {
+		reasoningEffort = "medium"
+	}
+
+	cfg.Agents[agent] = Agent{
+		Model:           selectedModel,
+		MaxTokens:       maxTokens,
+		ReasoningEffort: reasoningEffort,
+	}
+}
+
+// updateCfgFile updates the configuration file.
+// NOTE: The caller MUST hold the 'mu' lock before calling this function.
 func updateCfgFile(updateCfg func(config *Config)) error {
 	if cfg == nil {
 		return fmt.Errorf("config not loaded")
@@ -878,11 +972,16 @@ func updateCfgFile(updateCfg func(config *Config)) error {
 // Get returns the current configuration.
 // It's safe to call this function multiple times.
 func Get() *Config {
-	return cfg
+    mu.RLock()
+    defer mu.RUnlock()
+    return cfg
 }
 
 // WorkingDirectory returns the current working directory from the configuration.
 func WorkingDirectory() string {
+    mu.Lock() // Lock for writing
+    defer mu.Unlock()
+
 	if cfg == nil {
 		panic("config not loaded")
 	}
@@ -894,6 +993,9 @@ func (c *Config) WorkingDirectory() string {
 }
 
 func UpdateAgentModel(agentName AgentName, modelID models.ModelID) error {
+    mu.Lock() // Lock for writing
+    defer mu.Unlock()
+
 	if cfg == nil {
 		panic("config not loaded")
 	}
@@ -933,6 +1035,9 @@ func UpdateAgentModel(agentName AgentName, modelID models.ModelID) error {
 
 // UpdateTheme updates the theme in the configuration and writes it to the config file.
 func UpdateTheme(themeName string) error {
+    mu.Lock() // Lock for writing
+    defer mu.Unlock()
+
 	if cfg == nil {
 		return fmt.Errorf("config not loaded")
 	}

@@ -1,8 +1,18 @@
 {
   "$schema": "./opencode-schema.json",
+  "data": {},
+  "tui": {
+    "theme": "opencode"
+  },
+  "shell": {},
+  "sessionProvider": {
+    "type": "sqlite"
+  },
   "lsp": {
     "gopls": {
       "command": "gopls"
     }
-  }
+  },
+  "username": "MerrukTechnology",
+  "snapshot": true
 }

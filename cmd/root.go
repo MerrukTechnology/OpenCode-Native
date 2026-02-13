@@ -7,17 +7,17 @@ import (
 	"sync"
 	"time"
 
+	"github.com/MerrukTechnology/OpenCode-Native/internal/app"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/db"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/format"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/agent"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/pubsub"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/version"
 	tea "github.com/charmbracelet/bubbletea"
 	zone "github.com/lrstanley/bubblezone"
-	"github.com/opencode-ai/opencode/internal/app"
-	"github.com/opencode-ai/opencode/internal/config"
-	"github.com/opencode-ai/opencode/internal/db"
-	"github.com/opencode-ai/opencode/internal/format"
-	"github.com/opencode-ai/opencode/internal/llm/agent"
-	"github.com/opencode-ai/opencode/internal/logging"
-	"github.com/opencode-ai/opencode/internal/pubsub"
-	"github.com/opencode-ai/opencode/internal/tui"
-	"github.com/opencode-ai/opencode/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -26,7 +26,14 @@ var rootCmd = &cobra.Command{
 	Short: "Terminal-based AI assistant for software development",
 	Long: `OpenCode is a powerful terminal-based AI assistant that helps with software development tasks.
 It provides an interactive chat interface with AI capabilities, code analysis, and LSP integration
-to assist developers in writing, debugging, and understanding code directly from the terminal.`,
+to assist developers in writing, debugging, and understanding code directly from the terminal.
+Key Features:
+- Interactive AI chat with multiple model providers (OpenAI, Anthropic, xAI, etc.)
+- Code analysis and editing capabilities
+- LSP (Language Server Protocol) integration
+- Web search support for current information (xAI models)
+- File system operations and project navigation
+- Multi-turn conversations with context retention`,
 	Example: `
   # Run in interactive mode
   opencode

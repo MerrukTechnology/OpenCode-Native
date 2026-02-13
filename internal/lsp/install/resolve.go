@@ -1,7 +1,7 @@
 package install
 
 import (
-	"github.com/opencode-ai/opencode/internal/config"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 )
 
 // InstallStrategy defines how an LSP server binary is obtained.

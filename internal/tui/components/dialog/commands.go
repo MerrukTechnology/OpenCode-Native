@@ -3,14 +3,14 @@ package dialog
 import (
 	"embed"
 
+	utilComponents "github.com/MerrukTechnology/OpenCode-Native/internal/tui/components/util"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/layout"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/styles"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/theme"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/util"
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	utilComponents "github.com/opencode-ai/opencode/internal/tui/components/util"
-	"github.com/opencode-ai/opencode/internal/tui/layout"
-	"github.com/opencode-ai/opencode/internal/tui/styles"
-	"github.com/opencode-ai/opencode/internal/tui/theme"
-	"github.com/opencode-ai/opencode/internal/tui/util"
 )
 
 //go:embed commands/*.md

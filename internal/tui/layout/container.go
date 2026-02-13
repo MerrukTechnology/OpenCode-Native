@@ -1,10 +1,10 @@
 package layout
 
 import (
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/theme"
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/opencode-ai/opencode/internal/tui/theme"
 )
 
 type Container interface {

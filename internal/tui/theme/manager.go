@@ -6,9 +6,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
 	"github.com/alecthomas/chroma/v2/styles"
-	"github.com/opencode-ai/opencode/internal/config"
-	"github.com/opencode-ai/opencode/internal/logging"
 )
 
 // Manager handles theme registration, selection, and retrieval.
