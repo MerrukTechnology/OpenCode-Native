@@ -2,6 +2,8 @@
 > Fork of now archived https://github.com/MerrukTechnology/OpenCode-Native
 > The focus is changed towards headless experience oriented towards autonomous agents.
 
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=MerrukTechnology_OpenCode-Native&metric=alert_status&token=c9a7e1f91664fbb153ff772868e29004ff78cf17)](https://sonarcloud.io/summary/new_code?id=MerrukTechnology_OpenCode-Native)
+
 # ⌬ OpenCode
 
 OpenCode is a CLI tool that brings AI assistance to your terminal. It provides both a TUI (Terminal User Interface) and a headless non-interactive mode for scripting and autonomous agents.
