@@ -128,6 +128,7 @@ func newPersistentShell(cwd string) *PersistentShell {
 		err := cmd.Wait()
 		if err != nil {
 			// Log the error if needed
+			fmt.Fprintf(os.Stderr, "Shell process exited with error: %v\n", err)
 		}
 		shell.isAlive = false
 		close(shell.commandQueue)

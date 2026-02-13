@@ -614,7 +614,7 @@ func renderToolMessage(
 		progressText := baseStyle.
 			Width(width - 2 - lipgloss.Width(toolNameText)).
 			Foreground(t.TextMuted()).
-			Render(fmt.Sprintf("%s", toolAction))
+			Render(toolAction)
 
 		content := style.Render(lipgloss.JoinHorizontal(lipgloss.Left, toolNameText, progressText))
 		toolMsg := uiMessage{

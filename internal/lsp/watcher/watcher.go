@@ -17,6 +17,8 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
+type contextKey string
+
 // WorkspaceWatcher manages LSP file watching
 type WorkspaceWatcher struct {
 	client        *lsp.Client
@@ -314,12 +316,12 @@ func (w *WorkspaceWatcher) WatchWorkspace(ctx context.Context, workspacePath str
 	w.workspacePath = workspacePath
 
 	// Store the watcher in the context for later use
-	ctx = context.WithValue(ctx, "workspaceWatcher", w)
+	ctx = context.WithValue(ctx, contextKey("workspaceWatcher"), w)
 
 	// If the server name isn't already in the context, try to detect it
 	if _, ok := ctx.Value("serverName").(string); !ok {
 		serverName := getServerNameFromContext(ctx)
-		ctx = context.WithValue(ctx, "serverName", serverName)
+		ctx = context.WithValue(ctx, contextKey("serverName"), serverName)
 	}
 
 	serverName := getServerNameFromContext(ctx)

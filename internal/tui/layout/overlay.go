@@ -47,7 +47,7 @@ func PlaceOverlay(
 		t := theme.CurrentTheme()
 		baseStyle := styles.BaseStyle()
 
-		var shadowbg string = ""
+		var shadowbg = ""
 		shadowchar := lipgloss.NewStyle().
 			Background(t.BackgroundDarker()).
 			Foreground(t.Background()).

@@ -14,6 +14,8 @@ import (
 	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp/watcher"
 )
 
+type contextKey string
+
 func (app *App) initLSPClients(ctx context.Context) {
 	cfg := config.Get()
 
@@ -132,7 +134,7 @@ func (app *App) createAndStartLSPClient(ctx context.Context, name string, server
 	logging.Info("LSP client initialized", "name", name)
 
 	watchCtx, cancelFunc := context.WithCancel(ctx)
-	watchCtx = context.WithValue(watchCtx, "serverName", name)
+	watchCtx = context.WithValue(watchCtx, contextKey("serverName"), name)
 
 	workspaceWatcher := watcher.NewWorkspaceWatcher(lspClient)
 

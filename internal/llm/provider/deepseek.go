@@ -272,7 +272,7 @@ func (d *deepSeekClient) stream(ctx context.Context, messages []message.Message,
 			if err == nil || errors.Is(err, io.EOF) {
 				// Stream completed successfully
 				finishReason := d.finishReason(string(acc.ChatCompletion.Choices[0].FinishReason))
-				if len(acc.ChatCompletion.Choices[0].Message.ToolCalls) > 0 {
+				if len(acc.Choices[0].Message.ToolCalls) > 0 {
 					toolCalls = append(toolCalls, d.toolCalls(acc.ChatCompletion)...)
 				}
 				if len(toolCalls) > 0 {
