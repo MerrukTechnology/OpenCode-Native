@@ -1,6 +1,6 @@
 module github.com/MerrukTechnology/OpenCode-Native
 
-go 1.24.2
+go 1.24.3
 
 require (
 	github.com/JohannesKaufmann/html-to-markdown v1.6.0

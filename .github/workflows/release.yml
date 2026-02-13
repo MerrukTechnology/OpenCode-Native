@@ -24,13 +24,13 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ">=1.24.0"
+          go-version: ">=1.24.3"
           cache: true
           cache-dependency-path: go.sum
 
       - run: go mod download
 
-      - uses: goreleaser/goreleaser-action@v6
+      - uses: goreleaser/goreleaser-action@ec59f474b9834571250b370d4735c50f8e2d1e29
         with:
           distribution: goreleaser
           version: latest
