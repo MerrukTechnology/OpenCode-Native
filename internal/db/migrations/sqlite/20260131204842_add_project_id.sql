@@ -1,5 +1,3 @@
-SET QUOTED_IDENTIFIER ON;
-
 -- +goose Up
 -- +goose StatementBegin
 
