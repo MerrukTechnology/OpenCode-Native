@@ -163,28 +163,57 @@ func (app *App) runWorkspaceWatcher(ctx context.Context, name string, workspaceW
 }
 
 // restartLSPClient attempts to restart a crashed or failed LSP client
+// Optimized for macOS Catalina: Non-blocking, thread-safe, and prevents Zombie processes.
 func (app *App) restartLSPClient(ctx context.Context, name string) {
+	// 1. Get config immediately (fast)
 	cfg := config.Get()
-	servers := install.ResolveServers(cfg)
-	server, exists := servers[name]
-	if !exists {
-		logging.Error("Cannot restart client, configuration not found", "client", name)
-		return
-	}
 
-	app.clientsMutex.Lock()
-	oldClient, exists := app.LSPClients[name]
-	if exists {
-		delete(app.LSPClients, name)
-	}
-	app.clientsMutex.Unlock()
+	// 2. Run the restart logic in a background goroutine.
+	// This prevents the UI from freezing while we wait for the old process to die.
+	go func() {
+		logging.Info("Initiating LSP restart sequence", "client", name)
 
-	if exists && oldClient != nil {
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		_ = oldClient.Shutdown(shutdownCtx)
-		cancel()
-	}
+		// Resolve expensive paths inside the background thread to avoid I/O lag
+		servers := install.ResolveServers(cfg)
+		server, exists := servers[name]
+		if !exists {
+			logging.Error("Cannot restart client, configuration not found", "client", name)
+			return
+		}
 
-	app.startLSPServer(ctx, name, server)
-	logging.Info("Successfully restarted LSP client", "client", name)
+		// Lock only for the map modification
+		app.clientsMutex.Lock()
+		oldClient, exists := app.LSPClients[name]
+		if exists {
+			// Remove it immediately so the UI knows it's "restarting/down"
+			delete(app.LSPClients, name)
+		}
+		app.clientsMutex.Unlock()
+
+		// 3. Cleanup the old process safely
+		if exists && oldClient != nil {
+			// GO 1.24 MAGIC: context.WithoutCancel(ctx)
+			// This keeps the context values (tracing/logs) but IGNORES cancellation.
+			// This ensures the cleanup finishes even if the user switches tabs.
+			detachedCtx := context.WithoutCancel(ctx)
+
+			// Give the old server 2 seconds to die gracefully
+			shutdownCtx, cancel := context.WithTimeout(detachedCtx, 2*time.Second)
+			defer cancel()
+
+			// Try graceful shutdown first
+			if err := oldClient.Shutdown(shutdownCtx); err != nil {
+				logging.Warn("Graceful shutdown failed, force closing to save RAM", "client", name)
+
+				// 4. THE FIX: Call your new ForceClose method
+				if kErr := oldClient.Close(); kErr != nil {
+					logging.Error("Failed to force close LSP client", "error", kErr)
+				}
+			}
+		}
+
+		// 4. Start the new server
+		app.startLSPServer(ctx, name, server)
+		logging.Info("Successfully restarted LSP client", "client", name)
+	}()
 }
