@@ -47,3 +47,7 @@ Thumbs.db
 opencode
 .aider*
 opencode.md
+
+
+#Ignore cursor AI rules
+.cursor/rules/codacy.mdc
