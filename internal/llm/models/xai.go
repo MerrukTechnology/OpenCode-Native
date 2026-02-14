@@ -9,7 +9,6 @@ const (
 	XAIGrok4FastReasoning     ModelID = "grok-4-fast-reasoning"
 	XAIGrok4FastNonReasoning  ModelID = "grok-4-fast-non-reasoning"
 	XAIGrok40709              ModelID = "grok-4-0709"
-
 )
 
 var XAIModels = map[ModelID]Model{

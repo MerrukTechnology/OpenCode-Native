@@ -188,8 +188,8 @@ type Configurator interface {
 
 // Global configuration instance
 var (
-    cfg *Config
-    mu  sync.RWMutex // Required for thread safety
+	cfg *Config
+	mu  sync.RWMutex // Required for thread safety
 )
 
 // Reset clears the global configuration, allowing Load to be called again.
@@ -972,15 +972,15 @@ func updateCfgFile(updateCfg func(config *Config)) error {
 // Get returns the current configuration.
 // It's safe to call this function multiple times.
 func Get() *Config {
-    mu.RLock()
-    defer mu.RUnlock()
-    return cfg
+	mu.RLock()
+	defer mu.RUnlock()
+	return cfg
 }
 
 // WorkingDirectory returns the current working directory from the configuration.
 func WorkingDirectory() string {
-    mu.Lock() // Lock for writing
-    defer mu.Unlock()
+	mu.Lock() // Lock for writing
+	defer mu.Unlock()
 
 	if cfg == nil {
 		panic("config not loaded")
@@ -993,8 +993,8 @@ func (c *Config) WorkingDirectory() string {
 }
 
 func UpdateAgentModel(agentName AgentName, modelID models.ModelID) error {
-    mu.Lock() // Lock for writing
-    defer mu.Unlock()
+	mu.Lock() // Lock for writing
+	defer mu.Unlock()
 
 	if cfg == nil {
 		panic("config not loaded")
@@ -1035,8 +1035,8 @@ func UpdateAgentModel(agentName AgentName, modelID models.ModelID) error {
 
 // UpdateTheme updates the theme in the configuration and writes it to the config file.
 func UpdateTheme(themeName string) error {
-    mu.Lock() // Lock for writing
-    defer mu.Unlock()
+	mu.Lock() // Lock for writing
+	defer mu.Unlock()
 
 	if cfg == nil {
 		return fmt.Errorf("config not loaded")

@@ -24,7 +24,7 @@ type Model struct {
 
 const (
 	// Provider Constants
-	ProviderBedrock    ModelProvider = "bedrock"
+	ProviderBedrock ModelProvider = "bedrock"
 
 	// ForTests
 	ProviderMock          ModelProvider = "__mock"
