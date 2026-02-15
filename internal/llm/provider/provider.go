@@ -63,7 +63,7 @@ type Provider interface {
 
 	// Counts tokens for provided messages using underlying client OR fallback to default estimation strategy,
 	// returns tokens count and whether a threshold has been hit based on the model context size,
-	// threhold can be used to track an approaching limit to trigger compaction or other activities
+	// threshold can be used to track an approaching limit to trigger compaction or other activities
 	CountTokens(ctx context.Context, threshold float64, messages []message.Message, tools []toolsPkg.BaseTool) (tokens int64, hit bool)
 
 	// Calculates and sets new max_tokens if needed to be used by underlying client
