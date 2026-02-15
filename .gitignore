@@ -51,3 +51,6 @@ opencode.md
 
 #Ignore cursor AI rules
 .cursor/rules/codacy.mdc
+
+#Ignore local codacy cli
+.codacy
