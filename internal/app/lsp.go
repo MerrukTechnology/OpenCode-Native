@@ -192,7 +192,7 @@ func (app *App) restartLSPClient(ctx context.Context, name string) {
 
 		// 3. Cleanup the old process safely
 		if exists && oldClient != nil {
-			// GO 1.24 MAGIC: context.WithoutCancel(ctx)
+			// Go 1.21+ feature: context.WithoutCancel(ctx)
 			// This keeps the context values (tracing/logs) but IGNORES cancellation.
 			// This ensures the cleanup finishes even if the user switches tabs.
 			detachedCtx := context.WithoutCancel(ctx)
