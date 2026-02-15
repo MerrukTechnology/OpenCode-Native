@@ -163,7 +163,7 @@ func (app *App) runWorkspaceWatcher(ctx context.Context, name string, workspaceW
 }
 
 // restartLSPClient attempts to restart a crashed or failed LSP client
-// Optimized for macOS Catalina: Non-blocking, thread-safe, and prevents Zombie processes.
+// Non-blocking, thread-safe, and designed to prevent zombie processes.
 func (app *App) restartLSPClient(ctx context.Context, name string) {
 	// 1. Get config immediately (fast)
 	cfg := config.Get()
@@ -192,7 +192,7 @@ func (app *App) restartLSPClient(ctx context.Context, name string) {
 
 		// 3. Cleanup the old process safely
 		if exists && oldClient != nil {
-			// GO 1.24 MAGIC: context.WithoutCancel(ctx)
+			// Go 1.21+ feature: context.WithoutCancel(ctx)
 			// This keeps the context values (tracing/logs) but IGNORES cancellation.
 			// This ensures the cleanup finishes even if the user switches tabs.
 			detachedCtx := context.WithoutCancel(ctx)
@@ -205,7 +205,7 @@ func (app *App) restartLSPClient(ctx context.Context, name string) {
 			if err := oldClient.Shutdown(shutdownCtx); err != nil {
 				logging.Warn("Graceful shutdown failed, force closing to save RAM", "client", name)
 
-				// 4. THE FIX: Call your new ForceClose method
+				// 4. Fallback: force close the client to free resources
 				if kErr := oldClient.Close(); kErr != nil {
 					logging.Error("Failed to force close LSP client", "error", kErr)
 				}
