@@ -205,7 +205,7 @@ func (app *App) restartLSPClient(ctx context.Context, name string) {
 			if err := oldClient.Shutdown(shutdownCtx); err != nil {
 				logging.Warn("Graceful shutdown failed, force closing to save RAM", "client", name)
 
-				// 4. THE FIX: Call your new ForceClose method
+				// 4. Fallback: force close the client to free resources
 				if kErr := oldClient.Close(); kErr != nil {
 					logging.Error("Failed to force close LSP client", "error", kErr)
 				}
