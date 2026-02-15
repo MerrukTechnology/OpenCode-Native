@@ -163,7 +163,7 @@ func (app *App) runWorkspaceWatcher(ctx context.Context, name string, workspaceW
 }
 
 // restartLSPClient attempts to restart a crashed or failed LSP client
-// Optimized for macOS Catalina: Non-blocking, thread-safe, and prevents Zombie processes.
+// Non-blocking, thread-safe, and designed to prevent zombie processes.
 func (app *App) restartLSPClient(ctx context.Context, name string) {
 	// 1. Get config immediately (fast)
 	cfg := config.Get()
