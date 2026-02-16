@@ -80,7 +80,7 @@ jobs:
         with:
           version: latest
           # This enables SARIF output so results show in GitHub Security tab
-          args: ' > report.sarif'
+          args: --timeout 1m --output.sarif.path report.sarif
           # Important: ignore-empty ensures it doesn't fail if no issues found
           skip-cache: false
 
