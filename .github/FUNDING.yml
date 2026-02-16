@@ -1,3 +1,12 @@
-# These are supported funding model platforms
+# .github/FUNDING.yml
 
-github: Maroc-OS
+# Primary platforms
+github: [MerrukTechnology, Maroc-OS]
+
+# Cryptocurrency Addresses
+#custom: [
+#  "BTC: bc1qxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+#  "ETH/ERC20: 0x0000000000000000000000000000000000000000",
+#  "SOL: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+#  "https://nowpayments.io"
+#]
