@@ -4,10 +4,31 @@
     "agent": {
       "description": "Agent configuration",
       "properties": {
+        "color": {
+          "description": "Badge color for subagent display (e.g., 'blue', 'orange', 'primary', 'warning')",
+          "type": "string"
+        },
+        "description": {
+          "description": "Description of the agent's purpose",
+          "type": "string"
+        },
+        "hidden": {
+          "default": false,
+          "description": "Whether the agent is hidden from TUI agent switching",
+          "type": "boolean"
+        },
         "maxTokens": {
           "description": "Maximum tokens for the agent",
           "minimum": 1,
           "type": "integer"
+        },
+        "mode": {
+          "description": "Agent mode: 'agent' for primary agents, 'subagent' for agents invoked by task tool",
+          "enum": [
+            "agent",
+            "subagent"
+          ],
+          "type": "string"
         },
         "model": {
           "description": "Model ID for the agent",
@@ -93,22 +114,42 @@
           ],
           "type": "string"
         },
+        "name": {
+          "description": "Display name for the agent",
+          "type": "string"
+        },
         "permission": {
           "additionalProperties": {
-            "additionalProperties": {
-              "description": "Permission action (allow, deny, ask)",
-              "enum": [
-                "allow",
-                "deny",
-                "ask"
-              ],
-              "type": "string"
-            },
-            "description": "Permission patterns for a resource type (e.g., skill)",
-            "type": "object"
+            "anyOf": [
+              {
+                "description": "Simple permission action",
+                "enum": [
+                  "allow",
+                  "deny",
+                  "ask"
+                ],
+                "type": "string"
+              },
+              {
+                "additionalProperties": {
+                  "enum": [
+                    "allow",
+                    "deny",
+                    "ask"
+                  ],
+                  "type": "string"
+                },
+                "description": "Granular permission patterns (glob-pattern keys to action values)",
+                "type": "object"
+              }
+            ]
           },
-          "description": "Agent-specific permission overrides",
+          "description": "Agent-specific permission overrides. Keys are tool names (e.g., 'bash', 'edit', 'skill'), values are either a simple action string or an object with glob-pattern keys",
           "type": "object"
+        },
+        "prompt": {
+          "description": "Custom system prompt for the agent",
+          "type": "string"
         },
         "reasoningEffort": {
           "description": "Reasoning effort for models that support it (OpenAI, Anthropic). 'max' is only available for models with maximum thinking support.",
@@ -141,10 +182,31 @@
       "additionalProperties": {
         "description": "Agent configuration",
         "properties": {
+          "color": {
+            "description": "Badge color for subagent display (e.g., 'blue', 'orange', 'primary', 'warning')",
+            "type": "string"
+          },
+          "description": {
+            "description": "Description of the agent's purpose",
+            "type": "string"
+          },
+          "hidden": {
+            "default": false,
+            "description": "Whether the agent is hidden from TUI agent switching",
+            "type": "boolean"
+          },
           "maxTokens": {
             "description": "Maximum tokens for the agent",
             "minimum": 1,
             "type": "integer"
+          },
+          "mode": {
+            "description": "Agent mode: 'agent' for primary agents, 'subagent' for agents invoked by task tool",
+            "enum": [
+              "agent",
+              "subagent"
+            ],
+            "type": "string"
           },
           "model": {
             "description": "Model ID for the agent",
@@ -230,22 +292,42 @@
             ],
             "type": "string"
           },
+          "name": {
+            "description": "Display name for the agent",
+            "type": "string"
+          },
           "permission": {
             "additionalProperties": {
-              "additionalProperties": {
-                "description": "Permission action (allow, deny, ask)",
-                "enum": [
-                  "allow",
-                  "deny",
-                  "ask"
-                ],
-                "type": "string"
-              },
-              "description": "Permission patterns for a resource type (e.g., skill)",
-              "type": "object"
+              "anyOf": [
+                {
+                  "description": "Simple permission action",
+                  "enum": [
+                    "allow",
+                    "deny",
+                    "ask"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "additionalProperties": {
+                    "enum": [
+                      "allow",
+                      "deny",
+                      "ask"
+                    ],
+                    "type": "string"
+                  },
+                  "description": "Granular permission patterns (glob-pattern keys to action values)",
+                  "type": "object"
+                }
+              ]
             },
-            "description": "Agent-specific permission overrides",
+            "description": "Agent-specific permission overrides. Keys are tool names (e.g., 'bash', 'edit', 'skill'), values are either a simple action string or an object with glob-pattern keys",
             "type": "object"
+          },
+          "prompt": {
+            "description": "Custom system prompt for the agent",
+            "type": "string"
           },
           "reasoningEffort": {
             "description": "Reasoning effort for models that support it (OpenAI, Anthropic). 'max' is only available for models with maximum thinking support.",
@@ -276,10 +358,19 @@
         "coder": {
           "$ref": "#/definitions/agent"
         },
-        "task": {
+        "descriptor": {
           "$ref": "#/definitions/agent"
         },
-        "title": {
+        "explorer": {
+          "$ref": "#/definitions/agent"
+        },
+        "hivemind": {
+          "$ref": "#/definitions/agent"
+        },
+        "summarizer": {
+          "$ref": "#/definitions/agent"
+        },
+        "workhorse": {
           "$ref": "#/definitions/agent"
         }
       },
@@ -437,7 +528,32 @@
       "type": "object"
     },
     "permission": {
-      "description": "Global permission configuration",
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "description": "Simple permission action for all uses of this tool",
+            "enum": [
+              "allow",
+              "deny",
+              "ask"
+            ],
+            "type": "string"
+          },
+          {
+            "additionalProperties": {
+              "enum": [
+                "allow",
+                "deny",
+                "ask"
+              ],
+              "type": "string"
+            },
+            "description": "Granular permission patterns (glob-pattern keys to action values)",
+            "type": "object"
+          }
+        ]
+      },
+      "description": "Global permission configuration. Keys are tool names (e.g., 'bash', 'edit', 'skill'). Values are either a simple action string or an object with glob-pattern keys.",
       "properties": {
         "skill": {
           "additionalProperties": {

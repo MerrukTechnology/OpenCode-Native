@@ -6,6 +6,9 @@ import (
 	"sort"
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/db"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/diff"
@@ -14,39 +17,47 @@ import (
 	"github.com/MerrukTechnology/OpenCode-Native/internal/session"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/styles"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/theme"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 type sidebarCmp struct {
 	width, height int
 	session       session.Session
+	sessions      session.Service
 	history       history.Service
 	modFiles      map[string]struct {
 		additions int
 		removals  int
+	}
+	childSessionIDs map[string]bool
+	filesCh         <-chan pubsub.Event[history.File]
+}
+
+func (m *sidebarCmp) waitForFileEvent() tea.Cmd {
+	if m.filesCh == nil {
+		return nil
+	}
+	return func() tea.Msg {
+		msg, ok := <-m.filesCh
+		if !ok {
+			return nil
+		}
+		return msg
 	}
 }
 
 func (m *sidebarCmp) Init() tea.Cmd {
 	if m.history != nil {
 		ctx := context.Background()
-		// Subscribe to file events
-		filesCh := m.history.Subscribe(ctx)
+		m.filesCh = m.history.Subscribe(ctx)
 
-		// Initialize the modified files map
 		m.modFiles = make(map[string]struct {
 			additions int
 			removals  int
 		})
 
-		// Load initial files and calculate diffs
 		m.loadModifiedFiles(ctx)
 
-		// Return a command that will send file events to the Update method
-		return func() tea.Msg {
-			return <-filesCh
-		}
+		return m.waitForFileEvent()
 	}
 	return nil
 }
@@ -65,19 +76,21 @@ func (m *sidebarCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.session = msg.Payload
 			}
 		}
-	case pubsub.Event[history.File]:
-		if msg.Payload.SessionID == m.session.ID {
-			// Process the individual file change instead of reloading all files
-			ctx := context.Background()
-			m.processFileChanges(ctx, msg.Payload)
-
-			// Return a command to continue receiving events
-			return m, func() tea.Msg {
-				ctx := context.Background()
-				filesCh := m.history.Subscribe(ctx)
-				return <-filesCh
+		if msg.Type == pubsub.CreatedEvent {
+			if msg.Payload.RootSessionID == m.session.RootSessionID || msg.Payload.ParentSessionID == m.session.ID {
+				if m.childSessionIDs == nil {
+					m.childSessionIDs = make(map[string]bool)
+					m.childSessionIDs[m.session.ID] = true
+				}
+				m.childSessionIDs[msg.Payload.ID] = true
 			}
 		}
+	case pubsub.Event[history.File]:
+		if m.isInSessionTree(msg.Payload.SessionID) {
+			ctx := context.Background()
+			m.processFileChanges(ctx, msg.Payload)
+		}
+		return m, m.waitForFileEvent()
 	}
 	return m, nil
 }
@@ -97,8 +110,6 @@ func (m *sidebarCmp) View() string {
 				" ",
 				m.projectSection(),
 				" ",
-				m.providerSection(),
-				" ",
 				m.sessionSection(),
 				" ",
 				lspsConfigured(m.width),
@@ -113,7 +124,6 @@ func (m *sidebarCmp) projectSection() string {
 	baseStyle := styles.BaseStyle()
 	cfg := config.Get()
 
-	// Get project ID
 	projectID := db.GetProjectID(cfg.WorkingDir)
 
 	projectKey := baseStyle.
@@ -133,26 +143,21 @@ func (m *sidebarCmp) projectSection() string {
 	)
 }
 
-func (m *sidebarCmp) providerSection() string {
+func (m *sidebarCmp) sessionSection() string {
 	t := theme.CurrentTheme()
 	baseStyle := styles.BaseStyle()
 	cfg := config.Get()
 
-	// Get provider type and details
 	providerInfo := "local"
 	if cfg.SessionProvider.Type == config.ProviderMySQL {
-		// Show MySQL host if available
 		if cfg.SessionProvider.MySQL.Host != "" {
 			providerInfo = fmt.Sprintf("remote (%s)", cfg.SessionProvider.MySQL.Host)
 		} else if cfg.SessionProvider.MySQL.DSN != "" {
-			// Extract host from DSN if possible
-			// DSN format: user:pass@tcp(host:port)/db
 			dsn := cfg.SessionProvider.MySQL.DSN
 			if idx := strings.Index(dsn, "@tcp("); idx != -1 {
 				hostPart := dsn[idx+5:]
 				if endIdx := strings.Index(hostPart, ")"); endIdx != -1 {
 					host := hostPart[:endIdx]
-					// Remove port if present
 					if colonIdx := strings.Index(host, ":"); colonIdx != -1 {
 						host = host[:colonIdx]
 					}
@@ -168,41 +173,33 @@ func (m *sidebarCmp) providerSection() string {
 		}
 	}
 
-	providerKey := baseStyle.
-		Foreground(t.Primary()).
-		Bold(true).
-		Render("Provider")
-
-	providerValue := baseStyle.
-		Foreground(t.Text()).
-		Width(m.width - lipgloss.Width(providerKey)).
-		Render(fmt.Sprintf(": %s", providerInfo))
-
-	return lipgloss.JoinHorizontal(
-		lipgloss.Left,
-		providerKey,
-		providerValue,
-	)
-}
-
-func (m *sidebarCmp) sessionSection() string {
-	t := theme.CurrentTheme()
-	baseStyle := styles.BaseStyle()
-
 	sessionKey := baseStyle.
 		Foreground(t.Primary()).
 		Bold(true).
 		Render("Session")
 
+	provider := baseStyle.
+		Foreground(t.TextMuted()).
+		Render(fmt.Sprintf(" [%s]", providerInfo))
+
 	sessionValue := baseStyle.
 		Foreground(t.Text()).
-		Width(m.width - lipgloss.Width(sessionKey)).
 		Render(fmt.Sprintf(": %s", m.session.Title))
+
+	sessionView := baseStyle.
+		Width(m.width - lipgloss.Width(sessionKey)).
+		Render(
+			lipgloss.JoinHorizontal(
+				lipgloss.Left,
+				sessionValue,
+				provider,
+			),
+		)
 
 	return lipgloss.JoinHorizontal(
 		lipgloss.Left,
 		sessionKey,
-		sessionValue,
+		sessionView,
 	)
 }
 
@@ -261,8 +258,7 @@ func (m *sidebarCmp) modifiedFiles() string {
 		Bold(true).
 		Render("Modified Files:")
 
-	// If no modified files, show a placeholder message
-	if m.modFiles == nil || len(m.modFiles) == 0 {
+	if len(m.modFiles) == 0 {
 		message := "No modified files"
 		remainingWidth := m.width - lipgloss.Width(message)
 		if remainingWidth > 0 {
@@ -279,14 +275,12 @@ func (m *sidebarCmp) modifiedFiles() string {
 			)
 	}
 
-	// Sort file paths alphabetically for consistent ordering
 	var paths []string
 	for path := range m.modFiles {
 		paths = append(paths, path)
 	}
 	sort.Strings(paths)
 
-	// Create views for each file in sorted order
 	var fileViews []string
 	for _, path := range paths {
 		stats := m.modFiles[path]
@@ -317,10 +311,11 @@ func (m *sidebarCmp) GetSize() (int, int) {
 	return m.width, m.height
 }
 
-func NewSidebarCmp(session session.Session, history history.Service) tea.Model {
+func NewSidebarCmp(s session.Session, sessions session.Service, history history.Service) tea.Model {
 	return &sidebarCmp{
-		session: session,
-		history: history,
+		session:  s,
+		sessions: sessions,
+		history:  history,
 	}
 }
 
@@ -329,32 +324,39 @@ func (m *sidebarCmp) loadModifiedFiles(ctx context.Context) {
 		return
 	}
 
-	// Get all latest files for this session
-	latestFiles, err := m.history.ListLatestSessionFiles(ctx, m.session.ID)
-	if err != nil {
-		return
+	rootSessionID := m.session.RootSessionID
+	if rootSessionID == "" {
+		rootSessionID = m.session.ID
 	}
 
-	// Get all files for this session (to find initial versions)
-	allFiles, err := m.history.ListBySession(ctx, m.session.ID)
-	if err != nil {
-		return
+	m.buildChildSessionCache(ctx, rootSessionID)
+
+	latestFiles, err := m.history.ListLatestSessionTreeFiles(ctx, rootSessionID)
+	if err != nil || len(latestFiles) == 0 {
+		latestFiles, err = m.history.ListLatestSessionFiles(ctx, m.session.ID)
+		if err != nil {
+			return
+		}
 	}
 
-	// Clear the existing map to rebuild it
+	allFiles, err := m.history.ListBySessionTree(ctx, rootSessionID)
+	if err != nil || len(allFiles) == 0 {
+		allFiles, err = m.history.ListBySession(ctx, m.session.ID)
+		if err != nil {
+			return
+		}
+	}
+
 	m.modFiles = make(map[string]struct {
 		additions int
 		removals  int
 	})
 
-	// Process each latest file
 	for _, file := range latestFiles {
-		// Skip if this is the initial version (no changes to show)
 		if file.Version == history.InitialVersion {
 			continue
 		}
 
-		// Find the initial version for this specific file
 		var initialVersion history.File
 		for _, v := range allFiles {
 			if v.Path == file.Path && v.Version == history.InitialVersion {
@@ -363,7 +365,6 @@ func (m *sidebarCmp) loadModifiedFiles(ctx context.Context) {
 			}
 		}
 
-		// Skip if we can't find the initial version
 		if initialVersion.ID == "" {
 			continue
 		}
@@ -371,17 +372,10 @@ func (m *sidebarCmp) loadModifiedFiles(ctx context.Context) {
 			continue
 		}
 
-		// Calculate diff between initial and latest version
 		_, additions, removals := diff.GenerateDiff(initialVersion.Content, file.Content, file.Path)
 
-		// Only add to modified files if there are changes
 		if additions > 0 || removals > 0 {
-			// Remove working directory prefix from file path
-			displayPath := file.Path
-			workingDir := config.WorkingDirectory()
-			displayPath = strings.TrimPrefix(displayPath, workingDir)
-			displayPath = strings.TrimPrefix(displayPath, "/")
-
+			displayPath := getDisplayPath(file.Path)
 			m.modFiles[displayPath] = struct {
 				additions int
 				removals  int
@@ -393,31 +387,48 @@ func (m *sidebarCmp) loadModifiedFiles(ctx context.Context) {
 	}
 }
 
+func (m *sidebarCmp) buildChildSessionCache(ctx context.Context, rootSessionID string) {
+	m.childSessionIDs = make(map[string]bool)
+	m.childSessionIDs[m.session.ID] = true
+
+	if m.sessions == nil {
+		return
+	}
+
+	children, err := m.sessions.ListChildren(ctx, rootSessionID)
+	if err != nil {
+		return
+	}
+	for _, child := range children {
+		m.childSessionIDs[child.ID] = true
+	}
+}
+
+func (m *sidebarCmp) isInSessionTree(sessionID string) bool {
+	if m.childSessionIDs == nil {
+		return sessionID == m.session.ID
+	}
+	return m.childSessionIDs[sessionID]
+}
+
 func (m *sidebarCmp) processFileChanges(ctx context.Context, file history.File) {
-	// Skip if this is the initial version (no changes to show)
 	if file.Version == history.InitialVersion {
 		return
 	}
 
-	// Find the initial version for this file
 	initialVersion, err := m.findInitialVersion(ctx, file.Path)
 	if err != nil || initialVersion.ID == "" {
 		return
 	}
 
-	// Skip if content hasn't changed
 	if initialVersion.Content == file.Content {
-		// If this file was previously modified but now matches the initial version,
-		// remove it from the modified files list
 		displayPath := getDisplayPath(file.Path)
 		delete(m.modFiles, displayPath)
 		return
 	}
 
-	// Calculate diff between initial and latest version
 	_, additions, removals := diff.GenerateDiff(initialVersion.Content, file.Content, file.Path)
 
-	// Only add to modified files if there are changes
 	if additions > 0 || removals > 0 {
 		displayPath := getDisplayPath(file.Path)
 		m.modFiles[displayPath] = struct {
@@ -428,21 +439,25 @@ func (m *sidebarCmp) processFileChanges(ctx context.Context, file history.File) 
 			removals:  removals,
 		}
 	} else {
-		// If no changes, remove from modified files
 		displayPath := getDisplayPath(file.Path)
 		delete(m.modFiles, displayPath)
 	}
 }
 
-// Helper function to find the initial version of a file
 func (m *sidebarCmp) findInitialVersion(ctx context.Context, path string) (history.File, error) {
-	// Get all versions of this file for the session
-	fileVersions, err := m.history.ListBySession(ctx, m.session.ID)
-	if err != nil {
-		return history.File{}, err
+	rootSessionID := m.session.RootSessionID
+	if rootSessionID == "" {
+		rootSessionID = m.session.ID
 	}
 
-	// Find the initial version
+	fileVersions, err := m.history.ListBySessionTree(ctx, rootSessionID)
+	if err != nil || len(fileVersions) == 0 {
+		fileVersions, err = m.history.ListBySession(ctx, m.session.ID)
+		if err != nil {
+			return history.File{}, err
+		}
+	}
+
 	for _, v := range fileVersions {
 		if v.Path == path && v.Version == history.InitialVersion {
 			return v, nil
@@ -452,7 +467,6 @@ func (m *sidebarCmp) findInitialVersion(ctx context.Context, path string) (histo
 	return history.File{}, fmt.Errorf("initial version not found")
 }
 
-// Helper function to get the display path for a file
 func getDisplayPath(path string) string {
 	workingDir := config.WorkingDirectory()
 	displayPath := strings.TrimPrefix(path, workingDir)

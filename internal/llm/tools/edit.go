@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	agentregistry "github.com/MerrukTechnology/OpenCode-Native/internal/agent"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/diff"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/history"
@@ -39,6 +40,7 @@ type editTool struct {
 	lspClients  map[string]*lsp.Client
 	permissions permission.Service
 	files       history.Service
+	registry    agentregistry.Registry
 }
 
 const (
@@ -47,7 +49,7 @@ const (
 
 Before using this tool:
 
-1. Use the FileRead tool to understand the file's contents and context
+1. Use the View tool to understand the file's contents and context
 
 2. Verify the directory path is correct (only applicable when creating new files):
    - Use the LS tool to verify the parent directory exists and is the correct location
@@ -75,11 +77,17 @@ When making edits:
 When making multiple edits to the same file, prefer the MultiEdit tool over multiple calls to this tool.`
 )
 
-func NewEditTool(lspClients map[string]*lsp.Client, permissions permission.Service, files history.Service) BaseTool {
+func NewEditTool(
+	lspClients map[string]*lsp.Client,
+	permissions permission.Service,
+	files history.Service,
+	reg agentregistry.Registry,
+) BaseTool {
 	return &editTool{
 		lspClients:  lspClients,
 		permissions: permissions,
 		files:       files,
+		registry:    reg,
 	}
 }
 
@@ -191,21 +199,30 @@ func (e *editTool) createNewFile(ctx context.Context, filePath, content string) 
 	if strings.HasPrefix(filePath, rootDir) {
 		permissionPath = rootDir
 	}
-	p := e.permissions.Request(
-		permission.CreatePermissionRequest{
-			SessionID:   sessionID,
-			Path:        permissionPath,
-			ToolName:    EditToolName,
-			Action:      "write",
-			Description: fmt.Sprintf("Create file %s", filePath),
-			Params: EditPermissionsParams{
-				FilePath: filePath,
-				Diff:     diff,
-			},
-		},
-	)
-	if !p {
+
+	action := e.registry.EvaluatePermission(string(GetAgentID(ctx)), EditToolName, filePath)
+	switch action {
+	case permission.ActionAllow:
+		// Allowed by config
+	case permission.ActionDeny:
 		return NewEmptyResponse(), permission.ErrorPermissionDenied
+	default:
+		p := e.permissions.Request(
+			permission.CreatePermissionRequest{
+				SessionID:   sessionID,
+				Path:        permissionPath,
+				ToolName:    EditToolName,
+				Action:      "write",
+				Description: fmt.Sprintf("Create file %s", filePath),
+				Params: EditPermissionsParams{
+					FilePath: filePath,
+					Diff:     diff,
+				},
+			},
+		)
+		if !p {
+			return NewEmptyResponse(), permission.ErrorPermissionDenied
+		}
 	}
 
 	err = os.WriteFile(filePath, []byte(content), 0o644)
@@ -306,21 +323,29 @@ func (e *editTool) deleteContent(ctx context.Context, filePath, oldString string
 	if strings.HasPrefix(filePath, rootDir) {
 		permissionPath = rootDir
 	}
-	p := e.permissions.Request(
-		permission.CreatePermissionRequest{
-			SessionID:   sessionID,
-			Path:        permissionPath,
-			ToolName:    EditToolName,
-			Action:      "write",
-			Description: fmt.Sprintf("Delete content from file %s", filePath),
-			Params: EditPermissionsParams{
-				FilePath: filePath,
-				Diff:     diff,
-			},
-		},
-	)
-	if !p {
+	action := e.registry.EvaluatePermission(string(GetAgentID(ctx)), EditToolName, filePath)
+	switch action {
+	case permission.ActionAllow:
+		// Allowed by config
+	case permission.ActionDeny:
 		return NewEmptyResponse(), permission.ErrorPermissionDenied
+	default:
+		p := e.permissions.Request(
+			permission.CreatePermissionRequest{
+				SessionID:   sessionID,
+				Path:        permissionPath,
+				ToolName:    EditToolName,
+				Action:      "write",
+				Description: fmt.Sprintf("Delete content from file %s", filePath),
+				Params: EditPermissionsParams{
+					FilePath: filePath,
+					Diff:     diff,
+				},
+			},
+		)
+		if !p {
+			return NewEmptyResponse(), permission.ErrorPermissionDenied
+		}
 	}
 
 	err = os.WriteFile(filePath, []byte(newContent), 0o644)
@@ -430,21 +455,29 @@ func (e *editTool) replaceContent(ctx context.Context, filePath, oldString, newS
 	if strings.HasPrefix(filePath, rootDir) {
 		permissionPath = rootDir
 	}
-	p := e.permissions.Request(
-		permission.CreatePermissionRequest{
-			SessionID:   sessionID,
-			Path:        permissionPath,
-			ToolName:    EditToolName,
-			Action:      "write",
-			Description: fmt.Sprintf("Replace content in file %s", filePath),
-			Params: EditPermissionsParams{
-				FilePath: filePath,
-				Diff:     diff,
-			},
-		},
-	)
-	if !p {
+	action := e.registry.EvaluatePermission(string(GetAgentID(ctx)), EditToolName, filePath)
+	switch action {
+	case permission.ActionAllow:
+		// Allowed by config
+	case permission.ActionDeny:
 		return NewEmptyResponse(), permission.ErrorPermissionDenied
+	default:
+		p := e.permissions.Request(
+			permission.CreatePermissionRequest{
+				SessionID:   sessionID,
+				Path:        permissionPath,
+				ToolName:    EditToolName,
+				Action:      "write",
+				Description: fmt.Sprintf("Replace content in file %s", filePath),
+				Params: EditPermissionsParams{
+					FilePath: filePath,
+					Diff:     diff,
+				},
+			},
+		)
+		if !p {
+			return NewEmptyResponse(), permission.ErrorPermissionDenied
+		}
 	}
 
 	err = os.WriteFile(filePath, []byte(newContent), 0o644)
@@ -455,7 +488,7 @@ func (e *editTool) replaceContent(ctx context.Context, filePath, oldString, newS
 	// Check if file exists in history
 	file, err := e.files.GetByPathAndSession(ctx, filePath, sessionID)
 	if err != nil {
-		_, err = e.files.Create(ctx, sessionID, filePath, oldContent)
+		file, err = e.files.Create(ctx, sessionID, filePath, oldContent)
 		if err != nil {
 			// Log error but don't fail the operation
 			return NewEmptyResponse(), fmt.Errorf("error creating file history: %w", err)

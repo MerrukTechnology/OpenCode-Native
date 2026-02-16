@@ -109,7 +109,7 @@ OpenCode looks for `.opencode.json` in:
       "maxTokens": 5000,
       "reasoningEffort": "high"
     },
-    "task": {
+    "explorer": {
       "model": "claude-4-5-sonnet[1m]",
       "maxTokens": 5000
     },
@@ -117,7 +117,7 @@ OpenCode looks for `.opencode.json` in:
       "model": "vertexai.gemini-3.0-flash",
       "maxTokens": 5000
     },
-    "title": {
+    "descriptor": {
       "model": "claude-4-5-sonnet[1m]",
       "maxTokens": 80
     }
@@ -141,7 +141,11 @@ OpenCode looks for `.opencode.json` in:
   "sessionProvider": { "type": "sqlite" },
   "skills": { "paths": ["~/my-skills"] },
   "permission": {
-    "skill": { "*": "ask" }
+    "skill": { "*": "ask" },
+    "rules": {
+      "bash": { "*": "ask", "git *": "allow" },
+      "edit": { "*": "allow" }
+    }
   },
   "autoCompact": true,
   "debug": false
@@ -152,12 +156,14 @@ OpenCode looks for `.opencode.json` in:
 
 Each built-in agent can be customized:
 
-| Agent | Purpose |
-|-------|---------|
-| `coder` | Main coding agent (all tools) |
-| `task` | Task planning (read-only tools) |
-| `summarizer` | Session summarization |
-| `title` | Session title generation |
+| Agent | Mode | Purpose |
+|-------|------|---------|
+| `coder` | agent | Main coding agent (all tools) |
+| `hivemind` | agent | Supervisory agent for coordinating subagents |
+| `explorer` | subagent | Fast codebase exploration (read-only tools) |
+| `workhorse` | subagent | Autonomous coding subagent (all tools) |
+| `summarizer` | subagent | Session summarization |
+| `descriptor` | subagent | Session title generation |
 
 **Agent fields:**
 
@@ -166,8 +172,42 @@ Each built-in agent can be customized:
 | `model` | Model ID to use |
 | `maxTokens` | Maximum response tokens |
 | `reasoningEffort` | `low`, `medium`, `high` (default), `max` |
-| `permission` | Agent-specific permission overrides |
+| `mode` | `agent` (primary, switchable via tab) or `subagent` (invoked via task tool) |
+| `name` | Display name for the agent |
+| `description` | Short description of agent's purpose |
+| `permission` | Agent-specific permission overrides (supports granular glob patterns) |
 | `tools` | Enable/disable specific tools (e.g., `{"skill": false}`) |
+| `color` | Badge color for subagent indication in TUI |
+
+#### Custom Agents via Markdown
+
+Define custom agents as markdown files with YAML frontmatter. Discovery locations (merge priority, lowest to highest):
+
+1. `~/.config/opencode/agents/*.md` — Global agents
+2. `~/.agents/types/*.md` — Global agents
+3. `.opencode/agents/*.md` — Project agents
+4. `.agents/types/*.md` — Project agents
+5. `.opencode.json` config — Highest priority
+
+Example `.opencode/agents/reviewer.md`:
+
+```markdown
+---
+name: Code Reviewer
+description: Reviews code for quality and best practices
+mode: subagent
+model: vertexai.claude-opus-4-6
+color: info
+tools:
+  bash: false
+  write: false
+---
+
+You are a code review specialist...
+```
+
+The file basename (without `.md`) becomes the agent ID. Custom agents default to `subagent` mode.
+
 
 ### Auto Compact
 
@@ -322,6 +362,7 @@ export LOCAL_ENDPOINT_API_KEY=secret
 | `multiedit` | Multiple edits in one file |
 | `patch` | Apply patches to files |
 | `lsp` | Code intelligence (go-to-definition, references, hover, etc.) |
+| `delete` | Delete file or directory |
 
 ### System & Search
 
@@ -330,7 +371,7 @@ export LOCAL_ENDPOINT_API_KEY=secret
 | `bash` | Execute shell commands |
 | `fetch` | Fetch data from URLs |
 | `sourcegraph` | Search public repositories |
-| `agent` | Run sub-tasks with a sub-agent |
+| `task` | Run sub-tasks with a subagent (supports `subagent_type` and `task_id` for resumption) |
 | `skill` | Load agent skills on-demand |
 
 ## Keyboard Shortcuts
@@ -348,6 +389,7 @@ export LOCAL_ENDPOINT_API_KEY=secret
 | `Ctrl+K` | Command dialog |
 | `Ctrl+O` | Model selection |
 | `Ctrl+X` | Cancel generation |
+| `Tab` | Switch primary agent |
 | `Esc` | Close dialog / exit mode |
 
 ### Editor

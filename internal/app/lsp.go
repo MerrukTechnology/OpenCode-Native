@@ -2,9 +2,11 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
@@ -14,18 +16,29 @@ import (
 	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp/watcher"
 )
 
-type contextKey string
+type serverNameContextKey string
+
+const ServerNameContextKey serverNameContextKey = "server_name"
 
 func (app *App) initLSPClients(ctx context.Context) {
 	cfg := config.Get()
-
-	// Resolve which servers to start: merge built-in registry with user config
-	servers := install.ResolveServers(cfg)
-
-	for name, server := range servers {
-		go app.startLSPServer(ctx, name, server)
+	wg := sync.WaitGroup{}
+	for name, server := range install.ResolveServers(cfg) {
+		wg.Add(1)
+		go func() {
+			lspName := "LSP-" + name
+			defer logging.RecoverPanic(lspName, func() {
+				logging.ErrorPersist(fmt.Sprintf("Panic while starting %s", lspName))
+			})
+			defer wg.Done()
+			app.startLSPServer(ctx, name, server)
+		}()
 	}
-
+	go func() {
+		wg.Wait()
+		logging.Info("LSP clients initialization completed")
+		close(app.LSPClientsCh)
+	}()
 	logging.Info("LSP clients initialization started in background")
 }
 
@@ -97,7 +110,6 @@ func (app *App) startLSPServer(ctx context.Context, name string, server install.
 func (app *App) createAndStartLSPClient(ctx context.Context, name string, server install.ResolvedServer, command string, args ...string) {
 	logging.Info("Creating LSP client", "name", name, "command", command, "args", args)
 
-	// Build environment for the server
 	lspClient, err := lsp.NewClient(ctx, command, server.Env, args...)
 	if err != nil {
 		logging.Error("Failed to create LSP client for", name, err)
@@ -131,29 +143,28 @@ func (app *App) createAndStartLSPClient(ctx context.Context, name string, server
 		lspClient.SetServerState(lsp.StateReady)
 	}
 
-	logging.Info("LSP client initialized", "name", name)
-
 	watchCtx, cancelFunc := context.WithCancel(ctx)
-	watchCtx = context.WithValue(watchCtx, contextKey("serverName"), name)
+	watchCtx = context.WithValue(watchCtx, ServerNameContextKey, name)
 
 	workspaceWatcher := watcher.NewWorkspaceWatcher(lspClient)
 
-	app.cancelFuncsMutex.Lock()
-	app.watcherCancelFuncs = append(app.watcherCancelFuncs, cancelFunc)
-	app.cancelFuncsMutex.Unlock()
+	app.lspCancelFuncsMutex.Lock()
+	app.lspWatcherCancelFuncs = append(app.lspWatcherCancelFuncs, cancelFunc)
+	app.lspCancelFuncsMutex.Unlock()
 
-	app.watcherWG.Add(1)
+	app.lspWatcherWG.Add(1)
 
-	app.clientsMutex.Lock()
+	app.lspClientsMutex.Lock()
 	app.LSPClients[name] = lspClient
-	app.clientsMutex.Unlock()
+	app.LSPClientsCh <- lspClient
+	app.lspClientsMutex.Unlock()
 
 	go app.runWorkspaceWatcher(watchCtx, name, workspaceWatcher)
 }
 
 // runWorkspaceWatcher executes the workspace watcher for an LSP client
 func (app *App) runWorkspaceWatcher(ctx context.Context, name string, workspaceWatcher *watcher.WorkspaceWatcher) {
-	defer app.watcherWG.Done()
+	defer app.lspWatcherWG.Done()
 	defer logging.RecoverPanic("LSP-"+name, func() {
 		app.restartLSPClient(ctx, name)
 	})
@@ -181,14 +192,12 @@ func (app *App) restartLSPClient(ctx context.Context, name string) {
 			return
 		}
 
-		// Lock only for the map modification
-		app.clientsMutex.Lock()
+		app.lspClientsMutex.Lock()
 		oldClient, exists := app.LSPClients[name]
 		if exists {
-			// Remove it immediately so the UI knows it's "restarting/down"
 			delete(app.LSPClients, name)
 		}
-		app.clientsMutex.Unlock()
+		app.lspClientsMutex.Unlock()
 
 		// 3. Cleanup the old process safely
 		if exists && oldClient != nil {

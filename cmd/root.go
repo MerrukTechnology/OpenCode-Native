@@ -11,7 +11,6 @@ import (
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/db"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/format"
-	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/agent"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/pubsub"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/tui"
@@ -128,9 +127,6 @@ Key Features:
 		// Defer shutdown here so it runs for both interactive and non-interactive modes
 		defer app.Shutdown()
 
-		// Initialize MCP tools for both modes
-		initMCPTools(ctx, app)
-
 		// Stop spinner after initialization is complete
 		if spinner != nil {
 			spinner.Stop()
@@ -139,12 +135,11 @@ Key Features:
 		// Non-interactive mode
 		if prompt != "" {
 			// Run non-interactive flow using the App method
-			err := app.RunNonInteractive(ctx, prompt, outputFormat, quiet)
+			_err := app.RunNonInteractive(ctx, prompt, outputFormat, quiet)
 
 			// Immediately force cleanup and exit for non-interactive mode
 			app.ForceShutdown()
-			cancel()
-			return err
+			return _err
 		}
 
 		// Interactive mode
@@ -225,20 +220,6 @@ func attemptTUIRecovery(program *tea.Program) {
 	program.Quit()
 }
 
-func initMCPTools(ctx context.Context, app *app.App) {
-	go func() {
-		defer logging.RecoverPanic("MCP-goroutine", nil)
-
-		// Create a context with timeout for the initial MCP tools fetch
-		ctxWithTimeout, cancel := context.WithTimeout(ctx, 30*time.Second)
-		defer cancel()
-
-		// Set this up once with proper error handling
-		agent.GetMcpTools(ctxWithTimeout, app.Permissions)
-		logging.Info("MCP message handling goroutine exiting")
-	}()
-}
-
 func setupSubscriber[T any](
 	ctx context.Context,
 	wg *sync.WaitGroup,
@@ -289,7 +270,7 @@ func setupSubscriptions(app *app.App, parentCtx context.Context) (chan tea.Msg, 
 	setupSubscriber(ctx, &wg, "sessions", app.Sessions.Subscribe, ch)
 	setupSubscriber(ctx, &wg, "messages", app.Messages.Subscribe, ch)
 	setupSubscriber(ctx, &wg, "permissions", app.Permissions.Subscribe, ch)
-	setupSubscriber(ctx, &wg, "coderAgent", app.CoderAgent.Subscribe, ch)
+	setupSubscriber(ctx, &wg, "coderAgent", app.ActiveAgent().Subscribe, ch)
 
 	cleanupFunc := func() {
 		logging.Info("Cancelling all subscriptions")
@@ -327,6 +308,8 @@ func init() {
 	rootCmd.Flags().BoolP("debug", "d", false, "Debug")
 	rootCmd.Flags().StringP("cwd", "c", "", "Current working directory")
 	rootCmd.Flags().StringP("prompt", "p", "", "Prompt to run in non-interactive mode")
+	// TODO: add flag to run with specific agent id
+	// TODO: add flag to run with specific session id
 
 	// Add format flag with validation logic
 	rootCmd.Flags().StringP("output-format", "f", format.Text.String(),

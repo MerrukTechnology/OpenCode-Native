@@ -113,7 +113,7 @@ var AnthropicModels = map[ModelID]Model{
 	},
 	Claude45Sonnet1M: {
 		ID:                  Claude45Sonnet1M,
-		Name:                "Claude 4.5 Sonnet [1M]",
+		Name:                "Claude 4.5 Sonnet",
 		Provider:            ProviderAnthropic,
 		APIModel:            "claude-sonnet-4-5",
 		CostPer1MIn:         3.0,

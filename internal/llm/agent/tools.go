@@ -2,70 +2,169 @@ package agent
 
 import (
 	"context"
+	"strings"
 	"sync"
 
+	agentregistry "github.com/MerrukTechnology/OpenCode-Native/internal/agent"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/history"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/tools"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp/install"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/message"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/permission"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/session"
 )
 
 var (
-	coderToolsOnce = new(sync.Once)
-	coderTools     []tools.BaseTool
-	taskToolsOnce  = new(sync.Once)
-	taskTools      []tools.BaseTool
+	viewerToolNames = []string{
+		tools.LSToolName,
+		tools.GlobToolName,
+		tools.GrepToolName,
+		tools.ViewToolName,
+		tools.ViewImageToolName,
+		tools.FetchToolName,
+		tools.SkillToolName,
+		tools.SourcegraphToolName,
+	}
+	editorToolNames = []string{
+		tools.WriteToolName,
+		tools.EditToolName,
+		tools.MultiEditToolName,
+		tools.DeleteToolName,
+		tools.PatchToolName,
+		tools.BashToolName,
+	}
+	managerToolNames = []string{
+		TaskToolName,
+	}
 )
 
-func CoderAgentTools(
+// NewToolSet dynamically builds the tool slice for an agent based on its
+// registry info. Only tools that pass registry.IsToolEnabled are included.
+func NewToolSet(
+	ctx context.Context,
+	info *agentregistry.AgentInfo,
+	reg agentregistry.Registry,
 	permissions permission.Service,
+	historyService history.Service,
+	lspClients map[string]*lsp.Client,
 	sessions session.Service,
 	messages message.Service,
-	history history.Service,
-	lspClients map[string]*lsp.Client,
-) []tools.BaseTool {
-	coderToolsOnce.Do(func() {
-		ctx := context.Background()
-		otherTools := GetMcpTools(ctx, permissions)
-		if len(lspClients) > 0 {
-			otherTools = append(otherTools, tools.NewLspTool(lspClients))
+	mcpRegistry MCPRegistry,
+) <-chan tools.BaseTool {
+	agentID := info.ID
+	result := make(chan tools.BaseTool, 100)
+
+	createTool := func(name string) tools.BaseTool {
+		switch name {
+		case tools.LSToolName:
+			return tools.NewLsTool(config.Get())
+		case tools.GlobToolName:
+			return tools.NewGlobTool()
+		case tools.GrepToolName:
+			return tools.NewGrepTool()
+		case tools.ViewToolName:
+			return tools.NewViewTool(lspClients)
+		case tools.ViewImageToolName:
+			return tools.NewViewImageTool()
+		case tools.FetchToolName:
+			return tools.NewFetchTool(permissions)
+		case tools.SkillToolName:
+			return tools.NewSkillTool(permissions, reg)
+		case tools.SourcegraphToolName:
+			return tools.NewSourcegraphTool()
+		case tools.WriteToolName:
+			return tools.NewWriteTool(lspClients, permissions, historyService, reg)
+		case tools.EditToolName:
+			return tools.NewEditTool(lspClients, permissions, historyService, reg)
+		case tools.MultiEditToolName:
+			return tools.NewMultiEditTool(lspClients, permissions, historyService, reg)
+		case tools.DeleteToolName:
+			return tools.NewDeleteTool(permissions, historyService, reg)
+		case tools.PatchToolName:
+			return tools.NewPatchTool(lspClients, permissions, historyService, reg)
+		case tools.BashToolName:
+			return tools.NewBashTool(permissions, reg)
+		case TaskToolName:
+			return NewAgentTool(sessions, messages, lspClients, permissions, historyService, reg, mcpRegistry)
+		default:
+			return nil
 		}
-		coderTools = append(
-			[]tools.BaseTool{
-				tools.NewBashTool(permissions),
-				tools.NewEditTool(lspClients, permissions, history),
-				tools.NewMultiEditTool(lspClients, permissions, history),
-				tools.NewFetchTool(permissions),
-				tools.NewGlobTool(),
-				tools.NewGrepTool(),
-				tools.NewLsTool(config.Get()),
-				tools.NewSkillTool(permissions),
-				tools.NewSourcegraphTool(),
-				tools.NewViewTool(lspClients),
-				tools.NewViewImageTool(),
-				tools.NewPatchTool(lspClients, permissions, history),
-				tools.NewWriteTool(lspClients, permissions, history),
-				NewAgentTool(sessions, messages, lspClients, permissions),
-			}, otherTools...,
-		)
-	})
-	return coderTools
+	}
+
+	for _, name := range viewerToolNames {
+		if reg.IsToolEnabled(agentID, name) {
+			if t := createTool(name); t != nil {
+				result <- t
+			}
+		}
+	}
+
+	for _, name := range editorToolNames {
+		if reg.IsToolEnabled(agentID, name) {
+			if t := createTool(name); t != nil {
+				result <- t
+			}
+		}
+	}
+
+	for _, name := range managerToolNames {
+		if reg.IsToolEnabled(agentID, name) {
+			if info.Mode == config.AgentModeAgent {
+				if t := createTool(name); t != nil {
+					result <- t
+				}
+			} else {
+				logging.Warn("Subagent can't have manager tools enabled, tool will be ignored", "agent", agentID, "tool", name)
+			}
+		}
+	}
+
+	wg := sync.WaitGroup{}
+
+	// MCP tools — shared instances, filter per agent
+	wg.Add(1)
+	go func() {
+		defer logging.RecoverPanic("MCP-goroutine", nil)
+		defer wg.Done()
+		for mt := range mcpRegistry.LoadTools(ctx, nil) {
+			if reg.IsToolEnabled(agentID, mt.Info().Name) {
+				result <- mt
+			}
+		}
+	}()
+
+	// LSP tools – can be properly initialised only after servers up and running
+	wg.Add(1)
+	go func() {
+		defer logging.RecoverPanic("LSP-goroutine", nil)
+		defer wg.Done()
+		cfg := config.Get()
+		if len(install.ResolveServers(cfg)) > 0 && reg.IsToolEnabled(agentID, tools.LSPToolName) {
+			result <- tools.NewLspTool(lspClients)
+		}
+	}()
+
+	go func() {
+		wg.Wait()
+		close(result)
+	}()
+
+	return result
 }
 
-func TaskAgentTools(lspClients map[string]*lsp.Client, permissions permission.Service) []tools.BaseTool {
-	taskToolsOnce.Do(func() {
-		taskTools = []tools.BaseTool{
-			tools.NewGlobTool(),
-			tools.NewGrepTool(),
-			tools.NewLsTool(config.Get()),
-			tools.NewSourcegraphTool(),
-			tools.NewSkillTool(permissions),
-			tools.NewViewTool(lspClients),
-			tools.NewViewImageTool(),
+func (a *agent) resolveTools() []tools.BaseTool {
+	a.toolsOnce.Do(func() {
+		toolSet := make([]tools.BaseTool, 0, 20)
+		toolNames := make([]string, 0, 20)
+		for t := range a.toolsCh {
+			toolSet = append(toolSet, t)
+			toolNames = append(toolNames, t.Info().Name)
 		}
+		a.tools = toolSet
+		logging.Info("Resolved tool set", "agent", a.AgentID(), "tools", strings.Join(toolNames, ", "))
 	})
-	return taskTools
+	return a.tools
 }

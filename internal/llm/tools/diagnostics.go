@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp/protocol"
 )
@@ -209,6 +210,8 @@ func getDiagnostics(filePath string, lsps map[string]*lsp.Client) string {
 		output += fmt.Sprintf("Project: %d errors, %d warnings\n", projectErrors, projectWarnings)
 		output += "</diagnostic_summary>\n"
 	}
+
+	logging.Debug("Diagnostics", "output", output)
 
 	return output
 }

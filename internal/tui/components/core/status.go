@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	agentregistry "github.com/MerrukTechnology/OpenCode-Native/internal/agent"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/models"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp"
@@ -23,12 +24,17 @@ type StatusCmp interface {
 	tea.Model
 }
 
+type ActiveAgentChangedMsg struct {
+	Name config.AgentName
+}
+
 type statusCmp struct {
-	info       util.InfoMsg
-	width      int
-	messageTTL time.Duration
-	lspClients map[string]*lsp.Client
-	session    session.Session
+	info            util.InfoMsg
+	width           int
+	messageTTL      time.Duration
+	lspClients      map[string]*lsp.Client
+	session         session.Session
+	activeAgentName config.AgentName
 }
 
 // clearMessageCmd is a command that clears status messages after a timeout
@@ -66,6 +72,8 @@ func (m statusCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.clearMessageCmd(ttl)
 	case util.ClearStatusMsg:
 		m.info = util.InfoMsg{}
+	case ActiveAgentChangedMsg:
+		m.activeAgentName = msg.Name
 	}
 	return m, nil
 }
@@ -118,8 +126,9 @@ func formatTokensAndCost(tokens, contextWindow int64, cost float64) string {
 
 func (m statusCmp) View() string {
 	t := theme.CurrentTheme()
-	modelID := config.Get().Agents[config.AgentCoder].Model
-	model := models.SupportedModels[modelID]
+	agentName := m.activeAgentName
+	agentCfg := config.Get().Agents[agentName]
+	model := models.SupportedModels[agentCfg.Model]
 
 	// Initialize the help widget
 	status := getHelpWidget()
@@ -271,23 +280,42 @@ func (m statusCmp) model() string {
 
 	cfg := config.Get()
 
-	coder, ok := cfg.Agents[config.AgentCoder]
+	agentName := m.activeAgentName
+	agentCfg, ok := cfg.Agents[agentName]
 	if !ok {
 		return "Unknown"
 	}
-	model := models.SupportedModels[coder.Model]
+	model := models.SupportedModels[agentCfg.Model]
+
+	reg := agentregistry.GetRegistry()
+	primaryAgents := reg.ListByMode(config.AgentModeAgent)
+
+	agentLabel := ""
+	if len(primaryAgents) > 1 {
+		name := agentCfg.Name
+		if name == "" {
+			if info, found := reg.Get(agentName); found {
+				name = info.Name
+			}
+		}
+		if name == "" {
+			name = string(agentName)
+		}
+		agentLabel = " ▶ " + name
+	}
 
 	return styles.Padded().
 		Background(t.Secondary()).
 		Foreground(t.Background()).
-		Render(model.Name)
+		Render(model.Name + agentLabel)
 }
 
 func NewStatusCmp(lspClients map[string]*lsp.Client) StatusCmp {
 	helpWidget = getHelpWidget()
 
 	return &statusCmp{
-		messageTTL: 10 * time.Second,
-		lspClients: lspClients,
+		messageTTL:      10 * time.Second,
+		lspClients:      lspClients,
+		activeAgentName: config.AgentCoder,
 	}
 }

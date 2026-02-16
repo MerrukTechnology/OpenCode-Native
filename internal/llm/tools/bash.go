@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	agentregistry "github.com/MerrukTechnology/OpenCode-Native/internal/agent"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/tools/shell"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/permission"
@@ -34,6 +35,7 @@ type BashResponseMetadata struct {
 }
 type bashTool struct {
 	permissions permission.Service
+	registry    agentregistry.Registry
 }
 
 const (
@@ -95,7 +97,7 @@ Usage notes:
   - Avoid using Bash with the ` + "`find`, `grep`, `cat`, `head`, `tail`, `sed`, `awk`, or `echo`" + ` commands, unless explicitly instructed or when these commands are truly necessary for the task. Instead, always prefer using the dedicated tools for these commands:
     - File search: Use Glob (NOT find or ls)
     - Content search: Use Grep (NOT grep or rg)
-    - Read files: Use Read (NOT cat/head/tail)
+    - Read files: Use View (NOT cat/head/tail)
     - Edit files: Use Edit (NOT sed/awk)
     - Write files: Use Write (NOT echo >/cat <<EOF)
     - Communication: Output text directly (NOT echo/printf)
@@ -178,9 +180,10 @@ Important:
 # Other common operations
 - View comments on a Github PR: gh api repos/foo/bar/pulls/123/comments`
 
-func NewBashTool(permission permission.Service) BaseTool {
+func NewBashTool(permission permission.Service, reg agentregistry.Registry) BaseTool {
 	return &bashTool{
 		permissions: permission,
+		registry:    reg,
 	}
 }
 
@@ -248,21 +251,30 @@ func (b *bashTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error)
 		return NewEmptyResponse(), fmt.Errorf("session ID and message ID are required for creating a new file")
 	}
 	if !isSafeReadOnly {
-		p := b.permissions.Request(
-			permission.CreatePermissionRequest{
-				SessionID:   sessionID,
-				Path:        workdir,
-				ToolName:    BashToolName,
-				Action:      "execute",
-				Description: fmt.Sprintf("Execute command: %s", params.Command),
-				Params: BashPermissionsParams{
-					Command: params.Command,
-					Workdir: workdir,
-				},
-			},
-		)
-		if !p {
+		action := b.registry.EvaluatePermission(string(GetAgentID(ctx)), BashToolName, params.Command)
+		switch action {
+		case permission.ActionAllow:
+			// Allowed by config, skip interactive permission
+		case permission.ActionDeny:
 			return NewEmptyResponse(), permission.ErrorPermissionDenied
+		default:
+			// "ask" or unset: fall through to interactive permission
+			p := b.permissions.Request(
+				permission.CreatePermissionRequest{
+					SessionID:   sessionID,
+					Path:        workdir,
+					ToolName:    BashToolName,
+					Action:      "execute",
+					Description: fmt.Sprintf("Execute command: %s", params.Command),
+					Params: BashPermissionsParams{
+						Command: params.Command,
+						Workdir: workdir,
+					},
+				},
+			)
+			if !p {
+				return NewEmptyResponse(), permission.ErrorPermissionDenied
+			}
 		}
 	}
 	startTime := time.Now()

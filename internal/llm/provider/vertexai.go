@@ -31,7 +31,7 @@ type vertexOptions struct {
 func newVertexAIClient(opts providerClientOptions) VertexAIClient {
 	for k := range models.VertexAIAnthropicModels {
 		if k == opts.model.ID {
-			logging.Info("Using Anthropic client with VertexAI provider", "model", k)
+			logging.Info("Using Anthropic client with VertexAI provider", "model", opts.model)
 			location := os.Getenv("VERTEXAI_LOCATION")
 			locationForCounting := os.Getenv("VERTEXAI_LOCATION_COUNT")
 			if len(locationForCounting) == 0 {
@@ -86,7 +86,7 @@ func newVertexAIClient(opts providerClientOptions) VertexAIClient {
 		return nil
 	}
 
-	logging.Info("Using Gemini client with VertexAI provider", "model", opts.model.ID, "config", client.ClientConfig())
+	logging.Info("Using Gemini client with VertexAI provider", "model", opts.model, "config", client.ClientConfig())
 	return &geminiClient{
 		providerOptions: opts,
 		options:         geminiOpts,
@@ -148,7 +148,7 @@ func vertexMiddleware(region, regionForCounting, projectID string) sdkoption.Mid
 			}
 
 			logging.Debug("vertext_ai middleware request, using beta header", "anthropic-beta", betas,
-				"model", model, "stream", stream, "path", r.URL.Path, "new_path", newPath, "method", r.Method, "body", string(body),
+				"model", model, "stream", stream, "path", r.URL.Path, "new_path", newPath, "method", r.Method,
 			)
 
 			reader := bytes.NewReader(body)

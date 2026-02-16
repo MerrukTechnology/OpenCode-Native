@@ -10,11 +10,13 @@ import (
 	"strings"
 	"time"
 
+	agentregistry "github.com/MerrukTechnology/OpenCode-Native/internal/agent"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/diff"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/agent"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/models"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/tools"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/message"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/styles"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/theme"
@@ -167,6 +169,7 @@ func renderAssistantMessage(
 			)
 		}
 	}
+	contentRendered := false
 	if content != "" || (finished && finishData.Reason == message.FinishReasonEndTurn) {
 		if content == "" {
 			content = "*Finished without output*"
@@ -176,6 +179,13 @@ func renderAssistantMessage(
 		}
 
 		content = renderMessage(content, false, true, width, info...)
+		contentRendered = true
+	} else if thinking && thinkingContent != "" {
+		logging.Debug("Thinking content rendered", "size", len(thinkingContent))
+		content = renderMessage(thinkingContent, false, msg.ID == focusedUIMessageId, width)
+		contentRendered = true
+	}
+	if contentRendered {
 		messages = append(messages, uiMessage{
 			ID:          msg.ID,
 			messageType: assistantMessageType,
@@ -185,9 +195,6 @@ func renderAssistantMessage(
 		})
 		position += messages[0].height
 		position++ // for the space
-	} else if thinking && thinkingContent != "" {
-		// Render the thinking content
-		content = renderMessage(thinkingContent, false, msg.ID == focusedUIMessageId, width)
 	}
 
 	for i, toolCall := range msg.ToolCalls() {
@@ -220,7 +227,7 @@ func findToolResponse(toolCallID string, futureMessages []message.Message) *mess
 
 func toolName(name string) string {
 	switch name {
-	case agent.AgentToolName:
+	case agent.TaskToolName:
 		return "Task"
 	case tools.BashToolName:
 		return "Bash"
@@ -246,13 +253,17 @@ func toolName(name string) string {
 		return "Write"
 	case tools.PatchToolName:
 		return "Patch"
+	case tools.DeleteToolName:
+		return "Delete"
+	case tools.LSPToolName:
+		return "Code Intelligence"
 	}
 	return name
 }
 
 func getToolAction(name string) string {
 	switch name {
-	case agent.AgentToolName:
+	case agent.TaskToolName:
 		return "Preparing prompt..."
 	case tools.BashToolName:
 		return "Building command..."
@@ -278,6 +289,10 @@ func getToolAction(name string) string {
 		return "Preparing write..."
 	case tools.PatchToolName:
 		return "Preparing patch..."
+	case tools.DeleteToolName:
+		return "Deleting..."
+	case tools.LSPToolName:
+		return "Doing code intelligence..."
 	}
 	return "Working..."
 }
@@ -345,11 +360,18 @@ func removeWorkingDirPrefix(path string) string {
 func renderToolParams(paramWidth int, toolCall message.ToolCall) string {
 	params := ""
 	switch toolCall.Name {
-	case agent.AgentToolName:
-		var params agent.AgentParams
+	case agent.TaskToolName:
+		var params agent.TaskParams
 		json.Unmarshal([]byte(toolCall.Input), &params)
 		prompt := strings.ReplaceAll(params.Prompt, "\n", " ")
-		return renderParams(paramWidth, prompt)
+		toolParams := []string{prompt}
+		if params.SubagentType != "" {
+			toolParams = append(toolParams, "agent", params.SubagentType)
+		}
+		if params.TaskID != "" {
+			toolParams = append(toolParams, "resumed", "true")
+		}
+		return renderParams(paramWidth, toolParams...)
 	case tools.BashToolName:
 		var params tools.BashParams
 		json.Unmarshal([]byte(toolCall.Input), &params)
@@ -432,6 +454,10 @@ func renderToolParams(paramWidth int, toolCall message.ToolCall) string {
 		var params tools.SourcegraphParams
 		json.Unmarshal([]byte(toolCall.Input), &params)
 		return renderParams(paramWidth, params.Query)
+	case tools.LSPToolName:
+		var params tools.LSParams
+		json.Unmarshal([]byte(toolCall.Input), &params)
+		return renderParams(paramWidth, params.Path, fmt.Sprintf("ignore: %s", strings.Join(params.Ignore, ", ")))
 	case tools.ViewToolName:
 		var params tools.ViewParams
 		json.Unmarshal([]byte(toolCall.Input), &params)
@@ -455,6 +481,11 @@ func renderToolParams(paramWidth int, toolCall message.ToolCall) string {
 		var params tools.WriteParams
 		json.Unmarshal([]byte(toolCall.Input), &params)
 		filePath := removeWorkingDirPrefix(params.FilePath)
+		return renderParams(paramWidth, filePath)
+	case tools.DeleteToolName:
+		var params tools.DeleteParams
+		json.Unmarshal([]byte(toolCall.Input), &params)
+		filePath := removeWorkingDirPrefix(params.Path)
 		return renderParams(paramWidth, filePath)
 	default:
 		input := strings.ReplaceAll(toolCall.Input, "\n", " ")
@@ -486,9 +517,9 @@ func renderToolResponse(toolCall message.ToolCall, response message.ToolResult, 
 
 	resultContent := truncateHeight(response.Content, maxResultHeight)
 	switch toolCall.Name {
-	case agent.AgentToolName:
+	case agent.TaskToolName:
 		return styles.ForceReplaceBackgroundWithLipgloss(
-			toMarkdown(resultContent, false, width),
+			toMarkdown(response.Content, false, width),
 			t.Background(),
 		)
 	case tools.BashToolName:
@@ -532,6 +563,10 @@ func renderToolResponse(toolCall message.ToolCall, response message.ToolResult, 
 		return baseStyle.Width(width).Foreground(t.TextMuted()).Render(resultContent)
 	case tools.SourcegraphToolName:
 		return baseStyle.Width(width).Foreground(t.TextMuted()).Render(resultContent)
+	case tools.LSPToolName:
+		metadata := tools.LSPToolMetadata{}
+		json.Unmarshal([]byte(response.Metadata), &metadata)
+		return baseStyle.Width(width).Foreground(t.TextMuted()).Render(metadata.Title)
 	case tools.ViewToolName:
 		metadata := tools.ViewResponseMetadata{}
 		json.Unmarshal([]byte(response.Metadata), &metadata)
@@ -571,6 +606,12 @@ func renderToolResponse(toolCall message.ToolCall, response message.ToolResult, 
 			toMarkdown(resultContent, true, width),
 			t.Background(),
 		)
+	case tools.DeleteToolName:
+		metadata := tools.DeleteResponseMetadata{}
+		json.Unmarshal([]byte(response.Metadata), &metadata)
+		truncDiff := truncateHeight(metadata.Diff, maxResultHeight)
+		formattedDiff, _ := diff.FormatDiff(truncDiff, diff.WithTotalWidth(width))
+		return formattedDiff
 	default:
 		resultContent = fmt.Sprintf("```text\n%s\n```", resultContent)
 		return styles.ForceReplaceBackgroundWithLipgloss(
@@ -607,6 +648,14 @@ func renderToolMessage(
 	toolNameText := baseStyle.Foreground(t.TextMuted()).
 		Render(fmt.Sprintf("%s: ", toolName(toolCall.Name)))
 
+	// Show subagent badge for task tool calls
+	if toolCall.Name == agent.TaskToolName {
+		var taskParams agent.TaskParams
+		json.Unmarshal([]byte(toolCall.Input), &taskParams)
+		badge := subagentBadge(taskParams.SubagentType, taskParams.TaskTitle, taskParams.TaskID != "")
+		toolNameText = badge
+	}
+
 	if !toolCall.Finished {
 		// Get a brief description of what the tool is doing
 		toolAction := getToolAction(toolCall.Name)
@@ -614,7 +663,7 @@ func renderToolMessage(
 		progressText := baseStyle.
 			Width(width - 2 - lipgloss.Width(toolNameText)).
 			Foreground(t.TextMuted()).
-			Render(toolAction)
+			Render(fmt.Sprintf(" %s", toolAction))
 
 		content := style.Render(lipgloss.JoinHorizontal(lipgloss.Left, toolNameText, progressText))
 		toolMsg := uiMessage{
@@ -664,7 +713,7 @@ func renderToolMessage(
 		parts = append(parts, lipgloss.JoinHorizontal(lipgloss.Left, prefix, toolNameText, formattedParams))
 	}
 
-	if toolCall.Name == agent.AgentToolName {
+	if toolCall.Name == agent.TaskToolName {
 		taskMessages, _ := messagesService.List(context.Background(), toolCall.ID)
 		toolCalls := []message.ToolCall{}
 		for _, v := range taskMessages {
@@ -698,6 +747,72 @@ func renderToolMessage(
 		content:     content,
 	}
 	return toolMsg
+}
+
+func subagentBadge(agentType string, title string, isResumed bool) string {
+	t := theme.CurrentTheme()
+
+	icon := "●"
+	var color lipgloss.TerminalColor
+	name := agentType
+
+	reg := agentregistry.GetRegistry()
+	if info, ok := reg.Get(agentType); ok {
+		if info.Name != "" {
+			name = info.Name
+		}
+		switch info.Color {
+		case "primary":
+			color = t.Primary()
+		case "secondary":
+			color = t.Secondary()
+		case "warning":
+			color = t.Warning()
+		case "error":
+			color = t.Error()
+		case "info":
+			color = t.Info()
+		case "success":
+			color = t.Success()
+		default:
+			color = nil
+		}
+	}
+
+	if color == nil {
+		switch agentType {
+		case "explorer":
+			color = t.Info()
+		case "workhorse":
+			color = t.Warning()
+		default:
+			color = t.Secondary()
+		}
+	}
+
+	status := "new task"
+	if isResumed {
+		status = "resumed"
+	}
+
+	badge := styles.BaseStyle().
+		Foreground(color).
+		Render(fmt.Sprintf("%s %s ", icon, name))
+
+	var taskTitle string
+	if title != "" {
+		taskTitle = styles.BaseStyle().
+			Foreground(t.TextEmphasized()).
+			Blink(true).
+			Render(fmt.Sprintf("(%s > %s): ", status, title))
+	} else {
+		taskTitle = styles.BaseStyle().
+			Foreground(t.TextEmphasized()).
+			Blink(true).
+			Render(fmt.Sprintf("(%s):", status))
+	}
+
+	return fmt.Sprintf("%s%s", badge, taskTitle)
 }
 
 var diagSummaryRegex = regexp.MustCompile(`<diagnostic_summary>\s*Current file: (\d+) errors, (\d+) warnings\s*Project: (\d+) errors, (\d+) warnings\s*</diagnostic_summary>`)

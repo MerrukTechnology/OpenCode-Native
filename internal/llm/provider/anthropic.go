@@ -17,7 +17,6 @@ import (
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/bedrock"
 	"github.com/anthropics/anthropic-sdk-go/option"
-	sdkoption "github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/anthropics/anthropic-sdk-go/packages/param"
 )
 
@@ -59,7 +58,7 @@ func newAnthropicClient(opts providerClientOptions) AnthropicClient {
 		)
 		anthropicClientOptions = append(
 			anthropicClientOptions,
-			sdkoption.WithMiddleware(middleware),
+			option.WithMiddleware(middleware),
 		)
 		if opts.baseURL == "" {
 			resolvedBaseURL = fmt.Sprintf("https://%s-aiplatform.googleapis.com/", anthropicOpts.vertexOptions.location)
@@ -102,9 +101,7 @@ func (a *anthropicClient) convertMessages(messages []message.Message) (anthropic
 		case message.User:
 			content := anthropic.NewTextBlock(msg.Content().String())
 			if cache && !a.options.disableCache {
-				content.OfText.CacheControl = anthropic.CacheControlEphemeralParam{
-					Type: "ephemeral",
-				}
+				content.OfText.CacheControl = anthropic.NewCacheControlEphemeralParam()
 			}
 			var contentBlocks []anthropic.ContentBlockParamUnion
 			contentBlocks = append(contentBlocks, content)
@@ -120,24 +117,29 @@ func (a *anthropicClient) convertMessages(messages []message.Message) (anthropic
 			if msg.Content().String() != "" {
 				content := anthropic.NewTextBlock(msg.Content().String())
 				if cache && !a.options.disableCache {
-					content.OfText.CacheControl = anthropic.CacheControlEphemeralParam{
-						Type: "ephemeral",
-					}
+					content.OfText.CacheControl = anthropic.NewCacheControlEphemeralParam()
 				}
 				blocks = append(blocks, content)
 			}
 
 			for _, toolCall := range msg.ToolCalls() {
 				var inputMap map[string]any
-				err := json.Unmarshal([]byte(toolCall.Input), &inputMap)
-				if err != nil {
-					continue
+				if err := json.Unmarshal([]byte(toolCall.Input), &inputMap); err != nil {
+					logging.Warn("Failed to unmarshal tool call input, using empty input",
+						"tool_call_id", toolCall.ID,
+						"tool_name", toolCall.Name,
+						"tool_input", toolCall.Input,
+						"error", err,
+					)
+					inputMap = map[string]any{}
 				}
 				blocks = append(blocks, anthropic.NewToolUseBlock(toolCall.ID, inputMap, toolCall.Name))
 			}
 
 			if len(blocks) == 0 {
-				logging.Warn("There is a message without content, investigate, this should not happen")
+				logging.Warn("Unexpected: assistant message with no content blocks reached provider conversion",
+					"message_index", i, "message_id", msg.ID,
+				)
 				continue
 			}
 			anthropicMessages = append(anthropicMessages, anthropic.NewAssistantMessage(blocks...))
@@ -214,6 +216,7 @@ func (a *anthropicClient) preparedMessages(messages []anthropic.MessageParam, to
 	lastMessage := messages[len(messages)-1]
 	isUser := lastMessage.Role == anthropic.MessageParamRoleUser
 	messageContent := ""
+	// TODO: parameterise temperature via agent config
 	temperature := anthropic.Float(0)
 	if isUser {
 		for _, m := range lastMessage.Content {
@@ -248,10 +251,8 @@ func (a *anthropicClient) preparedMessages(messages []anthropic.MessageParam, to
 		OutputConfig: outputConfig,
 		System: []anthropic.TextBlockParam{
 			{
-				Text: a.providerOptions.systemMessage,
-				CacheControl: anthropic.CacheControlEphemeralParam{
-					Type: "ephemeral",
-				},
+				Text:         a.providerOptions.systemMessage,
+				CacheControl: anthropic.NewCacheControlEphemeralParam(),
 			},
 		},
 	}
@@ -310,15 +311,15 @@ func (a *anthropicClient) stream(ctx context.Context, messages []message.Message
 	preparedMessages := a.preparedMessages(a.convertMessages(messages), a.convertTools(tools))
 	cfg := config.Get()
 
-	var sessionId string
-	requestSeqId := (len(messages) + 1) / 2
+	var sessionID string
+	requestSeqID := (len(messages) + 1) / 2
 	if cfg.Debug {
 		if sid, ok := ctx.Value(toolsPkg.SessionIDContextKey).(string); ok {
-			sessionId = sid
+			sessionID = sid
 		}
 		jsonData, _ := json.Marshal(preparedMessages)
-		if sessionId != "" {
-			filepath := logging.WriteRequestMessageJson(sessionId, requestSeqId, preparedMessages)
+		if sessionID != "" {
+			filepath := logging.WriteRequestMessageJson(sessionID, requestSeqID, preparedMessages)
 			logging.Debug("Prepared messages", "filepath", filepath)
 		} else {
 			logging.Debug("Prepared messages", "messages", string(jsonData))
@@ -356,6 +357,7 @@ func (a *anthropicClient) stream(ctx context.Context, messages []message.Message
 							ToolCall: &message.ToolCall{
 								ID:       event.ContentBlock.ID,
 								Name:     event.ContentBlock.Name,
+								Type:     event.ContentBlock.Type,
 								Finished: false,
 							},
 						}

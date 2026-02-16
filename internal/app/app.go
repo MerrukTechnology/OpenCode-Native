@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	agentregistry "github.com/MerrukTechnology/OpenCode-Native/internal/agent"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/db"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/format"
@@ -31,42 +32,66 @@ type App struct {
 	Messages    message.Service
 	History     history.Service
 	Permissions permission.Service
+	Registry    agentregistry.Registry
+	MCPRegistry agent.MCPRegistry
 
-	CoderAgent agent.Service
+	activeAgent agent.Service
 
-	LSPClients map[string]*lsp.Client
+	PrimaryAgents    map[config.AgentName]agent.Service
+	PrimaryAgentKeys []config.AgentName
+	ActiveAgentIdx   int
 
-	clientsMutex sync.RWMutex
+	LSPClients            map[string]*lsp.Client
+	LSPClientsCh          chan *lsp.Client
+	lspClientsMutex       sync.RWMutex
+	lspWatcherCancelFuncs []context.CancelFunc
+	lspCancelFuncsMutex   sync.Mutex
+	lspWatcherWG          sync.WaitGroup
+}
 
-	watcherCancelFuncs []context.CancelFunc
-	cancelFuncsMutex   sync.Mutex
-	watcherWG          sync.WaitGroup
+func (app *App) ActiveAgent() agent.Service {
+	if len(app.PrimaryAgentKeys) == 0 {
+		return app.activeAgent
+	}
+	name := app.PrimaryAgentKeys[app.ActiveAgentIdx]
+	return app.PrimaryAgents[name]
+}
+
+func (app *App) ActiveAgentName() config.AgentName {
+	if len(app.PrimaryAgentKeys) == 0 {
+		return config.AgentCoder
+	}
+	return app.PrimaryAgentKeys[app.ActiveAgentIdx]
+}
+
+func (app *App) SwitchAgent() config.AgentName {
+	if len(app.PrimaryAgentKeys) <= 1 {
+		return app.ActiveAgentName()
+	}
+	app.ActiveAgentIdx = (app.ActiveAgentIdx + 1) % len(app.PrimaryAgentKeys)
+	name := app.PrimaryAgentKeys[app.ActiveAgentIdx]
+	app.activeAgent = app.PrimaryAgents[name]
+	return name
 }
 
 func New(ctx context.Context, conn *sql.DB) (*App, error) {
 	q := db.NewQuerier(conn)
 	sessions := session.NewService(q)
 	messages := message.NewService(q)
-
-	// Type assert to *db.Queries or *db.MySQLQuerier (both have embedded *db.Queries)
-	var queries *db.Queries
-	switch v := q.(type) {
-	case *db.Queries:
-		queries = v
-	case *db.MySQLQuerier:
-		queries = v.Queries
-	default:
-		return nil, fmt.Errorf("unexpected querier type: %T", q)
-	}
-
-	files := history.NewService(queries, conn)
+	files := history.NewService(q, conn)
+	reg := agentregistry.GetRegistry()
+	perm := permission.NewPermissionService()
 
 	app := &App{
-		Sessions:    sessions,
-		Messages:    messages,
-		History:     files,
-		Permissions: permission.NewPermissionService(),
-		LSPClients:  make(map[string]*lsp.Client),
+		Sessions:      sessions,
+		Messages:      messages,
+		History:       files,
+		Permissions:   perm,
+		Registry:      reg,
+		LSPClients:    make(map[string]*lsp.Client),
+		LSPClientsCh:  make(chan *lsp.Client, 50),
+		PrimaryAgents: make(map[config.AgentName]agent.Service),
+		MCPRegistry:   agent.NewMCPRegistry(perm, reg),
 	}
 
 	// Initialize theme based on configuration
@@ -75,22 +100,38 @@ func New(ctx context.Context, conn *sql.DB) (*App, error) {
 	// Initialize LSP clients in the background
 	go app.initLSPClients(ctx)
 
-	var err error
-	app.CoderAgent, err = agent.NewAgent(
-		config.AgentCoder,
-		app.Sessions,
-		app.Messages,
-		agent.CoderAgentTools(
-			app.Permissions,
+	// Create all primary agents from registry
+	primaryAgents := reg.ListByMode(config.AgentModeAgent)
+	if len(primaryAgents) == 0 {
+		return nil, errors.New("no primary agents found in registry")
+	}
+
+	for _, agentInfo := range primaryAgents {
+		agentInfoCopy := agentInfo
+		primaryAgent, err := agent.NewAgent(
+			ctx,
+			&agentInfoCopy,
 			app.Sessions,
 			app.Messages,
+			app.Permissions,
 			app.History,
 			app.LSPClients,
-		),
-	)
-	if err != nil {
-		logging.Error("Failed to create coder agent", err)
-		return nil, err
+			app.Registry,
+			app.MCPRegistry,
+		)
+		if err != nil {
+			logging.Error("Failed to create agent", "agent", agentInfo.ID, "error", err)
+			continue
+		}
+		app.PrimaryAgents[agentInfo.ID] = primaryAgent
+		app.PrimaryAgentKeys = append(app.PrimaryAgentKeys, agentInfo.ID)
+		if app.activeAgent == nil {
+			app.activeAgent = primaryAgent
+		}
+	}
+
+	if app.activeAgent == nil {
+		return nil, errors.New("failed to create any primary agents")
 	}
 
 	return app, nil
@@ -144,7 +185,7 @@ func (app *App) RunNonInteractive(ctx context.Context, prompt string, outputForm
 	// Automatically approve all permission requests for this non-interactive session
 	app.Permissions.AutoApproveSession(sess.ID)
 
-	done, err := app.CoderAgent.Run(ctx, sess.ID, prompt)
+	done, err := app.ActiveAgent().Run(ctx, sess.ID, prompt)
 	if err != nil {
 		return fmt.Errorf("failed to start agent processing stream: %w", err)
 	}
@@ -152,7 +193,7 @@ func (app *App) RunNonInteractive(ctx context.Context, prompt string, outputForm
 	result := <-done
 	if result.Error != nil {
 		if errors.Is(result.Error, context.Canceled) || errors.Is(result.Error, agent.ErrRequestCancelled) {
-			logging.Info("Agent processing cancelled", "session_id", sess.ID)
+			logging.Warn("Agent processing cancelled", "session_id", sess.ID)
 			return nil
 		}
 		return fmt.Errorf("agent processing failed: %w", result.Error)
@@ -179,18 +220,18 @@ func (app *App) RunNonInteractive(ctx context.Context, prompt string, outputForm
 // Shutdown performs a clean shutdown of the application
 func (app *App) Shutdown() {
 	// Cancel all watcher goroutines
-	app.cancelFuncsMutex.Lock()
-	for _, cancel := range app.watcherCancelFuncs {
+	app.lspCancelFuncsMutex.Lock()
+	for _, cancel := range app.lspWatcherCancelFuncs {
 		cancel()
 	}
-	app.cancelFuncsMutex.Unlock()
-	app.watcherWG.Wait()
+	app.lspCancelFuncsMutex.Unlock()
+	app.lspWatcherWG.Wait()
 
 	// Perform additional cleanup for LSP clients
-	app.clientsMutex.RLock()
+	app.lspClientsMutex.RLock()
 	clients := make(map[string]*lsp.Client, len(app.LSPClients))
 	maps.Copy(clients, app.LSPClients)
-	app.clientsMutex.RUnlock()
+	app.lspClientsMutex.RUnlock()
 
 	for name, client := range clients {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -206,17 +247,17 @@ func (app *App) ForceShutdown() {
 	logging.Info("Starting force shutdown")
 
 	// Cancel all watcher goroutines immediately
-	app.cancelFuncsMutex.Lock()
-	for _, cancel := range app.watcherCancelFuncs {
+	app.lspCancelFuncsMutex.Lock()
+	for _, cancel := range app.lspWatcherCancelFuncs {
 		cancel()
 	}
-	app.cancelFuncsMutex.Unlock()
+	app.lspCancelFuncsMutex.Unlock()
 
 	// Don't wait for watchers in force shutdown - kill LSP clients directly
-	app.clientsMutex.RLock()
+	app.lspClientsMutex.RLock()
 	clients := make(map[string]*lsp.Client, len(app.LSPClients))
 	maps.Copy(clients, app.LSPClients)
-	app.clientsMutex.RUnlock()
+	app.lspClientsMutex.RUnlock()
 
 	for name, client := range clients {
 		// Use a very short timeout for force shutdown

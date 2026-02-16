@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
@@ -20,12 +21,16 @@ type LspParams struct {
 	Character int    `json:"character"`
 }
 
+type LSPToolMetadata struct {
+	Title string `json:"title"`
+}
+
 type lspTool struct {
 	lspClients map[string]*lsp.Client
 }
 
 const (
-	LspToolName    = "lsp"
+	LSPToolName    = "lsp"
 	lspDescription = `Interact with Language Server Protocol (LSP) servers to get code intelligence features.
 
 Supported operations:
@@ -66,7 +71,7 @@ func NewLspTool(lspClients map[string]*lsp.Client) BaseTool {
 
 func (t *lspTool) Info() ToolInfo {
 	return ToolInfo{
-		Name:        LspToolName,
+		Name:        LSPToolName,
 		Description: lspDescription,
 		Parameters: map[string]any{
 			"operation": map[string]any{
@@ -146,7 +151,7 @@ func (t *lspTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error) 
 		}
 
 		output := formatLspResult(params.Operation, result)
-		return WithResponseMetadata(NewTextResponse(output), map[string]string{"title": title}), nil
+		return WithResponseMetadata(NewTextResponse(output), LSPToolMetadata{Title: title}), nil
 	}
 
 	if lastErr != nil {
@@ -160,11 +165,8 @@ func findClientsForFile(filePath string, clients map[string]*lsp.Client) []*lsp.
 	var matched []*lsp.Client
 
 	for _, client := range clients {
-		for _, e := range client.GetExtensions() {
-			if e == ext {
-				matched = append(matched, client)
-				break
-			}
+		if slices.Contains(client.GetExtensions(), ext) {
+			matched = append(matched, client)
 		}
 	}
 	return matched

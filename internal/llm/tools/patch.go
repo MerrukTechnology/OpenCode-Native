@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	agentregistry "github.com/MerrukTechnology/OpenCode-Native/internal/agent"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/diff"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/history"
@@ -30,6 +31,7 @@ type patchTool struct {
 	lspClients  map[string]*lsp.Client
 	permissions permission.Service
 	files       history.Service
+	registry    agentregistry.Registry
 }
 
 const (
@@ -51,7 +53,7 @@ The patch text must follow this format:
 *** End Patch
 
 Before using this tool:
-1. Use the FileRead tool to understand the files' contents and context
+1. Use the View tool to understand the files' content and context
 2. Verify all file paths are correct (use the LS tool)
 
 CRITICAL REQUIREMENTS FOR USING THIS TOOL:
@@ -64,11 +66,12 @@ CRITICAL REQUIREMENTS FOR USING THIS TOOL:
 The tool will apply all changes in a single atomic operation.`
 )
 
-func NewPatchTool(lspClients map[string]*lsp.Client, permissions permission.Service, files history.Service) BaseTool {
+func NewPatchTool(lspClients map[string]*lsp.Client, permissions permission.Service, files history.Service, reg agentregistry.Registry) BaseTool {
 	return &patchTool{
 		lspClients:  lspClients,
 		permissions: permissions,
 		files:       files,
+		registry:    reg,
 	}
 }
 
@@ -188,6 +191,14 @@ func (p *patchTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 
 	// Request permission for all changes
 	for path, change := range commit.Changes {
+		fileAction := p.registry.EvaluatePermission(string(GetAgentID(ctx)), PatchToolName, path)
+		if fileAction == permission.ActionDeny {
+			return NewEmptyResponse(), permission.ErrorPermissionDenied
+		}
+		if fileAction == permission.ActionAllow {
+			continue
+		}
+
 		switch change.Type {
 		case diff.ActionAdd:
 			dir := filepath.Dir(path)

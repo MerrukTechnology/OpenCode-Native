@@ -7,33 +7,45 @@ import (
 	"strings"
 	"sync"
 
+	agentregistry "github.com/MerrukTechnology/OpenCode-Native/internal/agent"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/models"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
 )
 
 func GetAgentPrompt(agentName config.AgentName, provider models.ModelProvider) string {
+	// Check registry for custom agent prompt first
+	reg := agentregistry.GetRegistry()
+	if info, ok := reg.Get(agentName); ok && info.Prompt != "" {
+		basePrompt := info.Prompt
+		contextContent := getContextFromPaths()
+		if contextContent != "" {
+			return fmt.Sprintf("%s\n\n# Project-Specific Context\n Make sure to follow the instructions in the context below\n%s", basePrompt, contextContent)
+		}
+		return basePrompt
+	}
+
 	basePrompt := ""
 	switch agentName {
 	case config.AgentCoder:
 		basePrompt = CoderPrompt(provider)
-	case config.AgentTitle:
-		basePrompt = TitlePrompt(provider)
-	case config.AgentTask:
-		basePrompt = TaskPrompt(provider)
+	case config.AgentDescriptor:
+		basePrompt = DescriptorPrompt(provider)
+	case config.AgentExplorer:
+		basePrompt = ExplorerPrompt(provider)
 	case config.AgentSummarizer:
 		basePrompt = SummarizerPrompt(provider)
+	case config.AgentWorkhorse:
+		basePrompt = WorkhorsePrompt(provider)
+	case config.AgentHivemind:
+		basePrompt = HivemindPrompt(provider)
 	default:
 		basePrompt = "You are a helpful assistant"
 	}
 
-	if agentName == config.AgentCoder || agentName == config.AgentTask {
-		// Add context from project-specific instruction files if they exist
-		contextContent := getContextFromPaths()
-		logging.Debug("Context content", "Context", contextContent)
-		if contextContent != "" {
-			return fmt.Sprintf("%s\n\n# Project-Specific Context\n Make sure to follow the instructions in the context below\n%s", basePrompt, contextContent)
-		}
+	contextContent := getContextFromPaths()
+	if contextContent != "" {
+		return fmt.Sprintf("%s\n\n# Project-Specific Context\n Make sure to follow the instructions in the context below\n%s", basePrompt, contextContent)
 	}
 	return basePrompt
 }
@@ -50,8 +62,8 @@ func getContextFromPaths() string {
 			workDir      = cfg.WorkingDir
 			contextPaths = cfg.ContextPaths
 		)
-
 		contextContent = processContextPaths(workDir, contextPaths)
+		logging.Debug("Context content", "context", contextContent)
 	})
 
 	return contextContent

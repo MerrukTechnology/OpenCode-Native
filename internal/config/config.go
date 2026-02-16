@@ -35,13 +35,28 @@ type MCPServer struct {
 	Headers map[string]string `json:"headers"`
 }
 
-type AgentName string
+// AgentName is a string alias to allow flexibility
+type AgentName = string
 
+type AgentMode string
+
+const (
+	AgentModeAgent    AgentMode = "agent"
+	AgentModeSubagent AgentMode = "subagent"
+)
+
+// Agent Constants
 const (
 	AgentCoder      AgentName = "coder"
 	AgentSummarizer AgentName = "summarizer"
-	AgentTask       AgentName = "task"
-	AgentTitle      AgentName = "title"
+	AgentExplorer   AgentName = "explorer"   // Replaces Task
+	AgentDescriptor AgentName = "descriptor" // Replaces Title
+	AgentWorkhorse  AgentName = "workhorse"
+	AgentHivemind   AgentName = "hivemind"
+
+	// Deprecated names (kept for migration logic)
+	AgentTask  AgentName = "task"
+	AgentTitle AgentName = "title"
 )
 
 // providerDefinition defines which model to use for each specific agent
@@ -50,18 +65,27 @@ type providerDefinition struct {
 	CheckFunc       func() bool
 	CoderModel      models.ModelID
 	SummarizerModel models.ModelID
-	TaskModel       models.ModelID
-	TitleModel      models.ModelID
-	FallbackModel   models.ModelID // Used if a specific agent model is empty
+	ExplorerModel   models.ModelID
+	DescriptorModel models.ModelID
+	WorkhorseModel  models.ModelID
+	HivemindModel   models.ModelID
+	FallbackModel   models.ModelID
 }
 
 // Agent defines configuration for different LLM models and their token limits.
 type Agent struct {
-	Model           models.ModelID               `json:"model"`
-	MaxTokens       int64                        `json:"maxTokens"`
-	ReasoningEffort string                       `json:"reasoningEffort"`      // For openai models low,medium,high
-	Permission      map[string]map[string]string `json:"permission,omitempty"` // e.g., {"skill": {"internal-*": "allow"}}
-	Tools           map[string]bool              `json:"tools,omitempty"`      // e.g., {"skill": false}
+	Model           models.ModelID  `json:"model"`
+	MaxTokens       int64           `json:"maxTokens"`
+	ReasoningEffort string          `json:"reasoningEffort"`      // For openai models low,medium,high
+	Permission      map[string]any  `json:"permission,omitempty"` // tool name -> "allow" | {"pattern": "action"}
+	Tools           map[string]bool `json:"tools,omitempty"`      // e.g., {"skill": false}
+	Mode            AgentMode       `json:"mode,omitempty"`       // "agent" or "subagent"
+	Name            string          `json:"name,omitempty"`
+	Native          bool            `json:"native,omitempty"`
+	Description     string          `json:"description,omitempty"`
+	Prompt          string          `json:"prompt,omitempty"`
+	Color           string          `json:"color,omitempty"`
+	Hidden          bool            `json:"hidden,omitempty"`
 }
 
 // Provider defines configuration for an LLM provider.
@@ -101,7 +125,6 @@ type ShellConfig struct {
 // ProviderType defines the type of session storage provider.
 type ProviderType string
 
-// Supported provider types
 const (
 	ProviderSQLite ProviderType = "sqlite"
 	ProviderMySQL  ProviderType = "mysql"
@@ -131,9 +154,15 @@ type SkillsConfig struct {
 	Paths []string `json:"paths,omitempty"` // Custom skill paths
 }
 
-// PermissionConfig defines permission configuration.
+// PermissionConfig defines permission configuration using Rules.
+// Each tool key maps to either a simple string ("allow"/"deny"/"ask")
+// or an object with glob pattern keys (e.g., {"*": "ask", "git *": "allow"}).
 type PermissionConfig struct {
-	Skill map[string]string `json:"skill,omitempty"` // skill name pattern -> action (allow/deny/ask)
+	// Rules maps tool names to permission logic.
+	Rules map[string]any `json:"rules,omitempty"` // tool name -> "allow" | {"pattern": "action"}
+
+	// Depricated: use Rules instead, Needed for backward compatibility.
+	Skill map[string]string `json:"skill,omitempty"`
 }
 
 // Config is the main configuration structure for the application.
@@ -152,8 +181,10 @@ type Config struct {
 	AutoCompact        bool                              `json:"autoCompact,omitempty"`
 	DisableLSPDownload bool                              `json:"disableLSPDownload,omitempty"`
 	SessionProvider    SessionProviderConfig             `json:"sessionProvider,omitempty"`
-	Skills             *SkillsConfig                     `json:"skills,omitempty"`
-	Permission         *PermissionConfig                 `json:"permission,omitempty"`
+
+	// Depricated: use Rules instead, Needed for backward compatibility.
+	Skills     *SkillsConfig     `json:"skills,omitempty"`
+	Permission *PermissionConfig `json:"permission,omitempty"`
 }
 
 // Application constants
@@ -181,7 +212,7 @@ var defaultContextPaths = []string{
 	"AGENTS.md",
 }
 
-// for testability, TODO: extend with other methods when needed
+// Configurator interface for testability
 type Configurator interface {
 	WorkingDirectory() string
 }
@@ -189,21 +220,17 @@ type Configurator interface {
 // Global configuration instance
 var (
 	cfg *Config
-	mu  sync.RWMutex // Required for thread safety
+	mu  sync.RWMutex // Thread safety lock
 )
 
-// Reset clears the global configuration, allowing Load to be called again.
-// This is intended for use in tests only.
+// Reset clears the global configuration.
 func Reset() {
 	mu.Lock()
 	defer mu.Unlock()
-
 	cfg = nil
 }
 
-// Load initializes the configuration from environment variables and config files.
-// If debug is true, debug mode is enabled and log level is set to debug.
-// It returns an error if configuration loading fails.
+// Load initializes the configuration.
 func Load(workingDir string, debug bool) (*Config, error) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -239,7 +266,10 @@ func Load(workingDir string, debug bool) (*Config, error) {
 		return cfg, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
-	// Set provider defaults based on available environment variables and configuration
+	// 1. MIGRATION: Handle Upstream rename logic
+	migrateOldAgentNames()
+
+	// 2. DEFAULTS: Set provider defaults based on environment and available credentials
 	setProviderDefaults()
 
 	applyDefaultValues()
@@ -254,12 +284,36 @@ func Load(workingDir string, debug bool) (*Config, error) {
 		return cfg, fmt.Errorf("config validation failed: %w", err)
 	}
 
-	// Override the max tokens for title agent
-	cfg.Agents[AgentTitle] = Agent{
-		Model:     cfg.Agents[AgentTitle].Model,
-		MaxTokens: 80,
+	// Override max tokens for descriptor agent
+	if agent, ok := cfg.Agents[AgentDescriptor]; ok {
+		agent.MaxTokens = 80
+		cfg.Agents[AgentDescriptor] = agent
 	}
+
 	return cfg, nil
+}
+
+// migrateOldAgentNames handles backward compatibility for upstream changes
+func migrateOldAgentNames() {
+	if cfg.Agents == nil {
+		cfg.Agents = make(map[AgentName]Agent)
+	}
+	// Migrate "task" -> "explorer"
+	if agent, ok := cfg.Agents[AgentTask]; ok {
+		if _, exists := cfg.Agents[AgentExplorer]; !exists {
+			cfg.Agents[AgentExplorer] = agent
+		}
+		delete(cfg.Agents, AgentTask)
+		logging.Warn("agent name 'task' is deprecated, migrated to 'explorer'")
+	}
+	// Migrate "title" -> "descriptor"
+	if agent, ok := cfg.Agents[AgentTitle]; ok {
+		if _, exists := cfg.Agents[AgentDescriptor]; !exists {
+			cfg.Agents[AgentDescriptor] = agent
+		}
+		delete(cfg.Agents, AgentTitle)
+		logging.Warn("agent name 'title' is deprecated, migrated to 'descriptor'")
+	}
 }
 
 // initLogging handles the creation of log files and logger initialization
@@ -303,7 +357,7 @@ func initLogging(debug bool) error {
 	return nil
 }
 
-// configureViper sets up viper's configuration paths and environment variables.
+// configureViper sets up viper's configuration paths and environment variable handling.
 func configureViper() {
 	viper.SetConfigName(fmt.Sprintf(".%s", appName))
 	viper.SetConfigType("json")
@@ -326,7 +380,7 @@ func setDefaults(debug bool) {
 		viper.Set("disableLSPDownload", true)
 	}
 
-	// Set default shell from environment or fallback to /bin/bash
+	// Shell defaults
 	shellPath := os.Getenv("SHELL")
 	if shellPath == "" {
 		shellPath = "/bin/bash"
@@ -370,8 +424,8 @@ func mapEnvVarsToViper() {
 		"DEEPSEEK_API_KEY":   "providers.deepseek.apiKey",
 		"QWEN_API_KEY":       "providers.qwen.apiKey",
 		//"MOONSHOT_API_KEY":   "providers.moonshot.apiKey",
-		"VERTEXAI_PROJECT":   "providers.vertexai.project",
-		"VERTEXAI_LOCATION":  "providers.vertexai.location",
+		"VERTEXAI_PROJECT":  "providers.vertexai.project",
+		"VERTEXAI_LOCATION": "providers.vertexai.location",
 	}
 
 	for envKey, configKey := range envMap {
@@ -381,32 +435,19 @@ func mapEnvVarsToViper() {
 	}
 }
 
-// setProviderDefaults configures LLM provider defaults based on provider provided by
-// environment variables and configuration file.
-// checks if agents are configured in the file.
-// If not, it attempts to auto-configure them based on available Environment Variables.
+// setProviderDefaults configures LLM provider defaults.
 func setProviderDefaults() {
-	// Use this order to set the default models
-	// 1. Anthropic
-	// 2. OpenAI
-	// 3. Google Gemini
-	// 4. Groq
-	// 5. OpenRouter
-	// 6. xAI
-	// 7. DeepSeek
-	// 8. Qwen
-	// 9. Moonshot
-	// 10. AWS Bedrock
-	// 11. Google Cloud VertexAI
+	agentTypes := []AgentName{
+		AgentCoder,
+		AgentSummarizer,
+		AgentExplorer,
+		AgentDescriptor,
+		AgentWorkhorse,
+		AgentHivemind,
+	}
 
-	// Initialize Agents using the priority list
-	// We iterate through all agent types and try to set a default for them based on available keys
-	agentTypes := []AgentName{AgentCoder, AgentSummarizer, AgentTask, AgentTitle}
-
-	// We only want to set a default model if the user hasn't already configured one.
 	for _, agent := range agentTypes {
 		existing, exists := cfg.Agents[agent]
-		// If agent doesn't exist, or model is empty string, try to auto-configure
 		if !exists || existing.Model == "" {
 			setDefaultModelForAgent(agent)
 		}
@@ -415,37 +456,27 @@ func setProviderDefaults() {
 
 // hasAWSCredentials checks if AWS credentials are available in the environment.
 func hasAWSCredentials() bool {
-	// Check for explicit AWS credentials
 	if os.Getenv("AWS_ACCESS_KEY_ID") != "" && os.Getenv("AWS_SECRET_ACCESS_KEY") != "" {
 		return true
 	}
-
-	// Check for AWS profile
 	if os.Getenv("AWS_PROFILE") != "" || os.Getenv("AWS_DEFAULT_PROFILE") != "" {
 		return true
 	}
-
-	// Check for AWS region
 	if os.Getenv("AWS_REGION") != "" || os.Getenv("AWS_DEFAULT_REGION") != "" {
 		return true
 	}
-
-	// Check if running on EC2 with instance profile
 	if os.Getenv("AWS_CONTAINER_CREDENTIALS_RELATIVE_URI") != "" ||
 		os.Getenv("AWS_CONTAINER_CREDENTIALS_FULL_URI") != "" {
 		return true
 	}
-
 	return false
 }
 
 // hasVertexAICredentials checks if VertexAI credentials are available in the environment.
 func hasVertexAICredentials() bool {
-	// Check for explicit VertexAI parameters
 	if os.Getenv("VERTEXAI_PROJECT") != "" && os.Getenv("VERTEXAI_LOCATION") != "" {
 		return true
 	}
-	// Check for Google Cloud project and location
 	if os.Getenv("GOOGLE_CLOUD_PROJECT") != "" && (os.Getenv("GOOGLE_CLOUD_REGION") != "" || os.Getenv("GOOGLE_CLOUD_LOCATION") != "") {
 		return true
 	}
@@ -457,12 +488,9 @@ func readConfig(err error) error {
 	if err == nil {
 		return nil
 	}
-
-	// It's okay if the config file doesn't exist
 	if _, ok := err.(viper.ConfigFileNotFoundError); ok {
 		return nil
 	}
-
 	return fmt.Errorf("failed to read config: %w", err)
 }
 
@@ -472,8 +500,6 @@ func mergeLocalConfig(workingDir string) {
 	local.SetConfigName(fmt.Sprintf(".%s", appName))
 	local.SetConfigType("json")
 	local.AddConfigPath(workingDir)
-
-	// Merge local config if it exists
 	if err := local.ReadInConfig(); err == nil {
 		viper.MergeConfigMap(local.AllSettings())
 	}
@@ -481,7 +507,6 @@ func mergeLocalConfig(workingDir string) {
 
 // applyDefaultValues sets default values for configuration fields that need processing.
 func applyDefaultValues() {
-	// Set default MCP type if not specified
 	for k, v := range cfg.MCPServers {
 		if v.Type == "" {
 			v.Type = MCPStdio
@@ -490,22 +515,182 @@ func applyDefaultValues() {
 	}
 }
 
-// It validates model IDs and providers, ensuring they are supported.
+// setDefaultModelForAgent sets default models based on available providers
+func setDefaultModelForAgent(agent AgentName) bool {
+	definitions := []providerDefinition{
+		// 1. Google Cloud VertexAI
+		{
+			CheckFunc:       hasVertexAICredentials,
+			CoderModel:      models.VertexAIGemini30Pro,
+			SummarizerModel: models.VertexAIGemini30Pro,
+			ExplorerModel:   models.VertexAIGemini30Flash,
+			DescriptorModel: models.VertexAIGemini30Flash,
+			WorkhorseModel:  models.VertexAIGemini30Pro,
+			HivemindModel:   models.VertexAIGemini30Pro,
+			FallbackModel:   models.VertexAIGemini30Pro,
+		},
+		// 2. Anthropic
+		{
+			EnvKey:          "ANTHROPIC_API_KEY",
+			CoderModel:      models.Claude45Sonnet1M,
+			SummarizerModel: models.Claude45Sonnet1M,
+			ExplorerModel:   models.Claude45Sonnet1M,
+			DescriptorModel: models.Claude45Sonnet1M,
+			WorkhorseModel:  models.Claude45Sonnet1M,
+			HivemindModel:   models.Claude45Sonnet1M,
+			FallbackModel:   models.Claude45Sonnet1M,
+		},
+		// 3. OpenAI
+		{
+			EnvKey:          "OPENAI_API_KEY",
+			CoderModel:      models.GPT5,
+			SummarizerModel: models.GPT5,
+			ExplorerModel:   models.O4Mini,
+			DescriptorModel: models.O4Mini,
+			WorkhorseModel:  models.GPT5,
+			HivemindModel:   models.GPT5,
+			FallbackModel:   models.GPT5,
+		},
+		// 4. Google Gemini (API)
+		{
+			EnvKey:          "GEMINI_API_KEY",
+			CoderModel:      models.Gemini30Pro,
+			SummarizerModel: models.Gemini30Pro,
+			ExplorerModel:   models.Gemini30Flash,
+			DescriptorModel: models.Gemini30Flash,
+			WorkhorseModel:  models.Gemini30Pro,
+			HivemindModel:   models.Gemini30Pro,
+			FallbackModel:   models.Gemini30Pro,
+		},
+		// 5. DeepSeek
+		{
+			EnvKey:          "DEEPSEEK_API_KEY",
+			CoderModel:      models.DeepSeekReasoner,
+			SummarizerModel: models.DeepSeekReasoner,
+			ExplorerModel:   models.DeepSeekChat,
+			DescriptorModel: models.DeepSeekChat,
+			WorkhorseModel:  models.DeepSeekReasoner,
+			HivemindModel:   models.DeepSeekReasoner,
+			FallbackModel:   models.DeepSeekReasoner,
+		},
+		// 6. Groq
+		{
+			EnvKey:          "GROQ_API_KEY",
+			CoderModel:      models.QWENQwq,
+			SummarizerModel: models.QWENQwq,
+			ExplorerModel:   models.QWENQwq,
+			DescriptorModel: models.QWENQwq,
+			WorkhorseModel:  models.QWENQwq,
+			HivemindModel:   models.QWENQwq,
+			FallbackModel:   models.QWENQwq,
+		},
+		// 7. OpenRouter
+		{
+			EnvKey:          "OPENROUTER_API_KEY",
+			CoderModel:      models.OpenRouterClaude37Sonnet,
+			SummarizerModel: models.OpenRouterClaude37Sonnet,
+			ExplorerModel:   models.OpenRouterClaude37Sonnet,
+			DescriptorModel: models.OpenRouterClaude35Haiku,
+			WorkhorseModel:  models.OpenRouterClaude37Sonnet,
+			HivemindModel:   models.OpenRouterClaude37Sonnet,
+			FallbackModel:   models.OpenRouterClaude37Sonnet,
+		},
+		// 8. xAI
+		{
+			EnvKey:          "XAI_API_KEY",
+			CoderModel:      models.XAIGrokCodeFast1,
+			SummarizerModel: models.XAIGrok41FastReasoning,
+			ExplorerModel:   models.XAIGrok41FastReasoning,
+			DescriptorModel: models.XAIGrok41FastNonReasoning,
+			WorkhorseModel:  models.XAIGrokCodeFast1,
+			HivemindModel:   models.XAIGrok41FastReasoning,
+			FallbackModel:   models.XAIGrokCodeFast1,
+		},
+		// 9. AWS Bedrock
+		{
+			CheckFunc:       hasAWSCredentials,
+			CoderModel:      models.BedrockClaude45Sonnet,
+			SummarizerModel: models.BedrockClaude45Sonnet,
+			ExplorerModel:   models.BedrockClaude45Sonnet,
+			DescriptorModel: models.BedrockClaude45Sonnet,
+			WorkhorseModel:  models.BedrockClaude45Sonnet,
+			HivemindModel:   models.BedrockClaude45Sonnet,
+			FallbackModel:   models.BedrockClaude45Sonnet,
+		},
+	}
+
+	for _, def := range definitions {
+		available := false
+		if def.CheckFunc != nil {
+			available = def.CheckFunc()
+		} else if def.EnvKey != "" {
+			available = os.Getenv(def.EnvKey) != ""
+		}
+
+		if available {
+			configureAgent(agent, def)
+			return true
+		}
+	}
+
+	return false
+}
+
+// configureAgent applies the specific configuration for a single agent type
+func configureAgent(agent AgentName, def providerDefinition) {
+	var selectedModel models.ModelID
+	var maxTokens int64
+
+	switch agent {
+	case AgentCoder:
+		selectedModel = def.CoderModel
+	case AgentSummarizer:
+		selectedModel = def.SummarizerModel
+	case AgentExplorer:
+		selectedModel = def.ExplorerModel
+	case AgentDescriptor:
+		selectedModel = def.DescriptorModel
+		maxTokens = 80 // Hard limit
+	case AgentWorkhorse:
+		selectedModel = def.WorkhorseModel
+	case AgentHivemind:
+		selectedModel = def.HivemindModel
+	}
+
+	if selectedModel == "" {
+		selectedModel = def.FallbackModel
+	}
+
+	if maxTokens == 0 {
+		if info, ok := models.SupportedModels[selectedModel]; ok && info.DefaultMaxTokens > 0 {
+			maxTokens = info.DefaultMaxTokens
+		} else {
+			maxTokens = MaxTokensFallbackDefault
+		}
+	}
+
+	reasoningEffort := ""
+	if info, ok := models.SupportedModels[selectedModel]; ok && info.CanReason {
+		reasoningEffort = "medium"
+	}
+
+	cfg.Agents[agent] = Agent{
+		Model:           selectedModel,
+		MaxTokens:       maxTokens,
+		ReasoningEffort: reasoningEffort,
+	}
+}
+
+// validateAgent validates model IDs and providers.
 func validateAgent(cfg *Config, name AgentName, agent Agent) error {
 	// Check if model exists
 	model, modelExists := models.SupportedModels[agent.Model]
 	if !modelExists {
-		logging.Warn("unsupported model configured, reverting to default",
-			"agent", name,
-			"configured_model", agent.Model)
-
-		// Set default model based on available providers
+		logging.Warn("unsupported model configured, reverting to default", "agent", name, "model", agent.Model)
 		if setDefaultModelForAgent(name) {
-			logging.Info("set default model for agent", "agent", name, "model", cfg.Agents[name].Model)
-		} else {
-			return fmt.Errorf("no valid provider available for agent %s", name)
+			return nil
 		}
-		return nil
+		return fmt.Errorf("no valid provider available for agent %s", name)
 	}
 
 	// Check if provider for the model is configured
@@ -513,54 +698,29 @@ func validateAgent(cfg *Config, name AgentName, agent Agent) error {
 	providerCfg, providerExists := cfg.Providers[provider]
 
 	if !providerExists {
-		// Provider not configured, check if we have environment variables
 		apiKey := getProviderAPIKey(provider)
 		if apiKey == "" {
-			logging.Warn("provider not configured for model, reverting to default",
-				"agent", name,
-				"model", agent.Model,
-				"provider", provider)
-
-			// Set default model based on available providers
+			logging.Warn("provider not configured for model, reverting default", "agent", name)
 			if setDefaultModelForAgent(name) {
-				logging.Info("set default model for agent", "agent", name, "model", cfg.Agents[name].Model)
-			} else {
-				return fmt.Errorf("no valid provider available for agent %s", name)
+				return nil
 			}
-		} else {
-			// Add provider with API key from environment
-			// Initialize map if nil to avoid panic
-			if cfg.Providers == nil {
-				cfg.Providers = make(map[models.ModelProvider]Provider)
-			}
-			cfg.Providers[provider] = Provider{
-				APIKey: apiKey,
-			}
-			logging.Info("added provider from environment", "provider", provider)
-		}
-	} else if providerCfg.Disabled || providerCfg.APIKey == "" {
-		// Provider is disabled or has no API key
-		logging.Warn("provider is disabled or has no API key, reverting to default",
-			"agent", name,
-			"model", agent.Model,
-			"provider", provider)
-
-		// Set default model based on available providers
-		if setDefaultModelForAgent(name) {
-			logging.Info("set default model for agent", "agent", name, "model", cfg.Agents[name].Model)
-		} else {
 			return fmt.Errorf("no valid provider available for agent %s", name)
 		}
+		// Add provider from env
+		if cfg.Providers == nil {
+			cfg.Providers = make(map[models.ModelProvider]Provider)
+		}
+		cfg.Providers[provider] = Provider{APIKey: apiKey}
+	} else if providerCfg.Disabled || providerCfg.APIKey == "" {
+		logging.Warn("provider disabled/empty, reverting default", "agent", name)
+		if setDefaultModelForAgent(name) {
+			return nil
+		}
+		return fmt.Errorf("no valid provider available for agent %s", name)
 	}
 
-	// Validate max tokens
+	// Update max tokens if invalid
 	if agent.MaxTokens <= 0 {
-		logging.Warn("invalid max tokens, setting to default",
-			"agent", name,
-			"model", agent.Model,
-			"max_tokens", agent.MaxTokens)
-
-		// Update the agent with default max tokens
 		updatedAgent := cfg.Agents[name]
 		if model.DefaultMaxTokens > 0 {
 			updatedAgent.MaxTokens = model.DefaultMaxTokens
@@ -568,97 +728,30 @@ func validateAgent(cfg *Config, name AgentName, agent Agent) error {
 			updatedAgent.MaxTokens = MaxTokensFallbackDefault
 		}
 		cfg.Agents[name] = updatedAgent
-	} else if model.ContextWindow > 0 && agent.MaxTokens > model.ContextWindow/2 {
-		// Ensure max tokens doesn't exceed half the context window (reasonable limit)
-		logging.Warn("max tokens exceeds half the context window, adjusting",
-			"agent", name,
-			"model", agent.Model,
-			"max_tokens", agent.MaxTokens,
-			"context_window", model.ContextWindow)
-
-		// Update the agent with adjusted max tokens
-		updatedAgent := cfg.Agents[name]
-		updatedAgent.MaxTokens = model.ContextWindow / 2
-		cfg.Agents[name] = updatedAgent
 	}
 
-	// Validate reasoning effort for models that support reasoning
-	if model.CanReason && provider == models.ProviderOpenAI || provider == models.ProviderLocal {
+	// Reasoning effort checks
+	if model.CanReason && (provider == models.ProviderOpenAI || provider == models.ProviderLocal) {
 		if agent.ReasoningEffort == "" {
-			// Set default reasoning effort for models that support it
-			logging.Info("setting default reasoning effort for model that supports reasoning",
-				"agent", name,
-				"model", agent.Model)
-
-			// Update the agent with default reasoning effort
 			updatedAgent := cfg.Agents[name]
 			updatedAgent.ReasoningEffort = "medium"
 			cfg.Agents[name] = updatedAgent
-		} else {
-			// Check if reasoning effort is valid (low, medium, high)
-			effort := strings.ToLower(agent.ReasoningEffort)
-			if effort != "low" && effort != "medium" && effort != "high" {
-				logging.Warn("invalid reasoning effort, setting to medium",
-					"agent", name,
-					"model", agent.Model,
-					"reasoning_effort", agent.ReasoningEffort)
-
-				// Update the agent with valid reasoning effort
-				updatedAgent := cfg.Agents[name]
-				updatedAgent.ReasoningEffort = "medium"
-				cfg.Agents[name] = updatedAgent
-			}
 		}
-	} else if model.CanReason && model.SupportsAdaptiveThinking {
-		if agent.ReasoningEffort != "" {
-			effort := strings.ToLower(agent.ReasoningEffort)
-			if effort == "max" && !model.SupportsMaximumThinking {
-				logging.Warn("model doesn't support 'max' reasoning effort, falling back to 'high'",
-					"agent", name,
-					"model", agent.Model)
-
-				updatedAgent := cfg.Agents[name]
-				updatedAgent.ReasoningEffort = "high"
-				cfg.Agents[name] = updatedAgent
-			} else if effort != "low" && effort != "medium" && effort != "high" && effort != "max" {
-				logging.Warn("invalid reasoning effort for adaptive thinking model, setting to high",
-					"agent", name,
-					"model", agent.Model,
-					"reasoning_effort", agent.ReasoningEffort)
-
-				updatedAgent := cfg.Agents[name]
-				updatedAgent.ReasoningEffort = "high"
-				cfg.Agents[name] = updatedAgent
-			}
-		}
-	} else if !model.CanReason && agent.ReasoningEffort != "" {
-		// Model doesn't support reasoning but reasoning effort is set
-		logging.Warn("model doesn't support reasoning but reasoning effort is set, ignoring",
-			"agent", name,
-			"model", agent.Model,
-			"reasoning_effort", agent.ReasoningEffort)
-
-		// Update the agent to remove reasoning effort
-		updatedAgent := cfg.Agents[name]
-		updatedAgent.ReasoningEffort = ""
-		cfg.Agents[name] = updatedAgent
 	}
 
 	return nil
 }
 
-// Validate checks if the configuration is valid and applies defaults where needed.
+// Validate checks if the configuration is valid.
 func Validate() error {
 	if cfg == nil {
 		return fmt.Errorf("config not loaded")
 	}
 
-	// Validate session provider configuration
 	if err := validateSessionProvider(); err != nil {
 		return fmt.Errorf("session provider validation failed: %w", err)
 	}
 
-	// Validate agent models
 	for name, agent := range cfg.Agents {
 		if err := validateAgent(cfg, name, agent); err != nil {
 			return err
@@ -724,7 +817,7 @@ func validateSessionProvider() error {
 	return nil
 }
 
-// getProviderAPIKey gets the API key for a provider from environment variables
+// getProviderAPIKey gets the API key from environment.
 func getProviderAPIKey(provider models.ModelProvider) string {
 	switch provider {
 	case models.ProviderAnthropic:
@@ -753,182 +846,12 @@ func getProviderAPIKey(provider models.ModelProvider) string {
 	return ""
 }
 
-// setDefaultModelForAgent sets default models based on available providers in priority order
-func setDefaultModelForAgent(agent AgentName) bool {
-	definitions := []providerDefinition{
-		// 1. Google Cloud VertexAI
-		{
-			CheckFunc:       hasVertexAICredentials,
-			CoderModel:      models.VertexAIGemini30Pro,
-			SummarizerModel: models.VertexAIGemini30Pro,
-			TaskModel:       models.VertexAIGemini30Flash,
-			TitleModel:      models.VertexAIGemini30Flash,
-			FallbackModel:   models.VertexAIGemini30Pro,
-		},
-		// 2. Anthropic
-		{
-			EnvKey:          "ANTHROPIC_API_KEY",
-			CoderModel:      models.Claude45Sonnet1M,
-			SummarizerModel: models.Claude45Sonnet1M,
-			TaskModel:       models.Claude45Sonnet1M,
-			TitleModel:      models.Claude45Sonnet1M,
-			FallbackModel:   models.Claude45Sonnet1M,
-		},
-		// 3. OpenAI
-		{
-			EnvKey:          "OPENAI_API_KEY",
-			CoderModel:      models.GPT5,
-			SummarizerModel: models.GPT5,
-			TaskModel:       models.O4Mini,
-			TitleModel:      models.O4Mini,
-			FallbackModel:   models.GPT5,
-		},
-		// 4. Google Gemini (API)
-		{
-			EnvKey:          "GEMINI_API_KEY",
-			CoderModel:      models.Gemini30Pro,
-			SummarizerModel: models.Gemini30Pro,
-			TaskModel:       models.Gemini30Flash,
-			TitleModel:      models.Gemini30Flash,
-			FallbackModel:   models.Gemini30Pro,
-		},
-		// 5. DeepSeek
-		{
-			EnvKey:          "DEEPSEEK_API_KEY",
-			CoderModel:      models.DeepSeekReasoner,
-			SummarizerModel: models.DeepSeekReasoner,
-			TaskModel:       models.DeepSeekChat,
-			TitleModel:      models.DeepSeekChat,
-			FallbackModel:   models.DeepSeekReasoner,
-		},
-		// 6. Groq
-		{
-			EnvKey:          "GROQ_API_KEY",
-			CoderModel:      models.QWENQwq,
-			SummarizerModel: models.QWENQwq,
-			TaskModel:       models.QWENQwq,
-			TitleModel:      models.QWENQwq,
-			FallbackModel:   models.QWENQwq,
-		},
-		// 7. OpenRouter
-		{
-			EnvKey:          "OPENROUTER_API_KEY",
-			CoderModel:      models.OpenRouterClaude37Sonnet,
-			SummarizerModel: models.OpenRouterClaude37Sonnet,
-			TaskModel:       models.OpenRouterClaude37Sonnet,
-			TitleModel:      models.OpenRouterClaude35Haiku,
-			FallbackModel:   models.OpenRouterClaude37Sonnet,
-		},
-		// 8. xAI
-		{
-			EnvKey:          "XAI_API_KEY",
-			CoderModel:      models.XAIGrokCodeFast1,
-			SummarizerModel: models.XAIGrok41FastReasoning,
-			TaskModel:       models.XAIGrok41FastReasoning,
-			TitleModel:      models.XAIGrok41FastNonReasoning,
-			FallbackModel:   models.XAIGrokCodeFast1,
-		},
-		// 9. Moonshot
-		//{
-		//	EnvKey:          "MOONSHOT_API_KEY",
-		//	CoderModel:      models.Kimi_K2,
-		//	SummarizerModel: models.Kimi_K2,
-		//	TaskModel:       models.Kimi_K2,
-		//	TitleModel:      models.MoonshotModels, // Using the smaller one for titles
-		//	FallbackModel:   models.Kimi_K2,
-		//},
-		// 10. Qwen
-		{
-			EnvKey:          "QWEN_API_KEY",
-			CoderModel:      models.QWENQwq,
-			SummarizerModel: models.QWENQwq,
-			TaskModel:       models.QWENQwq,
-			TitleModel:      models.QWENQwq,
-			FallbackModel:   models.QWENQwq,
-		},
-		// 11. AWS Bedrock
-		{
-			CheckFunc:       hasAWSCredentials,
-			CoderModel:      models.BedrockClaude45Sonnet,
-			SummarizerModel: models.BedrockClaude45Sonnet,
-			TaskModel:       models.BedrockClaude45Sonnet,
-			TitleModel:      models.BedrockClaude45Sonnet,
-			FallbackModel:   models.BedrockClaude45Sonnet,
-		},
-	}
-
-	for _, def := range definitions {
-		// Check if this provider is configured/available
-		available := false
-		if def.CheckFunc != nil {
-			available = def.CheckFunc()
-		} else if def.EnvKey != "" {
-			available = os.Getenv(def.EnvKey) != ""
-		}
-
-		// If available, apply the specific agent's model
-		if available {
-			configureAgent(agent, def)
-			return true
-		}
-	}
-
-	return false
-}
-
-// configureAgent applies the specific configuration for a single agent type
-func configureAgent(agent AgentName, def providerDefinition) {
-	var selectedModel models.ModelID
-	var maxTokens int64
-
-	// 1. Explicitly match the requested agent to its dedicated model
-	switch agent {
-	case AgentCoder:
-		selectedModel = def.CoderModel
-	case AgentSummarizer:
-		selectedModel = def.SummarizerModel
-	case AgentTask:
-		selectedModel = def.TaskModel
-	case AgentTitle:
-		selectedModel = def.TitleModel
-		maxTokens = 80 // Hard limit for titles to save costs/time
-	}
-
-	// Safety fallback in case a field was accidentally left empty
-	if selectedModel == "" {
-		selectedModel = def.FallbackModel
-	}
-
-	// 2. Determine Max Tokens (if not restricted by the Title agent)
-	if maxTokens == 0 {
-		if info, ok := models.SupportedModels[selectedModel]; ok && info.DefaultMaxTokens > 0 {
-			maxTokens = info.DefaultMaxTokens
-		} else {
-			maxTokens = MaxTokensFallbackDefault
-		}
-	}
-
-	// 3. Determine Reasoning Effort dynamically
-	reasoningEffort := ""
-	if info, ok := models.SupportedModels[selectedModel]; ok && info.CanReason {
-		reasoningEffort = "medium"
-	}
-
-	cfg.Agents[agent] = Agent{
-		Model:           selectedModel,
-		MaxTokens:       maxTokens,
-		ReasoningEffort: reasoningEffort,
-	}
-}
-
 // updateCfgFile updates the configuration file.
-// NOTE: The caller MUST hold the 'mu' lock before calling this function.
 func updateCfgFile(updateCfg func(config *Config)) error {
 	if cfg == nil {
 		return fmt.Errorf("config not loaded")
 	}
 
-	// Get the config file path
 	configFile := viper.ConfigFileUsed()
 	var configData []byte
 	if configFile == "" {
@@ -937,10 +860,8 @@ func updateCfgFile(updateCfg func(config *Config)) error {
 			return fmt.Errorf("failed to get home directory: %w", err)
 		}
 		configFile = filepath.Join(homeDir, fmt.Sprintf(".%s.json", appName))
-		logging.Info("config file not found, creating new one", "path", configFile)
 		configData = []byte(`{}`)
 	} else {
-		// Read the existing config file
 		data, err := os.ReadFile(configFile)
 		if err != nil {
 			return fmt.Errorf("failed to read config file: %w", err)
@@ -948,7 +869,6 @@ func updateCfgFile(updateCfg func(config *Config)) error {
 		configData = data
 	}
 
-	// Parse the JSON
 	var userCfg *Config
 	if err := json.Unmarshal(configData, &userCfg); err != nil {
 		return fmt.Errorf("failed to parse config file: %w", err)
@@ -956,32 +876,27 @@ func updateCfgFile(updateCfg func(config *Config)) error {
 
 	updateCfg(userCfg)
 
-	// Write the updated config back to file
 	updatedData, err := json.MarshalIndent(userCfg, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
-
 	if err := os.WriteFile(configFile, updatedData, 0o644); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
-
 	return nil
 }
 
 // Get returns the current configuration.
-// It's safe to call this function multiple times.
 func Get() *Config {
 	mu.RLock()
 	defer mu.RUnlock()
 	return cfg
 }
 
-// WorkingDirectory returns the current working directory from the configuration.
+// WorkingDirectory returns the current working directory.
 func WorkingDirectory() string {
-	mu.Lock() // Lock for writing
+	mu.Lock()
 	defer mu.Unlock()
-
 	if cfg == nil {
 		panic("config not loaded")
 	}
@@ -992,35 +907,41 @@ func (c *Config) WorkingDirectory() string {
 	return WorkingDirectory()
 }
 
+// UpdateAgentModel updates an agent's model in the config.
 func UpdateAgentModel(agentName AgentName, modelID models.ModelID) error {
-	mu.Lock() // Lock for writing
+	mu.Lock()
 	defer mu.Unlock()
 
 	if cfg == nil {
 		panic("config not loaded")
 	}
-
 	existingAgentCfg := cfg.Agents[agentName]
-
 	model, ok := models.SupportedModels[modelID]
 	if !ok {
 		return fmt.Errorf("model %s not supported", modelID)
 	}
-
 	maxTokens := existingAgentCfg.MaxTokens
 	if model.DefaultMaxTokens > 0 {
 		maxTokens = model.DefaultMaxTokens
 	}
-
 	newAgentCfg := Agent{
 		Model:           modelID,
 		MaxTokens:       maxTokens,
 		ReasoningEffort: existingAgentCfg.ReasoningEffort,
+		// Preserve upstream fields
+		Mode:        existingAgentCfg.Mode,
+		Name:        existingAgentCfg.Name,
+		Description: existingAgentCfg.Description,
+		Prompt:      existingAgentCfg.Prompt,
+		Color:       existingAgentCfg.Color,
+		Hidden:      existingAgentCfg.Hidden,
+		// Preserve rules/permissions
+		Permission: existingAgentCfg.Permission,
+		Tools:      existingAgentCfg.Tools,
 	}
 	cfg.Agents[agentName] = newAgentCfg
 
 	if err := validateAgent(cfg, agentName, newAgentCfg); err != nil {
-		// revert config update on failure
 		cfg.Agents[agentName] = existingAgentCfg
 		return fmt.Errorf("failed to update agent model: %w", err)
 	}
@@ -1033,19 +954,14 @@ func UpdateAgentModel(agentName AgentName, modelID models.ModelID) error {
 	})
 }
 
-// UpdateTheme updates the theme in the configuration and writes it to the config file.
+// UpdateTheme updates the theme.
 func UpdateTheme(themeName string) error {
-	mu.Lock() // Lock for writing
+	mu.Lock()
 	defer mu.Unlock()
-
 	if cfg == nil {
 		return fmt.Errorf("config not loaded")
 	}
-
-	// Update the in-memory config
 	cfg.TUI.Theme = themeName
-
-	// Update the file config
 	return updateCfgFile(func(config *Config) {
 		config.TUI.Theme = themeName
 	})

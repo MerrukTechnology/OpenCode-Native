@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	agentregistry "github.com/MerrukTechnology/OpenCode-Native/internal/agent"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/diff"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/history"
@@ -38,6 +39,7 @@ type multiEditTool struct {
 	lspClients  map[string]*lsp.Client
 	permissions permission.Service
 	files       history.Service
+	registry    agentregistry.Registry
 }
 
 const (
@@ -79,11 +81,12 @@ When making edits:
 - Use replace_all for replacing and renaming strings across the file. This parameter is useful if you want to rename a variable for instance.`
 )
 
-func NewMultiEditTool(lspClients map[string]*lsp.Client, permissions permission.Service, files history.Service) BaseTool {
+func NewMultiEditTool(lspClients map[string]*lsp.Client, permissions permission.Service, files history.Service, reg agentregistry.Registry) BaseTool {
 	return &multiEditTool{
 		lspClients:  lspClients,
 		permissions: permissions,
 		files:       files,
+		registry:    reg,
 	}
 }
 
@@ -220,21 +223,29 @@ func (m *multiEditTool) Run(ctx context.Context, call ToolCall) (ToolResponse, e
 	if strings.HasPrefix(params.FilePath, rootDir) {
 		permissionPath = rootDir
 	}
-	p := m.permissions.Request(
-		permission.CreatePermissionRequest{
-			SessionID:   sessionID,
-			Path:        permissionPath,
-			ToolName:    MultiEditToolName,
-			Action:      "write",
-			Description: fmt.Sprintf("Apply %d edits to file %s", len(params.Edits), params.FilePath),
-			Params: EditPermissionsParams{
-				FilePath: params.FilePath,
-				Diff:     combinedDiff,
-			},
-		},
-	)
-	if !p {
+	action := m.registry.EvaluatePermission(string(GetAgentID(ctx)), MultiEditToolName, params.FilePath)
+	switch action {
+	case permission.ActionAllow:
+		// Allowed by config
+	case permission.ActionDeny:
 		return NewEmptyResponse(), permission.ErrorPermissionDenied
+	default:
+		p := m.permissions.Request(
+			permission.CreatePermissionRequest{
+				SessionID:   sessionID,
+				Path:        permissionPath,
+				ToolName:    MultiEditToolName,
+				Action:      "write",
+				Description: fmt.Sprintf("Apply %d edits to file %s", len(params.Edits), params.FilePath),
+				Params: EditPermissionsParams{
+					FilePath: params.FilePath,
+					Diff:     combinedDiff,
+				},
+			},
+		)
+		if !p {
+			return NewEmptyResponse(), permission.ErrorPermissionDenied
+		}
 	}
 
 	err = os.WriteFile(params.FilePath, []byte(currentContent), 0o644)

@@ -9,12 +9,15 @@ import (
 	"sync"
 	"time"
 
+	agentregistry "github.com/MerrukTechnology/OpenCode-Native/internal/agent"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/history"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/models"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/prompt"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/provider"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/tools"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/message"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/permission"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/pubsub"
@@ -55,6 +58,7 @@ type AgentEvent struct {
 
 type Service interface {
 	pubsub.Suscriber[AgentEvent]
+	AgentID() config.AgentName
 	Model() models.Model
 	Run(ctx context.Context, sessionID string, content string, attachments ...message.Attachment) (<-chan AgentEvent, error)
 	Cancel(sessionID string)
@@ -69,7 +73,9 @@ type agent struct {
 	sessions session.Service
 	messages message.Service
 
-	agentName config.AgentName
+	agentID   config.AgentName
+	toolsCh   <-chan tools.BaseTool
+	toolsOnce sync.Once
 	tools     []tools.BaseTool
 	provider  provider.Provider
 
@@ -80,26 +86,30 @@ type agent struct {
 }
 
 func NewAgent(
-	agentName config.AgentName,
+	ctx context.Context,
+	agentInfo *agentregistry.AgentInfo,
 	sessions session.Service,
 	messages message.Service,
-	agentTools []tools.BaseTool,
+	permissions permission.Service,
+	historyService history.Service,
+	lspClients map[string]*lsp.Client,
+	reg agentregistry.Registry,
+	mcpReg MCPRegistry,
 ) (Service, error) {
-	agentProvider, err := createAgentProvider(agentName)
+	agentTools := NewToolSet(ctx, agentInfo, reg, permissions, historyService, lspClients, sessions, messages, mcpReg)
+
+	agentProvider, err := createAgentProvider(agentInfo.ID)
 	if err != nil {
 		return nil, err
 	}
-	var titleProvider provider.Provider
-	// Only generate titles for the coder agent
-	if agentName == config.AgentCoder {
-		titleProvider, err = createAgentProvider(config.AgentTitle)
+
+	var titleProvider, summarizeProvider provider.Provider
+	if agentInfo.Mode == config.AgentModeAgent {
+		summarizeProvider, err = createAgentProvider(config.AgentSummarizer)
 		if err != nil {
 			return nil, err
 		}
-	}
-	var summarizeProvider provider.Provider
-	if agentName == config.AgentCoder {
-		summarizeProvider, err = createAgentProvider(config.AgentSummarizer)
+		titleProvider, err = createAgentProvider(config.AgentDescriptor)
 		if err != nil {
 			return nil, err
 		}
@@ -107,17 +117,21 @@ func NewAgent(
 
 	agent := &agent{
 		Broker:            pubsub.NewBroker[AgentEvent](),
-		agentName:         agentName,
+		agentID:           agentInfo.ID,
 		provider:          agentProvider,
 		messages:          messages,
 		sessions:          sessions,
-		tools:             agentTools,
+		toolsCh:           agentTools,
 		titleProvider:     titleProvider,
 		summarizeProvider: summarizeProvider,
 		activeRequests:    sync.Map{},
 	}
 
 	return agent, nil
+}
+
+func (a *agent) AgentID() config.AgentName {
+	return a.agentID
 }
 
 func (a *agent) Model() models.Model {
@@ -144,7 +158,7 @@ func (a *agent) Cancel(sessionID string) {
 
 func (a *agent) IsBusy() bool {
 	busy := false
-	a.activeRequests.Range(func(key, value interface{}) bool {
+	a.activeRequests.Range(func(key, value any) bool {
 		if cancelFunc, ok := value.(context.CancelFunc); ok {
 			if cancelFunc != nil {
 				busy = true
@@ -218,7 +232,8 @@ func (a *agent) Run(ctx context.Context, sessionID string, content string, attac
 
 	a.activeRequests.Store(sessionID, cancel)
 	go func() {
-		logging.Debug("Request started", "sessionID", sessionID)
+		logging.Info("Agent started", "sessionID", sessionID, "agent", a.AgentID())
+		now := time.Now()
 		defer logging.RecoverPanic("agent.Run", func() {
 			events <- a.err(fmt.Errorf("panic while running the agent"))
 		})
@@ -226,11 +241,20 @@ func (a *agent) Run(ctx context.Context, sessionID string, content string, attac
 		for _, attachment := range attachments {
 			attachmentParts = append(attachmentParts, message.BinaryContent{Path: attachment.FilePath, MIMEType: attachment.MimeType, Data: attachment.Content})
 		}
+
 		result := a.processGeneration(genCtx, sessionID, content, attachmentParts)
-		if result.Error != nil && !errors.Is(result.Error, ErrRequestCancelled) && !errors.Is(result.Error, context.Canceled) {
-			logging.ErrorPersist(result.Error.Error())
+		gauge := time.Since(now).Milliseconds()
+		if result.Error != nil {
+			if errors.Is(result.Error, ErrRequestCancelled) || errors.Is(result.Error, context.Canceled) {
+				logging.Warn("Agent processing cancelled", "sessionID", sessionID, "agent", a.AgentID(), "gauge", gauge)
+			} else {
+				logging.Error("Agent processing failed", "sessionID", sessionID, "agent", a.AgentID(), "gauge", gauge)
+				logging.ErrorPersist(result.Error.Error())
+			}
+		} else {
+			logging.Info("Agent completed", "sessionID", sessionID, "agent", a.AgentID(), "gauge", gauge)
 		}
-		logging.Debug("Request completed", "sessionID", sessionID)
+
 		a.activeRequests.Delete(sessionID)
 		cancel()
 		a.Publish(pubsub.CreatedEvent, result)
@@ -277,6 +301,9 @@ func (a *agent) processGeneration(ctx context.Context, sessionID, content string
 	cycles := 0
 	preserveTail := false
 
+	// Susped to get lazy tools
+	toolSet := a.resolveTools()
+
 	for {
 		cycles += 1
 		// Check for cancellation before each iteration
@@ -287,7 +314,7 @@ func (a *agent) processGeneration(ctx context.Context, sessionID, content string
 			// Continue processing
 		}
 
-		etaTokens, shouldTriggerAutoCompaction := a.provider.CountTokens(ctx, AutoCompactionThreshold, msgHistory, a.tools)
+		etaTokens, shouldTriggerAutoCompaction := a.provider.CountTokens(ctx, AutoCompactionThreshold, msgHistory, toolSet)
 		// Check if auto-compaction should be triggered before each model call
 		// This is crucial for long tool use loops that can exceed context limits
 		// NOTE: since tool may provide output exceeding context limit when combined with existing history,
@@ -303,19 +330,19 @@ func (a *agent) processGeneration(ctx context.Context, sessionID, content string
 			)
 
 			// Perform synchronous compaction to shrink context
-			if err := a.performSynchronousCompaction(ctx, sessionID); err != nil {
-				logging.Warn("Failed to perform auto-compaction during tool use", "error", err)
+			if errSync := a.performSynchronousCompaction(ctx, sessionID); errSync != nil {
+				logging.Warn("Failed to perform auto-compaction during tool use", "error", errSync)
 				// Continue anyway - better to risk context overflow than stop completely
 			} else {
 				// After successful compaction, reload messages and rebuild msgHistory
-				msgs, err := a.messages.List(ctx, sessionID)
+				msgs, errMsg := a.messages.List(ctx, sessionID)
 				if err != nil {
-					return a.err(fmt.Errorf("failed to reload messages after compaction: %w", err))
+					return a.err(fmt.Errorf("failed to reload messages after compaction: %w", errMsg))
 				}
 
-				session, err := a.sessions.Get(ctx, sessionID)
-				if err != nil {
-					return a.err(fmt.Errorf("failed to get session after compaction: %w", err))
+				session, errMsg := a.sessions.Get(ctx, sessionID)
+				if errMsg != nil {
+					return a.err(fmt.Errorf("failed to get session after compaction: %w", errMsg))
 				}
 				msgs = a.filterMessagesFromSummary(msgs, session.SummaryMessageID)
 				// Preserve original problem and result from the last tool iteration to ensure no dead-loop
@@ -326,7 +353,7 @@ func (a *agent) processGeneration(ctx context.Context, sessionID, content string
 					msgHistory = append(msgs, userMsg)
 				}
 
-				etaTokens, shouldTriggerAutoCompaction = a.provider.CountTokens(ctx, AutoCompactionThreshold, msgHistory, a.tools)
+				etaTokens, shouldTriggerAutoCompaction = a.provider.CountTokens(ctx, AutoCompactionThreshold, msgHistory, toolSet)
 				if shouldTriggerAutoCompaction {
 					logging.Warn(
 						"Context compacted, but still exceed context threshold",
@@ -350,21 +377,22 @@ func (a *agent) processGeneration(ctx context.Context, sessionID, content string
 		// Ensure we don't run into API limitation (max_token to be generated + current tokens count)
 		a.provider.AdjustMaxTokens(etaTokens)
 
-		agentMessage, toolResults, err = a.streamAndHandleEvents(ctx, sessionID, msgHistory)
+		agentMessage, toolResults, err = a.streamAndHandleEvents(ctx, sessionID, msgHistory, toolSet)
 		if err != nil {
+			a.createErrorToolResults(agentMessage)
 			if errors.Is(err, context.Canceled) {
-				agentMessage.AddFinish(message.FinishReasonCanceled)
-				a.messages.Update(context.Background(), agentMessage)
+				a.finishMessage(ctx, &agentMessage, message.FinishReasonCanceled)
 				return a.err(ErrRequestCancelled)
 			}
+			a.finishMessage(ctx, &agentMessage, message.FinishReasonError)
 			return a.err(fmt.Errorf("failed to process events: %w", err))
 		}
 		if cfg.Debug {
 			seqID := (len(msgHistory) + 1) / 2
 			toolResultFilepath := logging.WriteToolResultsJson(sessionID, seqID, toolResults)
-			logging.Info("Result", "message", agentMessage.FinishReason(), "toolResults", "{}", "filepath", toolResultFilepath, "cycle", cycles)
+			logging.Info("Provider stream completed", "reason", agentMessage.FinishReason(), "filepath", toolResultFilepath, "cycle", cycles)
 		} else {
-			logging.Info("Result", "message", agentMessage.FinishReason(), "toolResults", toolResults, "cycle", cycles)
+			logging.Info("Provider stream completed", "reason", agentMessage.FinishReason(), "cycle", cycles)
 		}
 		if agentMessage.FinishReason() == message.FinishReasonToolUse {
 			if toolResults == nil {
@@ -407,7 +435,7 @@ func (a *agent) createUserMessage(ctx context.Context, sessionID, content string
 	})
 }
 
-func (a *agent) streamAndHandleEvents(ctx context.Context, sessionID string, msgHistory []message.Message) (message.Message, *message.Message, error) {
+func (a *agent) streamAndHandleEvents(ctx context.Context, sessionID string, msgHistory []message.Message, toolSet []tools.BaseTool) (message.Message, *message.Message, error) {
 	// Check if this is a task session (has a parent session)
 	session, err := a.sessions.Get(ctx, sessionID)
 	if err == nil && session.ParentSessionID != "" {
@@ -415,8 +443,8 @@ func (a *agent) streamAndHandleEvents(ctx context.Context, sessionID string, msg
 	}
 
 	ctx = context.WithValue(ctx, tools.SessionIDContextKey, sessionID)
-	ctx = context.WithValue(ctx, tools.AgentNameContextKey, a.agentName)
-	eventChan := a.provider.StreamResponse(ctx, msgHistory, a.tools)
+	ctx = context.WithValue(ctx, tools.AgentIDContextKey, a.AgentID())
+	eventChan := a.provider.StreamResponse(ctx, msgHistory, toolSet)
 
 	assistantMsg, err := a.messages.Create(ctx, sessionID, message.CreateMessageParams{
 		Role:  message.Assistant,
@@ -427,21 +455,19 @@ func (a *agent) streamAndHandleEvents(ctx context.Context, sessionID string, msg
 		return assistantMsg, nil, fmt.Errorf("failed to create assistant message: %w", err)
 	}
 
-	// Add the session and message ID into the context if needed by tools.
 	ctx = context.WithValue(ctx, tools.MessageIDContextKey, assistantMsg.ID)
 
-	// Process each event in the stream.
+	// Process provider response first
 	for event := range eventChan {
 		if processErr := a.processEvent(ctx, sessionID, &assistantMsg, event); processErr != nil {
-			a.finishMessage(ctx, &assistantMsg, message.FinishReasonCanceled)
 			return assistantMsg, nil, processErr
 		}
 		if ctx.Err() != nil {
-			a.finishMessage(context.Background(), &assistantMsg, message.FinishReasonCanceled)
 			return assistantMsg, nil, ctx.Err()
 		}
 	}
 
+	// Process tool calls
 	toolResults := make([]message.ToolResult, len(assistantMsg.ToolCalls()))
 	toolCalls := assistantMsg.ToolCalls()
 	for i, toolCall := range toolCalls {
@@ -452,6 +478,7 @@ func (a *agent) streamAndHandleEvents(ctx context.Context, sessionID string, msg
 			for j := i; j < len(toolCalls); j++ {
 				toolResults[j] = message.ToolResult{
 					ToolCallID: toolCalls[j].ID,
+					Name:       toolCalls[j].Name,
 					Content:    "Tool execution canceled by user",
 					IsError:    true,
 				}
@@ -460,53 +487,80 @@ func (a *agent) streamAndHandleEvents(ctx context.Context, sessionID string, msg
 		default:
 			// Continue processing
 			var tool tools.BaseTool
-			for _, availableTool := range a.tools {
+			for _, availableTool := range toolSet {
 				if availableTool.Info().Name == toolCall.Name {
 					tool = availableTool
 					break
 				}
-				// Monkey patch for Copilot Sonnet-4 tool repetition obfuscation
-				// if strings.HasPrefix(toolCall.Name, availableTool.Info().Name) &&
-				// 	strings.HasPrefix(toolCall.Name, availableTool.Info().Name+availableTool.Info().Name) {
-				// 	tool = availableTool
-				// 	break
-				// }
 			}
-
 			// Tool not found
 			if tool == nil {
 				toolResults[i] = message.ToolResult{
 					ToolCallID: toolCall.ID,
+					Name:       toolCall.Name,
 					Content:    fmt.Sprintf("Tool not found: %s", toolCall.Name),
 					IsError:    true,
 				}
 				continue
 			}
+
+			now := time.Now()
+
+			// TODO: add parallelism so tool calls can run concurrently (at least for Task tool)
 			toolResult, toolErr := tool.Run(ctx, tools.ToolCall{
 				ID:    toolCall.ID,
 				Name:  toolCall.Name,
 				Input: toolCall.Input,
 			})
+			gauge := time.Since(now).Milliseconds()
 			if toolErr != nil {
 				if errors.Is(toolErr, permission.ErrorPermissionDenied) {
+					logging.Warn("Tool call denied", "tool", toolCall.Name,
+						"ID", toolCall.ID,
+						"input", toolCall.Input,
+						"gauge", gauge,
+					)
 					toolResults[i] = message.ToolResult{
 						ToolCallID: toolCall.ID,
+						Name:       toolCall.Name,
 						Content:    "Permission denied",
 						IsError:    true,
 					}
 					for j := i + 1; j < len(toolCalls); j++ {
 						toolResults[j] = message.ToolResult{
 							ToolCallID: toolCalls[j].ID,
+							Name:       toolCalls[j].Name,
 							Content:    "Tool execution canceled by user",
 							IsError:    true,
 						}
 					}
 					a.finishMessage(ctx, &assistantMsg, message.FinishReasonPermissionDenied)
 					break
+				} else {
+					logging.Error("Tool call failed", "tool", toolCall.Name,
+						"ID", toolCall.ID,
+						"input", toolCall.Input,
+						"error", toolErr.Error(),
+						"gauge", gauge,
+					)
+					toolResults[i] = message.ToolResult{
+						ToolCallID: toolCall.ID,
+						Name:       toolCall.Name,
+						Content:    fmt.Sprintf("Tool returned error: %s", toolErr.Error()),
+						IsError:    true,
+					}
+					continue
 				}
 			}
+			logging.Debug("Tool call completed", "tool", toolCall.Name,
+				"ID", toolCall.ID,
+				"input", toolCall.Input,
+				"successful", !toolResult.IsError,
+				"gauge", gauge,
+			)
 			toolResults[i] = message.ToolResult{
 				Type:       message.ToolResultType(toolResult.Type),
+				Name:       toolCall.Name,
 				ToolCallID: toolCall.ID,
 				Content:    toolResult.Content,
 				Metadata:   toolResult.Metadata,
@@ -530,12 +584,62 @@ out:
 		return assistantMsg, nil, fmt.Errorf("failed to create cancelled tool message: %w", err)
 	}
 
-	return assistantMsg, &msg, err
+	return assistantMsg, &msg, nil
 }
 
 func (a *agent) finishMessage(ctx context.Context, msg *message.Message, finishReson message.FinishReason) {
 	msg.AddFinish(finishReson)
 	_ = a.messages.Update(ctx, *msg)
+}
+
+// createErrorToolResults creates a tool results message with error results for all tool calls
+// in the given assistant message. This ensures that every tool_use block in the DB
+// has a corresponding tool_result, preventing API errors when the session is resumed.
+func (a *agent) createErrorToolResults(assistantMsg message.Message) *message.Message {
+	toolCalls := assistantMsg.ToolCalls()
+	if len(toolCalls) == 0 {
+		return nil
+	}
+	parts := make([]message.ContentPart, len(toolCalls))
+	for i, tc := range toolCalls {
+		parts[i] = message.ToolResult{
+			ToolCallID: tc.ID,
+			Name:       tc.Name,
+			Content:    "Tool execution was interrupted",
+			IsError:    true,
+		}
+	}
+	msg, err := a.messages.Create(context.Background(), assistantMsg.SessionID, message.CreateMessageParams{
+		Role:  message.Tool,
+		Parts: parts,
+	})
+	if err != nil {
+		logging.Warn("Failed to create error tool results message", "error", err)
+		return nil
+	}
+	return &msg
+}
+
+// mergeToolCalls updates tool call Input from the accumulated response without replacing IDs.
+// During streaming, tool calls are registered with IDs from ContentBlockStartEvent.
+// The accumulated SDK response may carry different IDs (e.g. through LiteLLM/Vertex proxies).
+// Tool results already reference the streaming IDs, so we must preserve them.
+func (a *agent) mergeToolCalls(assistantMsg *message.Message, accumulated []message.ToolCall) {
+	existing := assistantMsg.ToolCalls()
+	if len(existing) == 0 {
+		// No streaming tool calls — fall back to using the accumulated ones directly
+		assistantMsg.SetToolCalls(accumulated)
+		return
+	}
+
+	// Match by position: streaming events and accumulated blocks arrive in the same order
+	for i, tc := range existing {
+		if i < len(accumulated) {
+			tc.Input = accumulated[i].Input
+			tc.Finished = true
+			assistantMsg.UpdateToolCall(tc)
+		}
+	}
 }
 
 func (a *agent) processEvent(ctx context.Context, sessionID string, assistantMsg *message.Message, event provider.ProviderEvent) error {
@@ -576,7 +680,13 @@ func (a *agent) processEvent(ctx context.Context, sessionID string, assistantMsg
 		logging.ErrorPersist(event.Error.Error())
 		return event.Error
 	case provider.EventComplete:
-		assistantMsg.SetToolCalls(event.Response.ToolCalls)
+		// HACK: validate if we really need it
+		// Merge tool call data from the accumulated response without replacing IDs.
+		// During streaming, tool calls are added via EventToolUseStart with their IDs,
+		// and tool results reference those IDs. The accumulated response may carry
+		// different IDs (e.g. through proxies), so we must preserve the streaming IDs
+		// and only update the Input field which is accumulated by the SDK.
+		a.mergeToolCalls(assistantMsg, event.Response.ToolCalls)
 		assistantMsg.AddFinish(event.Response.FinishReason)
 		if err := a.messages.Update(ctx, *assistantMsg); err != nil {
 			return fmt.Errorf("failed to update message: %w", err)
@@ -632,8 +742,9 @@ func (a *agent) Update(agentName config.AgentName, modelID models.ModelID) (mode
 
 // shouldTriggerAutoCompaction checks if the session should trigger auto-compaction
 // based on token usage approaching the context window limit
-// filterMessagesFromSummary filters messages to start from the summary message if one exists
-// This reduces context size by excluding messages before the summary
+// filterMessagesFromSummary filters messages to start from the summary message if one exists.
+// This reduces context size by excluding messages before the summary.
+// It ensures that tool_use/tool_result pairs are not split by the filter boundary.
 func (a *agent) filterMessagesFromSummary(msgs []message.Message, summaryMessageID string) []message.Message {
 	if summaryMessageID == "" {
 		return msgs
@@ -647,14 +758,30 @@ func (a *agent) filterMessagesFromSummary(msgs []message.Message, summaryMessage
 		}
 	}
 
-	if summaryMsgIndex != -1 {
-		filteredMsgs := msgs[summaryMsgIndex:]
-		// Convert the summary message role to User so it can be used in conversation
-		filteredMsgs[0].Role = message.User
-		return filteredMsgs
+	if summaryMsgIndex == -1 {
+		return msgs
 	}
 
-	return msgs
+	filteredMsgs := msgs[summaryMsgIndex:]
+	// Convert the summary message role to User so it can be used in conversation
+	filteredMsgs[0].Role = message.User
+
+	// Ensure the filtered messages don't start with orphaned tool results
+	// (Tool messages whose corresponding Assistant message was before the summary).
+	// Skip any Tool messages that immediately follow the summary message.
+	result := filteredMsgs[:1] // Always keep the summary message
+	skippingOrphanedTools := true
+	for _, msg := range filteredMsgs[1:] {
+		if skippingOrphanedTools {
+			if msg.Role == message.Tool {
+				logging.Warn("Skipping orphaned tool result message after summary filter", "message_id", msg.ID)
+				continue
+			}
+			skippingOrphanedTools = false
+		}
+		result = append(result, msg)
+	}
+	return result
 }
 
 // performSynchronousCompaction performs summarization synchronously and waits for completion
@@ -664,38 +791,30 @@ func (a *agent) performSynchronousCompaction(ctx context.Context, sessionID stri
 		return fmt.Errorf("summarize provider not available")
 	}
 
-	// Note: We don't check IsSessionBusy here because this is called from within
-	// Get all messages from the session
 	msgs, err := a.messages.List(ctx, sessionID)
 	if err != nil {
 		return fmt.Errorf("failed to list messages: %w", err)
 	}
 
-	// an active request processing loop, so the session is already marked as busy
+	// NOTE: We don't check IsSessionBusy here because this is called from within
 	logging.Info("Starting synchronous compaction", "session_id", sessionID, "message_count", len(msgs))
 
 	if len(msgs) == 0 {
 		return fmt.Errorf("no messages to summarize")
 	}
 
-	// Add session context
 	summarizeCtx := context.WithValue(ctx, tools.SessionIDContextKey, sessionID)
-
 	summarizePrompt, err := AgentPrompts.ReadFile("prompts/compaction.md")
 	if err != nil {
 		return fmt.Errorf("failed to load summary prompt: %w", err)
 	}
 
-	// Create a new message with the summarize prompt
 	promptMsg := message.Message{
 		Role:  message.User,
 		Parts: []message.ContentPart{message.TextContent{Text: string(summarizePrompt)}},
 	}
 
-	// Append the prompt to the messages
 	msgsWithPrompt := append(msgs, promptMsg)
-
-	// Send the messages to the summarize provider
 	response, err := a.summarizeProvider.SendMessages(
 		summarizeCtx,
 		msgsWithPrompt,
@@ -930,7 +1049,28 @@ func createAgentProvider(agentName config.AgentName) (provider.Provider, error) 
 	cfg := config.Get()
 	agentConfig, ok := cfg.Agents[agentName]
 	if !ok {
-		return nil, fmt.Errorf("agent %s not found", agentName)
+		// Try registry for custom (markdown-defined) agents
+		reg := agentregistry.GetRegistry()
+		if info, found := reg.Get(agentName); found && info.Model != "" {
+			agentConfig = config.Agent{
+				Model:           models.ModelID(info.Model),
+				MaxTokens:       info.MaxTokens,
+				ReasoningEffort: info.ReasoningEffort,
+			}
+		} else if found {
+			// Inherit coder's model if no model specified
+			coderCfg, coderOk := cfg.Agents[config.AgentCoder]
+			if !coderOk {
+				return nil, fmt.Errorf("agent %s has no model and coder agent not configured", agentName)
+			}
+			agentConfig = config.Agent{
+				Model:           coderCfg.Model,
+				MaxTokens:       coderCfg.MaxTokens,
+				ReasoningEffort: coderCfg.ReasoningEffort,
+			}
+		} else {
+			return nil, fmt.Errorf("agent %s not found", agentName)
+		}
 	}
 	model, ok := models.SupportedModels[agentConfig.Model]
 	if !ok {
@@ -969,7 +1109,7 @@ func createAgentProvider(agentName config.AgentName) (provider.Provider, error) 
 				provider.WithReasoningEffort(agentConfig.ReasoningEffort),
 			),
 		)
-	} else if (model.Provider == models.ProviderAnthropic || model.Provider == models.ProviderVertexAI || model.Provider == models.ProviderBedrock) && model.CanReason && agentName == config.AgentCoder {
+	} else if (model.Provider == models.ProviderAnthropic || model.Provider == models.ProviderVertexAI || model.Provider == models.ProviderBedrock) && model.CanReason {
 		anthropicOpts := []provider.AnthropicOption{
 			provider.WithAnthropicShouldThinkFn(provider.DefaultShouldThinkFn),
 		}
