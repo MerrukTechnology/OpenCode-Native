@@ -24,7 +24,7 @@ To report a vulnerability, please use one of the following methods:
 ### 🔒 Encrypted Reports
 For sensitive information, please encrypt your report using our PGP public key. 
 
-- **Public Key:** [.github/SECURITY_PUBKEY.asc](./.github/SECURITY_PUBKEY.asc)
+- **Public Key:** [.github/SECURITY_PUBKEY.asc](https://github.com/MerrukTechnology/OpenCode-Native/raw/main/.github/SECURITY_PUBKEY.asc)
 - **PGP Fingerprint:** `9A19C382B6616F7CB371797DCD2C6694D3274AB2`
 
 You can find the public key attached to the GitHub profile of [@MerrukTechnology](https://github.com/MerrukTechnology) or by running:
