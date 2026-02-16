@@ -29,7 +29,7 @@ For sensitive information, please encrypt your report using our PGP public key.
 
 You can find the public key attached to the GitHub profile of [@MerrukTechnology](https://github.com/MerrukTechnology) or by running:
 ```bash
-gpg --keyserver keys.gnupg.net --recv-keys 9A19C382B6616F7CB371797DCD2C6694D3274AB2
+gpg --keyserver keyserver.ubuntu.com --recv-keys 9A19C382B6616F7CB371797DCD2C6694D3274AB2
 ```
 
 ### What to include
