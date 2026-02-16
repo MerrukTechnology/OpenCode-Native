@@ -18,18 +18,18 @@ We take the security of our users and their data seriously. If you believe you h
 ### How to report
 To report a vulnerability, please use one of the following methods:
 
-1.  **GitHub Private Vulnerability Reporting:** Navigate to the [Security Tab](https://github.com/MerrukTechnology/OpenCode-Native) of this repository and select **"Report a vulnerability"**. This is the preferred and most secure method.
+1.  **GitHub Private Vulnerability Reporting:** Navigate to the [Security Tab](https://github.com/MerrukTechnology/OpenCode-Native/security/advisories/new) of this repository and select **"Report a vulnerability"**. This is the preferred and most secure method.
 2.  **Email:** Send an encrypted report to **security@merruk.com**.
 
 ### 🔒 Encrypted Reports
 For sensitive information, please encrypt your report using our PGP public key. 
 
-- **Public Key:** [.github/SECURITY_PUBKEY.asc](./.github/SECURITY_PUBKEY.asc)
+- **Public Key:** [.github/SECURITY_PUBKEY.asc](https://github.com/MerrukTechnology/OpenCode-Native/raw/main/.github/SECURITY_PUBKEY.asc)
 - **PGP Fingerprint:** `9A19C382B6616F7CB371797DCD2C6694D3274AB2`
 
 You can find the public key attached to the GitHub profile of [@MerrukTechnology](https://github.com/MerrukTechnology) or by running:
 ```bash
-gpg --keyserver keys.gnupg.net --recv-keys 9A19C382B6616F7CB371797DCD2C6694D3274AB2
+gpg --keyserver keyserver.ubuntu.com --recv-keys 9A19C382B6616F7CB371797DCD2C6694D3274AB2
 ```
 
 ### What to include
