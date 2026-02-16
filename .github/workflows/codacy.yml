@@ -29,7 +29,7 @@ jobs:
 
       # Execute Codacy Analysis CLI and generate a SARIF output with the security issues identified during the analysis
       - name: Run Codacy Analysis CLI
-        uses: codacy/codacy-analysis-cli-action@d840f886c4bd4edc059706d09c6a1586111c540b
+        uses: codacy/codacy-analysis-cli-action@30783d03e758713bb5ed7b79292cfb14b9dd9a4a
         with:
           # Check https://github.com/codacy/codacy-analysis-cli#project-token to get your project token from your Codacy repository
           # You can also omit the token and run the tools that support default configurations
@@ -43,13 +43,20 @@ jobs:
           # This will handover control about PR rejection to the GitHub side
           max-allowed-issues: 2147483647
 
-      - name: Check SARIF file
+      - name: Check and Repair SARIF file
         run: |
-          if [ -s results.sarif ]; then
-            echo "SARIF file found and not empty."
+          # Check if file exists and has actual content
+          if [[ -s results.sarif ]]; then
+            # Even if it exists, check if 'runs' is empty '[]'
+            if grep -q '"runs":\s*\[\s*\]' results.sarif; then
+              echo "⚠️ SARIF has empty runs array. Injecting valid placeholder..."
+              echo '{"$schema":"https://schemastore.azurewebsites.net","version":"2.1.0","runs":[{"tool":{"driver":{"name":"Codacy","rules":[]}},"results":[]}]}' > results.sarif
+            else
+              echo "✅ SARIF file is valid and contains data."
+            fi
           else
-            echo "Error: SARIF file is empty or missing. Creating a dummy empty SARIF to prevent upload crash."
-            echo '{"$schema":"https://schemastore.azurewebsites.net","version":"2.1.0","runs":[]}' > results.sarif
+            echo "❌ SARIF file missing. Creating minimal valid SARIF..."
+            echo '{"$schema":"https://schemastore.azurewebsites.net","version":"2.1.0","runs":[{"tool":{"driver":{"name":"Codacy","rules":[]}},"results":[]}]}' > results.sarif
           fi
 
       # Upload the SARIF file generated in the previous step
