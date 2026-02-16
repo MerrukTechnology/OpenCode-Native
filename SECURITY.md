@@ -18,7 +18,7 @@ We take the security of our users and their data seriously. If you believe you h
 ### How to report
 To report a vulnerability, please use one of the following methods:
 
-1.  **GitHub Private Vulnerability Reporting:** Navigate to the [Security Tab](https://github.com/MerrukTechnology/OpenCode-Native) of this repository and select **"Report a vulnerability"**. This is the preferred and most secure method.
+1.  **GitHub Private Vulnerability Reporting:** Navigate to the [Security Tab](https://github.com/MerrukTechnology/OpenCode-Native/security/advisories/new) of this repository and select **"Report a vulnerability"**. This is the preferred and most secure method.
 2.  **Email:** Send an encrypted report to **security@merruk.com**.
 
 ### 🔒 Encrypted Reports
