@@ -18,21 +18,27 @@ const (
 	OpenRouterO4Mini         ModelID = "openrouter.o4-mini"
 	OpenRouterGemini25Flash  ModelID = "openrouter.gemini-2.5-flash"
 	OpenRouterGemini25       ModelID = "openrouter.gemini-2.5"
+	OpenRouterGemini3Flash   ModelID = "openrouter.gemini-3-flash"
+	OpenRouterGemini3        ModelID = "openrouter.gemini-3"
 	OpenRouterClaude35Sonnet ModelID = "openrouter.claude-3.5-sonnet"
 	OpenRouterClaude3Haiku   ModelID = "openrouter.claude-3-haiku"
 	OpenRouterClaude37Sonnet ModelID = "openrouter.claude-3.7-sonnet"
 	OpenRouterClaude35Haiku  ModelID = "openrouter.claude-3.5-haiku"
 	OpenRouterClaude3Opus    ModelID = "openrouter.claude-3-opus"
-	OpenRouterDeepSeekR1Free ModelID = "openrouter.deepseek-r1-free"
 	OpenRouterKimiK2         ModelID = "openrouter.kimi-k2"
 	OpenRouterNemotron3Nano  ModelID = "openrouter.nemotron-3-nano"
 	OpenRouterGLM47Flash     ModelID = "openrouter.glm-4.7-flash"
 	OpenRouterGPT52          ModelID = "openrouter.gpt-5.2"
 	OpenRouterGPT52Codex     ModelID = "openrouter.gpt-5.2-codex"
-	OpenRouterGemini3        ModelID = "openrouter.gemini-3"
+	OpenRouterDeepSeekR1Free ModelID = "openrouter.deepseek-r1-free"
 	OpenRouterDeepSeekV32    ModelID = "openrouter.deepseek-v3.2"
 	OpenRouterDevstral2      ModelID = "openrouter.devstral-2"
+	OpenRouterMiMoV2         ModelID = "openrouter.mimo-v2"
 	OpenRouterMiMoV2Flash    ModelID = "openrouter.mimo-v2-flash"
+	OpenRouterGrok4Fast      ModelID = "openrouter.grok-4-fast"
+	OpenRouterGrok4FastFree  ModelID = "openrouter.grok-4-fast:free"
+	OpenRouterGrok41Fast     ModelID = "openrouter.grok-4.1-fast"
+	OpenRouterTrinityLarge   ModelID = "openrouter.trinity-large-preview:free"
 )
 
 var OpenRouterModels = map[ModelID]Model{
@@ -223,6 +229,36 @@ var OpenRouterModels = map[ModelID]Model{
 		ContextWindow:      GeminiModels[Gemini25].ContextWindow,
 		DefaultMaxTokens:   GeminiModels[Gemini25].DefaultMaxTokens,
 	},
+	OpenRouterGemini3Flash: {
+		ID:                       OpenRouterGemini3,
+		Name:                     "OpenRouter - Gemini 3 Flash Preview",
+		Provider:                 ProviderOpenRouter,
+		APIModel:                 "google/gemini-3-flash:thinking",
+		CostPer1MIn:              GeminiModels[Gemini30Flash].CostPer1MIn,
+		CostPer1MInCached:        GeminiModels[Gemini30Flash].CostPer1MInCached,
+		CostPer1MOut:             GeminiModels[Gemini30Flash].CostPer1MOut,
+		CostPer1MOutCached:       GeminiModels[Gemini30Flash].CostPer1MOutCached,
+		ContextWindow:            GeminiModels[Gemini30Flash].ContextWindow,
+		DefaultMaxTokens:         GeminiModels[Gemini30Flash].DefaultMaxTokens,
+		SupportsAttachments:      GeminiModels[Gemini30Flash].SupportsAttachments,
+		SupportsAdaptiveThinking: GeminiModels[Gemini30Flash].SupportsAdaptiveThinking,
+		CanReason:                GeminiModels[Gemini30Flash].CanReason,
+	},
+	OpenRouterGemini3: {
+		ID:                       OpenRouterGemini3,
+		Name:                     "OpenRouter - Gemini 3 Pro Preview",
+		Provider:                 ProviderOpenRouter,
+		APIModel:                 "google/gemini-3-pro-preview",
+		CostPer1MIn:              GeminiModels[Gemini30Pro].CostPer1MIn,
+		CostPer1MInCached:        GeminiModels[Gemini30Pro].CostPer1MInCached,
+		CostPer1MOut:             GeminiModels[Gemini30Pro].CostPer1MOut,
+		CostPer1MOutCached:       GeminiModels[Gemini30Pro].CostPer1MOutCached,
+		ContextWindow:            GeminiModels[Gemini30Pro].ContextWindow,
+		DefaultMaxTokens:         GeminiModels[Gemini30Pro].DefaultMaxTokens,
+		SupportsAttachments:      GeminiModels[Gemini30Pro].SupportsAttachments,
+		SupportsAdaptiveThinking: GeminiModels[Gemini30Pro].SupportsAdaptiveThinking,
+		CanReason:                GeminiModels[Gemini30Pro].CanReason,
+	},
 	OpenRouterClaude35Sonnet: {
 		ID:                 OpenRouterClaude35Sonnet,
 		Name:               "OpenRouter - Claude 3.5 Sonnet",
@@ -284,18 +320,6 @@ var OpenRouterModels = map[ModelID]Model{
 		ContextWindow:      AnthropicModels[Claude3Opus].ContextWindow,
 		DefaultMaxTokens:   AnthropicModels[Claude3Opus].DefaultMaxTokens,
 	},
-	OpenRouterDeepSeekR1Free: {
-		ID:                 OpenRouterDeepSeekR1Free,
-		Name:               "OpenRouter - DeepSeek R1 Free",
-		Provider:           ProviderOpenRouter,
-		APIModel:           "deepseek/deepseek-r1-0528:free",
-		CostPer1MIn:        0,
-		CostPer1MInCached:  0,
-		CostPer1MOut:       0,
-		CostPer1MOutCached: 0,
-		ContextWindow:      163_840,
-		DefaultMaxTokens:   10000,
-	},
 	OpenRouterKimiK2: {
 		ID:                 OpenRouterKimiK2,
 		Name:               "OpenRouter - Kimi K2",
@@ -356,17 +380,17 @@ var OpenRouterModels = map[ModelID]Model{
 		ContextWindow:      256000,
 		DefaultMaxTokens:   16384,
 	},
-	OpenRouterGemini3: {
-		ID:                 OpenRouterGemini3,
-		Name:               "OpenRouter - Gemini 3 Preview",
+	OpenRouterDeepSeekR1Free: {
+		ID:                 OpenRouterDeepSeekR1Free,
+		Name:               "OpenRouter - DeepSeek R1 Free",
 		Provider:           ProviderOpenRouter,
-		APIModel:           "google/gemini-3-preview",
-		CostPer1MIn:        GeminiModels[Gemini30Pro].CostPer1MIn,
-		CostPer1MInCached:  GeminiModels[Gemini30Pro].CostPer1MInCached,
-		CostPer1MOut:       GeminiModels[Gemini30Pro].CostPer1MOut,
-		CostPer1MOutCached: GeminiModels[Gemini30Pro].CostPer1MOutCached,
-		ContextWindow:      GeminiModels[Gemini30Pro].ContextWindow,
-		DefaultMaxTokens:   GeminiModels[Gemini30Pro].DefaultMaxTokens,
+		APIModel:           "deepseek/deepseek-r1-0528:free",
+		CostPer1MIn:        0,
+		CostPer1MInCached:  0,
+		CostPer1MOut:       0,
+		CostPer1MOutCached: 0,
+		ContextWindow:      163_840,
+		DefaultMaxTokens:   10000,
 	},
 	OpenRouterDeepSeekV32: {
 		ID:                 OpenRouterDeepSeekV32,
@@ -392,6 +416,18 @@ var OpenRouterModels = map[ModelID]Model{
 		ContextWindow:      256000,
 		DefaultMaxTokens:   32768,
 	},
+	OpenRouterMiMoV2: {
+		ID:                 OpenRouterMiMoV2Flash,
+		Name:               "OpenRouter - MiMo-V2",
+		Provider:           ProviderOpenRouter,
+		APIModel:           "xiaomi/mimo-v2",
+		CostPer1MIn:        0.05,
+		CostPer1MInCached:  0,
+		CostPer1MOut:       0.20,
+		CostPer1MOutCached: 0,
+		ContextWindow:      256000,
+		DefaultMaxTokens:   16384,
+	},
 	OpenRouterMiMoV2Flash: {
 		ID:                 OpenRouterMiMoV2Flash,
 		Name:               "OpenRouter - MiMo-V2-Flash",
@@ -403,5 +439,57 @@ var OpenRouterModels = map[ModelID]Model{
 		CostPer1MOutCached: 0,
 		ContextWindow:      256000,
 		DefaultMaxTokens:   16384,
+	},
+	OpenRouterGrok4Fast: {
+		ID:                 OpenRouterGrok4Fast,
+		Name:               "OpenRouter - Grok 4 Fast",
+		Provider:           ProviderOpenRouter,
+		APIModel:           "x-ai/grok-4-fast",
+		CostPer1MIn:        0.20,
+		CostPer1MInCached:  0,
+		CostPer1MOut:       0.50,
+		CostPer1MOutCached: 0.05,
+		ContextWindow:      2048000,
+		DefaultMaxTokens:   32768,
+		CanReason:          true,
+	},
+	OpenRouterGrok4FastFree: {
+		ID:                 OpenRouterGrok4FastFree,
+		Name:               "OpenRouter - Grok 4 Fast (Free)",
+		Provider:           ProviderOpenRouter,
+		APIModel:           "x-ai/grok-4-fast:free",
+		CostPer1MIn:        0.20,
+		CostPer1MInCached:  0,
+		CostPer1MOut:       0.50,
+		CostPer1MOutCached: 0.05,
+		ContextWindow:      2048000,
+		DefaultMaxTokens:   32768,
+		CanReason:          true,
+	},
+	OpenRouterGrok41Fast: {
+		ID:                 OpenRouterGrok41Fast,
+		Name:               "OpenRouter - Grok 4.1 Fast",
+		Provider:           ProviderOpenRouter,
+		APIModel:           "x-ai/grok-4.1-fast",
+		CostPer1MIn:        0.20,
+		CostPer1MInCached:  0,
+		CostPer1MOut:       0.50,
+		CostPer1MOutCached: 0.05,
+		ContextWindow:      2048000,
+		DefaultMaxTokens:   32768,
+		CanReason:          true,
+	},
+	OpenRouterTrinityLarge: {
+		ID:                 OpenRouterTrinityLarge,
+		Name:               "OpenRouter - Trinity Large Preview (free)",
+		Provider:           ProviderOpenRouter,
+		APIModel:           "arcee-ai/trinity-large-preview:free",
+		CostPer1MIn:        0,
+		CostPer1MInCached:  0,
+		CostPer1MOut:       0,
+		CostPer1MOutCached: 0,
+		ContextWindow:      131000,
+		DefaultMaxTokens:   131000,
+		CanReason:          false,
 	},
 }
