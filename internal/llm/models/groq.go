@@ -11,7 +11,7 @@ const (
 	Llama4Maverick            ModelID = "meta-llama/llama-4-maverick-17b-128e-instruct"
 	Llama3_3_70BVersatile     ModelID = "llama-3.3-70b-versatile"
 	DeepseekR1DistillLlama70b ModelID = "deepseek-r1-distill-llama-70b"
-	Kimi_K2                   ModelID = "moonshotai/kimi-k2-instruct"
+	Kimi_K2_0905              ModelID = "moonshotai/kimi-k2-instruct-0905"
 )
 
 var GroqModels = map[ModelID]Model{
@@ -84,11 +84,11 @@ var GroqModels = map[ModelID]Model{
 		CanReason:           true,
 		SupportsAttachments: false,
 	},
-	Kimi_K2: {
-		ID:                  Kimi_K2,
-		Name:                "Kimi K2",
+	Kimi_K2_0905: {
+		ID:                  Kimi_K2_0905,
+		Name:                "Kimi K2 0905",
 		Provider:            ProviderGrok,
-		APIModel:            "moonshotai/kimi-k2-instruct",
+		APIModel:            "moonshotai/kimi-k2-instruct-0905",
 		CostPer1MIn:         1,
 		CostPer1MInCached:   0,
 		CostPer1MOutCached:  0,

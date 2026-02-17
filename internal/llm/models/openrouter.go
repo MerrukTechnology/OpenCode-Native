@@ -18,8 +18,8 @@ const (
 	OpenRouterO4Mini         ModelID = "openrouter.o4-mini"
 	OpenRouterGemini25Flash  ModelID = "openrouter.gemini-2.5-flash"
 	OpenRouterGemini25       ModelID = "openrouter.gemini-2.5"
-	OpenRouterGemini3Flash   ModelID = "openrouter.gemini-3-flash"
-	OpenRouterGemini3        ModelID = "openrouter.gemini-3"
+	OpenRouterGemini3Flash   ModelID = "openrouter.gemini-3-flash-preview"
+	OpenRouterGemini3        ModelID = "openrouter.gemini-3-pro-preview"
 	OpenRouterClaude35Sonnet ModelID = "openrouter.claude-3.5-sonnet"
 	OpenRouterClaude3Haiku   ModelID = "openrouter.claude-3-haiku"
 	OpenRouterClaude37Sonnet ModelID = "openrouter.claude-3.7-sonnet"
@@ -38,6 +38,11 @@ const (
 	OpenRouterGrok4Fast      ModelID = "openrouter.grok-4-fast"
 	OpenRouterGrok4FastFree  ModelID = "openrouter.grok-4-fast:free"
 	OpenRouterGrok41Fast     ModelID = "openrouter.grok-4.1-fast"
+	OpenRouterMiniMax01      ModelID = "openrouter.minimax-01"
+	OpenRouterMiniMaxM1      ModelID = "openrouter.minimax-m1"
+	OpenRouterMiniMaxM2      ModelID = "openrouter.minimax-m2"
+	OpenRouterMiniMaxM21     ModelID = "openrouter.minimax-m2.1"
+	OpenRouterMiniMaxM25     ModelID = "openrouter.minimax-m2.5"
 	OpenRouterTrinityLarge   ModelID = "openrouter.trinity-large-preview:free"
 )
 
@@ -216,6 +221,9 @@ var OpenRouterModels = map[ModelID]Model{
 		CostPer1MOutCached: GeminiModels[Gemini25Flash].CostPer1MOutCached,
 		ContextWindow:      GeminiModels[Gemini25Flash].ContextWindow,
 		DefaultMaxTokens:   GeminiModels[Gemini25Flash].DefaultMaxTokens,
+		SupportsAttachments:      GeminiModels[Gemini25Flash].SupportsAttachments,
+		SupportsAdaptiveThinking: GeminiModels[Gemini25Flash].SupportsAdaptiveThinking,
+		CanReason:                GeminiModels[Gemini25Flash].CanReason,
 	},
 	OpenRouterGemini25: {
 		ID:                 OpenRouterGemini25,
@@ -228,12 +236,15 @@ var OpenRouterModels = map[ModelID]Model{
 		CostPer1MOutCached: GeminiModels[Gemini25].CostPer1MOutCached,
 		ContextWindow:      GeminiModels[Gemini25].ContextWindow,
 		DefaultMaxTokens:   GeminiModels[Gemini25].DefaultMaxTokens,
+		SupportsAttachments:      GeminiModels[Gemini25].SupportsAttachments,
+		SupportsAdaptiveThinking: GeminiModels[Gemini25].SupportsAdaptiveThinking,
+		CanReason:                GeminiModels[Gemini25].CanReason,
 	},
 	OpenRouterGemini3Flash: {
 		ID:                       OpenRouterGemini3,
 		Name:                     "OpenRouter - Gemini 3 Flash Preview",
 		Provider:                 ProviderOpenRouter,
-		APIModel:                 "google/gemini-3-flash:thinking",
+		APIModel:                 "google/gemini-3-flash-preview",
 		CostPer1MIn:              GeminiModels[Gemini30Flash].CostPer1MIn,
 		CostPer1MInCached:        GeminiModels[Gemini30Flash].CostPer1MInCached,
 		CostPer1MOut:             GeminiModels[Gemini30Flash].CostPer1MOut,
@@ -382,14 +393,14 @@ var OpenRouterModels = map[ModelID]Model{
 	},
 	OpenRouterDeepSeekR1Free: {
 		ID:                 OpenRouterDeepSeekR1Free,
-		Name:               "OpenRouter - DeepSeek R1 Free",
+		Name:               "OpenRouter - DeepSeek R1 0528 (free)",
 		Provider:           ProviderOpenRouter,
 		APIModel:           "deepseek/deepseek-r1-0528:free",
 		CostPer1MIn:        0,
 		CostPer1MInCached:  0,
 		CostPer1MOut:       0,
 		CostPer1MOutCached: 0,
-		ContextWindow:      163_840,
+		ContextWindow:      163840,
 		DefaultMaxTokens:   10000,
 	},
 	OpenRouterDeepSeekV32: {
@@ -478,6 +489,71 @@ var OpenRouterModels = map[ModelID]Model{
 		ContextWindow:      2048000,
 		DefaultMaxTokens:   32768,
 		CanReason:          true,
+	},
+	OpenRouterMiniMax01: {
+		ID:                 OpenRouterMiniMax01,
+		Name:               "OpenRouter - MiniMax 01",
+		Provider:           ProviderOpenRouter,
+		APIModel:           "minimax/minimax-01",
+		CostPer1MIn:        0.20,
+		CostPer1MInCached:  0,
+		CostPer1MOut:       1.10,
+		CostPer1MOutCached: 0,
+		ContextWindow:      1024000,
+		DefaultMaxTokens:   1024000,
+		CanReason:          false,
+	},
+	OpenRouterMiniMaxM1: {
+		ID:                 OpenRouterMiniMaxM1,
+		Name:               "OpenRouter - MiniMax M1",
+		Provider:           ProviderOpenRouter,
+		APIModel:           "minimax/minimax-m1",
+		CostPer1MIn:        0.40,
+		CostPer1MInCached:  0,
+		CostPer1MOut:       2.20,
+		CostPer1MOutCached: 0,
+		ContextWindow:      1024000,
+		DefaultMaxTokens:   40000,
+		CanReason:          false,
+	},
+	OpenRouterMiniMaxM2: {
+		ID:                 OpenRouterMiniMaxM2,
+		Name:               "OpenRouter - MiniMax M2",
+		Provider:           ProviderOpenRouter,
+		APIModel:           "minimax/minimax-m2",
+		CostPer1MIn:        0.225,
+		CostPer1MInCached:  0,
+		CostPer1MOut:       1.02,
+		CostPer1MOutCached: 0,
+		ContextWindow:      204800,
+		DefaultMaxTokens:   131100,
+		CanReason:          false,
+	},
+	OpenRouterMiniMaxM21: {
+		ID:                 OpenRouterMiniMaxM21,
+		Name:               "OpenRouter - MiniMax M2.1",
+		Provider:           ProviderOpenRouter,
+		APIModel:           "minimax/minimax-m2.1",
+		CostPer1MIn:        0.30,
+		CostPer1MInCached:  0.03,
+		CostPer1MOut:       0,
+		CostPer1MOutCached: 1.20,
+		ContextWindow:      204800,
+		DefaultMaxTokens:   131100,
+		CanReason:          false,
+	},
+	OpenRouterMiniMaxM25: {
+		ID:                 OpenRouterMiniMaxM25,
+		Name:               "OpenRouter - MiniMax M2.5",
+		Provider:           ProviderOpenRouter,
+		APIModel:           "minimax/minimax-m2.5",
+		CostPer1MIn:        0.30,
+		CostPer1MInCached:  0,
+		CostPer1MOut:       1.20,
+		CostPer1MOutCached: 0.03,
+		ContextWindow:      196600,
+		DefaultMaxTokens:   204800,
+		CanReason:          false,
 	},
 	OpenRouterTrinityLarge: {
 		ID:                 OpenRouterTrinityLarge,
