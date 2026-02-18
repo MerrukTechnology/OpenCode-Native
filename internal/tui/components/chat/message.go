@@ -345,15 +345,10 @@ func removeWorkingDirPrefix(path string) string {
 	if strings.HasPrefix(path, wd) {
 		path = strings.TrimPrefix(path, wd)
 	}
-	if strings.HasPrefix(path, "/") {
-		path = strings.TrimPrefix(path, "/")
-	}
-	if strings.HasPrefix(path, "./") {
-		path = strings.TrimPrefix(path, "./")
-	}
-	if strings.HasPrefix(path, "../") {
-		path = strings.TrimPrefix(path, "../")
-	}
+	path = strings.TrimPrefix(path, "../")
+	path = strings.TrimPrefix(path, "./")
+	path = strings.TrimPrefix(path, "/")
+
 	return path
 }
 
