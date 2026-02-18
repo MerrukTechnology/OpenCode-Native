@@ -1,24 +1,159 @@
-# This workflow will triage pull requests and apply a label based on the
-# paths that are modified in the pull request.
-#
-# To use this workflow, you will need to set up a .github/labeler.yml
-# file with configuration.  For more information, see:
-# https://github.com/actions/labeler
+# Add 'AnyChange' label to any changes within the entire repository
+NeedsLabel:
+- changed-files:
+  - any-glob-to-any-file: '**'
 
-name: "Pull Request Labeler"
-on: [pull_request]
+# Add 'Documentation' label to any changes within 'docs, specs and md files' folder or any subfolders
+Documentation:
+- changed-files:
+  - any-glob-to-any-file: ['docs/**', 'spec/**', '**/**/*.md']
 
-jobs:
-  labeler:
+# Add 'Configuration' label to any changes within 'config, ci and yaml files' folder or any subfolders
+Configuration:
+- changed-files:
+  - any-glob-to-any-file:
+    - 'config/**'
+    - 'ci/**'
+    - '**/*.yaml'
+    - '**/*.yml'
+    - '**/*.json'
+    - '.vscode/**'
+    - '.cursor/**'
 
-    runs-on: ubuntu-latest
-    permissions:
-      issues: write
-      contents: read
-      pull-requests: write
+# Add 'Source' label to any changes within 'source files' folder or any subfolders
+Source:
+- changed-files:
+  - any-glob-to-any-file: ['**/*.go']
 
-    steps:
-    - uses: actions/labeler@v4
-      with:
-        repo-token: "${{ secrets.GITHUB_TOKEN }}"
-        configuration-path: .github/workflows/label.yml
+# Add 'Database' label to any changes within 'database files' folder or any subfolders
+Database:
+- changed-files:
+  - any-glob-to-any-file: ['**/db/**', '**/*.sql']
+
+# Add 'Agents' label to any changes within 'agents files' folder or any subfolders
+Agents:
+- changed-files:
+  - any-glob-to-any-file: ['**/agent/**', '**/agent/*.go']
+
+# Add 'App' label to any changes within 'app files' folder or any subfolders
+App:
+- changed-files:
+  - any-glob-to-any-file: ['**/app/**', '**/app/*.go']
+
+# Add 'Config' label to any changes within 'config files' folder or any subfolders
+Config:
+- changed-files:
+  - any-glob-to-any-file: ['**/config/**', '**/config/*.go']
+
+# Add 'Diff' label to any changes within 'diff files' folder or any subfolders
+Diff:
+- changed-files:
+  - any-glob-to-any-file: ['**/diff/**', '**/diff/*.go']
+
+# Add 'FileUtils' label to any changes within 'fileutils files' folder or any subfolders
+FileUtils:
+- changed-files:
+  - any-glob-to-any-file: ['**/fileutil/**', '**/fileutil/*.go']
+
+# Add 'History' label to any changes within 'history files' folder or any subfolders
+History:
+- changed-files:
+  - any-glob-to-any-file: ['**/history/**', '**/history/*.go']
+
+# Add 'LLM' label to any changes within 'LLM files' folder or any subfolders
+LLM:
+- changed-files:
+  - any-glob-to-any-file: ['**/llm/**', '**/llm/*.go']
+
+# Add 'Logging' label to any changes within 'logging files' folder or any subfolders
+'Logging':
+- changed-files:
+  - any-glob-to-any-file: ['**/logging/**', '**/logging/*.go']
+
+# Add 'LSP' label to any changes within 'LSP files' folder or any subfolders
+LSP:
+- changed-files:
+  - any-glob-to-any-file: ['**/lsp/**', '**/lsp/*.go']
+
+# Add 'Messages' label to any changes within 'messages files' folder or any subfolders
+Messages:
+- changed-files:
+  - any-glob-to-any-file: ['**/messages/**', '**/messages/*.go']
+
+# Add 'Permissions' label to any changes within 'permissions files' folder or any subfolders
+Permissions:
+- changed-files:
+  - any-glob-to-any-file: ['**/permission/**', '**/permission/*.go']
+
+# Add 'PubSub' label to any changes within 'pubsub files' folder or any subfolders
+PubSub:
+- changed-files:
+  - any-glob-to-any-file: ['**/pubsub/**', '**/pubsub/*.go']
+
+# Add 'Sessions' label to any changes within 'sessions files' folder or any subfolders
+Sessions:
+- changed-files:
+  - any-glob-to-any-file: ['**/session/**', '**/session/*.go']
+
+# Add 'Tools' label to any changes within 'tools files' folder or any subfolders
+Tools:
+- changed-files:
+  - any-glob-to-any-file: ['**/tools/**', '**/tools/*.go']
+
+# Add 'Skills' label to any changes within 'skills files' folder or any subfolders
+Skills:
+- changed-files:
+  - any-glob-to-any-file: ['**/skill/**', '**/skill/*.go']
+
+# Add 'TUI' label to any changes within 'LLM files' folder or any subfolders
+TUI:
+- changed-files:
+  - any-glob-to-any-file: ['**/tui/**', '**/tui/*.go']
+
+# Add 'Dependencies' label to any changes within 'dependencies files' folder or any subfolders
+Dependencies:
+- changed-files:
+  - any-glob-to-any-file: ['go.mod', 'go.sum']
+
+# Add 'Docker' label to any changes within 'docker files' folder or any subfolders
+Docker:
+- changed-files:
+  - any-glob-to-any-file: ['docker/**', '**/Dockerfile']
+
+# Add 'Makefile' label to any changes within 'Makefile files' folder or any subfolders
+Makefile:
+- changed-files:
+  - any-glob-to-any-file: ['Makefile', 'makefile']
+
+# Add 'CI' label to any changes within 'CI files' folder or any subfolders
+CI:
+- changed-files:
+  - any-glob-to-any-file: ['.github/**', '.githooks/**']
+
+# Add 'Scripts' label to any changes within 'scripts and bin files' folder or any subfolders
+Scripts:
+- changed-files:
+  - any-glob-to-any-file: ['scripts/**', '.githooks/**']
+
+# Add 'Tests' label to any changes within 'test files' folder or any subfolders
+Tests:
+- changed-files:
+  - any-glob-to-any-file: ['test/**', '**/*_test.go']
+
+# Add 'CMD' label to any changes to cmd files within the source dir
+CMD:
+- changed-files:
+  - any-glob-to-any-file: 'cmd/**/*'
+
+# Add 'Internal' label to any changes to internal files within the source dir
+Internal:
+- changed-files:
+  - any-glob-to-any-file: 'internal/**/*'
+
+# Add 'feature' label to any PR where the head branch name starts with `feature` or has a `feature` section in the name
+feature:
+ - head-branch: ['^feature', 'feature']
+
+# Add 'release' label to any PR that is opened against the `main` branch
+release:
+ - base-branch: 'main'
