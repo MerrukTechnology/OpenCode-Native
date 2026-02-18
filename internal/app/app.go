@@ -41,6 +41,11 @@ type App struct {
 	PrimaryAgentKeys []config.AgentName
 	ActiveAgentIdx   int
 
+	InitialSession   *session.Session
+	InitialSessionID string
+
+	cliOutputSchema map[string]any
+
 	LSPClients            map[string]*lsp.Client
 	LSPClientsCh          chan *lsp.Client
 	lspClientsMutex       sync.RWMutex
@@ -74,7 +79,18 @@ func (app *App) SwitchAgent() config.AgentName {
 	return name
 }
 
-func New(ctx context.Context, conn *sql.DB) (*App, error) {
+func (app *App) SetActiveAgent(agentID config.AgentName) error {
+	for i, key := range app.PrimaryAgentKeys {
+		if key == agentID {
+			app.ActiveAgentIdx = i
+			app.activeAgent = app.PrimaryAgents[key]
+			return nil
+		}
+	}
+	return fmt.Errorf("agent %q not found among primary agents", agentID)
+}
+
+func New(ctx context.Context, conn *sql.DB, cliSchema map[string]any) (*App, error) {
 	q := db.NewQuerier(conn)
 	sessions := session.NewService(q)
 	messages := message.NewService(q)
@@ -108,6 +124,9 @@ func New(ctx context.Context, conn *sql.DB) (*App, error) {
 
 	for _, agentInfo := range primaryAgents {
 		agentInfoCopy := agentInfo
+		if cliSchema != nil {
+			agentInfoCopy.Output = &agentregistry.Output{Schema: cliSchema}
+		}
 		primaryAgent, err := agent.NewAgent(
 			ctx,
 			&agentInfoCopy,
@@ -154,7 +173,7 @@ func (app *App) initTheme() {
 }
 
 // RunNonInteractive handles the execution flow when a prompt is provided via CLI flag.
-func (app *App) RunNonInteractive(ctx context.Context, prompt string, outputFormat string, quiet bool) error {
+func (app *App) RunNonInteractive(ctx context.Context, prompt string, outputFormat format.OutputFormat, quiet bool) error {
 	logging.Info("Running in non-interactive mode")
 
 	// Start spinner if not in quiet mode
@@ -176,18 +195,32 @@ func (app *App) RunNonInteractive(ctx context.Context, prompt string, outputForm
 	}
 	title := titlePrefix + titleSuffix
 
-	sess, err := app.Sessions.Create(ctx, title)
-	if err != nil {
-		return fmt.Errorf("failed to create session for non-interactive mode: %w", err)
+	var sess session.Session
+	if app.InitialSession != nil {
+		sess = *app.InitialSession
+		logging.Info("Resuming existing session for non-interactive run", "session_id", sess.ID)
+	} else if app.InitialSessionID != "" {
+		var createErr error
+		sess, createErr = app.Sessions.CreateWithID(ctx, app.InitialSessionID, title)
+		if createErr != nil {
+			return fmt.Errorf("failed to create session for non-interactive mode: %w", createErr)
+		}
+		logging.Info("Created session with provided ID for non-interactive run", "session_id", sess.ID)
+	} else {
+		var createErr error
+		sess, createErr = app.Sessions.Create(ctx, title)
+		if createErr != nil {
+			return fmt.Errorf("failed to create session for non-interactive mode: %w", createErr)
+		}
+		logging.Info("Created session for non-interactive run", "session_id", sess.ID)
 	}
-	logging.Info("Created session for non-interactive run", "session_id", sess.ID)
 
 	// Automatically approve all permission requests for this non-interactive session
 	app.Permissions.AutoApproveSession(sess.ID)
 
 	done, err := app.ActiveAgent().Run(ctx, sess.ID, prompt)
 	if err != nil {
-		return fmt.Errorf("failed to start agent processing stream: %w", err)
+		return fmt.Errorf("failed to start agent processing stream for session %s: %w", sess.ID, err)
 	}
 
 	result := <-done
@@ -196,7 +229,7 @@ func (app *App) RunNonInteractive(ctx context.Context, prompt string, outputForm
 			logging.Warn("Agent processing cancelled", "session_id", sess.ID)
 			return nil
 		}
-		return fmt.Errorf("agent processing failed: %w", result.Error)
+		return fmt.Errorf("agent processing failed for session %s: %w", sess.ID, result.Error)
 	}
 
 	// Stop spinner before printing output
@@ -206,14 +239,22 @@ func (app *App) RunNonInteractive(ctx context.Context, prompt string, outputForm
 
 	// Get the text content from the response
 	content := "No content available"
-	if result.Message.Content().String() != "" {
+
+	// For json_schema format, try to extract the struct_output tool result
+	if outputFormat == format.JSONSchema {
+		if result.StructOutput != nil {
+			content = result.StructOutput.Content
+		} else {
+			logging.Error("Failed to get structured output response for a provided schema", "error", content)
+			content = `{"error": "no structured output result foind"}`
+		}
+	} else if result.Message.Content().String() != "" {
 		content = result.Message.Content().String()
 	}
 
 	fmt.Println(format.FormatOutput(content, outputFormat))
 
 	logging.Info("Non-interactive run completed", "session_id", sess.ID)
-
 	return nil
 }
 

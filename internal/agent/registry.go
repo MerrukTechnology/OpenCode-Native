@@ -16,6 +16,10 @@ import (
 	"github.com/MerrukTechnology/OpenCode-Native/internal/permission"
 )
 
+type Output struct {
+	Schema map[string]any `json:"schema,omitempty" yaml:"schema,omitempty"`
+}
+
 type AgentInfo struct {
 	ID              string           `yaml:"-"`
 	Name            string           `yaml:"name,omitempty"`
@@ -23,6 +27,7 @@ type AgentInfo struct {
 	Mode            config.AgentMode `yaml:"mode,omitempty"`
 	Native          bool             `yaml:"native,omitempty"`
 	Hidden          bool             `yaml:"hidden,omitempty"`
+	Disabled        bool             `yaml:"disabled,omitempty"`
 	Color           string           `yaml:"color,omitempty"`
 	Model           string           `yaml:"model,omitempty"`
 	MaxTokens       int64            `yaml:"maxTokens,omitempty"`
@@ -30,6 +35,7 @@ type AgentInfo struct {
 	Prompt          string           `yaml:"-"`
 	Permission      map[string]any   `yaml:"permission,omitempty"`
 	Tools           map[string]bool  `yaml:"tools,omitempty"`
+	Output          *Output          `yaml:"output,omitempty"`
 	Location        string           `yaml:"-"`
 }
 
@@ -72,10 +78,29 @@ func newRegistry() Registry {
 	registerBuiltins(agents, cfg)
 	discoverMarkdownAgents(agents, cfg)
 	applyConfigOverrides(agents, cfg)
+	removeDisabledAgents(agents)
 
 	globalPerms := buildGlobalPerms(cfg)
 
-	logging.Debug("Agent registry loaded", "agents", agents, "global", globalPerms)
+	for _, a := range agents {
+		path := "default"
+		if a.Location != "" {
+			path = a.Location
+		}
+		var tools any
+		if len(a.Tools) == 0 {
+			tools = "default"
+		} else {
+			tools = a.Tools
+		}
+		var permissions any
+		if len(a.Permission) == 0 {
+			permissions = "default"
+		} else {
+			permissions = a.Permission
+		}
+		logging.Info("Agent discovered", "agentID", a.ID, "mode", a.Mode, "model", a.Model, "path", path, "tools", tools, "permissions", permissions)
+	}
 	return &registry{
 		agents:      agents,
 		globalPerms: globalPerms,
@@ -286,6 +311,9 @@ func applyConfigOverrides(agents map[string]AgentInfo, cfg *config.Config) {
 		if agentCfg.Hidden {
 			existing.Hidden = true
 		}
+		if agentCfg.Disabled {
+			existing.Disabled = true
+		}
 		if agentCfg.Permission != nil {
 			existing.Permission = mergePermissions(existing.Permission, agentCfg.Permission)
 		}
@@ -294,6 +322,12 @@ func applyConfigOverrides(agents map[string]AgentInfo, cfg *config.Config) {
 				existing.Tools = make(map[string]bool)
 			}
 			maps.Copy(existing.Tools, agentCfg.Tools)
+		}
+		if agentCfg.Output != nil && agentCfg.Output.Schema != nil {
+			if existing.Output == nil {
+				existing.Output = &Output{}
+			}
+			existing.Output.Schema = agentCfg.Output.Schema
 		}
 
 		agents[name] = existing
@@ -308,12 +342,8 @@ func mergePermissions(base, overlay map[string]any) map[string]any {
 		return base
 	}
 	merged := make(map[string]any, len(base))
-	for k, v := range base {
-		merged[k] = v
-	}
-	for k, v := range overlay {
-		merged[k] = v
-	}
+	maps.Copy(merged, base)
+	maps.Copy(merged, overlay)
 	return merged
 }
 
@@ -345,10 +375,28 @@ func mergeMarkdownIntoExisting(existing, md *AgentInfo) {
 		}
 		maps.Copy(existing.Tools, md.Tools)
 	}
+	if md.Output != nil && md.Output.Schema != nil {
+		if existing.Output == nil {
+			existing.Output = &Output{}
+		}
+		existing.Output.Schema = md.Output.Schema
+	}
 	if md.Hidden {
 		existing.Hidden = true
 	}
+	if md.Disabled {
+		existing.Disabled = true
+	}
 	existing.Location = md.Location
+}
+
+func removeDisabledAgents(agents map[string]AgentInfo) {
+	for id, a := range agents {
+		if a.Disabled {
+			logging.Info("Agent disabled, removing from registry", "agentID", id)
+			delete(agents, id)
+		}
+	}
 }
 
 func buildGlobalPerms(cfg *config.Config) map[string]any {

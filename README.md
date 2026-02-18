@@ -56,6 +56,9 @@ go install github.com/MerrukTechnology/OpenCode-Native@latest
 opencode                        # Start TUI
 opencode -d                     # Debug mode
 opencode -c /path/to/project    # Set working directory
+opencode -a hivemind            # Start with a specific agent
+opencode -s <session-id>        # Resume or create a session
+opencode -s <session-id> -D     # Delete session and start fresh
 ```
 
 ### Non-Interactive Mode
@@ -76,6 +79,9 @@ All permissions are auto-approved in non-interactive mode.
 | `--debug` | `-d` | Enable debug mode |
 | `--cwd` | `-c` | Set working directory |
 | `--prompt` | `-p` | Non-interactive single prompt |
+| `--agent` | `-a` | Agent ID to use (e.g. `coder`, `hivemind`) |
+| `--session` | `-s` | Session ID to resume or create |
+| `--delete` | `-D` | Delete the session specified by `--session` before starting |
 | `--output-format` | `-f` | Output format: `text` (default), `json` |
 | `--quiet` | `-q` | Hide spinner in non-interactive mode |
 
@@ -373,6 +379,7 @@ export LOCAL_ENDPOINT_API_KEY=secret
 | `sourcegraph` | Search public repositories |
 | `task` | Run sub-tasks with a subagent (supports `subagent_type` and `task_id` for resumption) |
 | `skill` | Load agent skills on-demand |
+| `struct_output` | Emit structured JSON conforming to a user-supplied schema |
 
 ## Keyboard Shortcuts
 
@@ -418,6 +425,7 @@ export LOCAL_ENDPOINT_API_KEY=secret
 | Custom Commands | [docs/custom-commands.md](docs/custom-commands.md) |
 | Session Providers | [docs/session-providers.md](docs/session-providers.md) |
 | LSP Servers | [docs/lsp.md](docs/lsp.md) |
+| Structured Output | [docs/structured-output.md](docs/structured-output.md) |
 
 ## Development
 

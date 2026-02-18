@@ -257,6 +257,8 @@ func toolName(name string) string {
 		return "Delete"
 	case tools.LSPToolName:
 		return "Code Intelligence"
+	case tools.StructOutputToolName:
+		return "Structured Output"
 	}
 	return name
 }
@@ -293,6 +295,8 @@ func getToolAction(name string) string {
 		return "Deleting..."
 	case tools.LSPToolName:
 		return "Doing code intelligence..."
+	case tools.StructOutputToolName:
+		return "Formatting output..."
 	}
 	return "Working..."
 }
@@ -492,6 +496,7 @@ func renderToolParams(paramWidth int, toolCall message.ToolCall) string {
 func truncateHeight(content string, height int) string {
 	lines := strings.Split(content, "\n")
 	if len(lines) > height {
+		lines = append(lines, "...\n")
 		return strings.Join(lines[:height], "\n")
 	}
 	return content
@@ -513,10 +518,16 @@ func renderToolResponse(toolCall message.ToolCall, response message.ToolResult, 
 	resultContent := truncateHeight(response.Content, maxResultHeight)
 	switch toolCall.Name {
 	case agent.TaskToolName:
-		return styles.ForceReplaceBackgroundWithLipgloss(
-			toMarkdown(response.Content, false, width),
-			t.Background(),
-		)
+		metadata := agent.TaskResponseMetadata{}
+		json.Unmarshal([]byte(response.Metadata), &metadata)
+		if metadata.IsStructOutput {
+			return baseStyle.Width(width).Foreground(t.TextMuted()).Render("↓")
+		} else {
+			return styles.ForceReplaceBackgroundWithLipgloss(
+				toMarkdown(resultContent, false, width),
+				t.Background(),
+			)
+		}
 	case tools.BashToolName:
 		resultContent = fmt.Sprintf("```bash\n%s\n```", resultContent)
 		return styles.ForceReplaceBackgroundWithLipgloss(
@@ -607,6 +618,12 @@ func renderToolResponse(toolCall message.ToolCall, response message.ToolResult, 
 		truncDiff := truncateHeight(metadata.Diff, maxResultHeight)
 		formattedDiff, _ := diff.FormatDiff(truncDiff, diff.WithTotalWidth(width))
 		return formattedDiff
+	case tools.StructOutputToolName:
+		resultContent = fmt.Sprintf("```json\n%s\n```", resultContent)
+		return styles.ForceReplaceBackgroundWithLipgloss(
+			toMarkdown(resultContent, true, width),
+			t.Background(),
+		)
 	default:
 		resultContent = fmt.Sprintf("```text\n%s\n```", resultContent)
 		return styles.ForceReplaceBackgroundWithLipgloss(

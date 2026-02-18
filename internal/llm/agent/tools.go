@@ -2,11 +2,13 @@ package agent
 
 import (
 	"context"
+	"path/filepath"
 	"strings"
 	"sync"
 
 	agentregistry "github.com/MerrukTechnology/OpenCode-Native/internal/agent"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/format"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/history"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/tools"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
@@ -36,6 +38,7 @@ var (
 		tools.PatchToolName,
 		tools.BashToolName,
 	}
+	// TODO: add todo tool
 	managerToolNames = []string{
 		TaskToolName,
 	}
@@ -118,6 +121,25 @@ func NewToolSet(
 				}
 			} else {
 				logging.Warn("Subagent can't have manager tools enabled, tool will be ignored", "agent", agentID, "tool", name)
+			}
+		}
+	}
+
+	// Inject struct_output tool if the agent has an output schema configured
+	if info.Output != nil && info.Output.Schema != nil {
+		if reg.IsToolEnabled(agentID, tools.StructOutputToolName) {
+			schema := info.Output.Schema
+			// Resolve $ref if present, using agent's markdown location for relative paths
+			baseDir := ""
+			if info.Location != "" {
+				baseDir = filepath.Dir(info.Location)
+			}
+			resolved, err := format.ResolveSchemaRef(schema, baseDir)
+			if err != nil {
+				logging.Error("Failed to resolve output schema $ref", "agent", agentID, "error", err)
+			} else {
+				logging.Info("Using structured output", "agent", agentID, "schema", resolved)
+				result <- tools.NewStructOutputTool(resolved)
 			}
 		}
 	}

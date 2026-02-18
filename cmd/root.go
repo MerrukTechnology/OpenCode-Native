@@ -46,6 +46,15 @@ Key Features:
   # Print version
   opencode -v
 
+  # Run with a specific agent
+  opencode -a hivemind
+
+  # Resume a specific session
+  opencode -s <session-id>
+
+  # Delete a session and start fresh with the same ID
+  opencode -s <session-id> -D
+
   # Run a single non-interactive prompt
   opencode -p "Explain the use of context in Go"
 
@@ -69,9 +78,17 @@ Key Features:
 		prompt, _ := cmd.Flags().GetString("prompt")
 		outputFormat, _ := cmd.Flags().GetString("output-format")
 		quiet, _ := cmd.Flags().GetBool("quiet")
+		agentID, _ := cmd.Flags().GetString("agent")
+		sessionID, _ := cmd.Flags().GetString("session")
+		deleteSession, _ := cmd.Flags().GetBool("delete")
 
-		// Validate format option
-		if !format.IsValid(outputFormat) {
+		if deleteSession && sessionID == "" {
+			return fmt.Errorf("--delete requires --session/-s to be specified")
+		}
+
+		// Parse format option (may include schema)
+		parsedOutputFormat, cliSchema, fmtErr := format.ParseWithSchema(outputFormat)
+		if fmtErr != nil {
 			return fmt.Errorf("invalid format option: %s\n%s", outputFormat, format.GetHelpText())
 		}
 
@@ -115,8 +132,7 @@ Key Features:
 		// Create main context for the application
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-
-		app, err := app.New(ctx, conn)
+		app, err := app.New(ctx, conn, cliSchema)
 		if err != nil {
 			if spinner != nil {
 				spinner.Stop()
@@ -124,20 +140,44 @@ Key Features:
 			logging.Error("Failed to create app: %v", err)
 			return err
 		}
-		// Defer shutdown here so it runs for both interactive and non-interactive modes
 		defer app.Shutdown()
 
-		// Stop spinner after initialization is complete
+		// Set active agent if specified
+		if agentID != "" {
+			if _err := app.SetActiveAgent(config.AgentName(agentID)); _err != nil {
+				if spinner != nil {
+					spinner.Stop()
+				}
+				return fmt.Errorf("invalid agent: %w", _err)
+			}
+		}
+
+		// Look up session if specified, or store ID for on-demand creation
+		if sessionID != "" {
+			sess, _err := app.Sessions.Get(ctx, sessionID)
+			if _err != nil {
+				logging.Info("Session not found, will create with provided ID", "session_id", sessionID)
+			} else if deleteSession {
+				if delErr := app.Sessions.Delete(ctx, sessionID); delErr != nil {
+					if spinner != nil {
+						spinner.Stop()
+					}
+					return fmt.Errorf("failed to delete session %q: %w", sessionID, delErr)
+				}
+				logging.Info("Deleted existing session, will recreate with same ID", "session_id", sessionID)
+			} else {
+				app.InitialSession = &sess
+			}
+			app.InitialSessionID = sessionID
+		}
+
 		if spinner != nil {
 			spinner.Stop()
 		}
 
 		// Non-interactive mode
 		if prompt != "" {
-			// Run non-interactive flow using the App method
-			_err := app.RunNonInteractive(ctx, prompt, outputFormat, quiet)
-
-			// Immediately force cleanup and exit for non-interactive mode
+			_err := app.RunNonInteractive(ctx, prompt, parsedOutputFormat, quiet)
 			app.ForceShutdown()
 			return _err
 		}
@@ -308,12 +348,13 @@ func init() {
 	rootCmd.Flags().BoolP("debug", "d", false, "Debug")
 	rootCmd.Flags().StringP("cwd", "c", "", "Current working directory")
 	rootCmd.Flags().StringP("prompt", "p", "", "Prompt to run in non-interactive mode")
-	// TODO: add flag to run with specific agent id
-	// TODO: add flag to run with specific session id
+	rootCmd.Flags().StringP("agent", "a", "", "Agent ID to use (e.g. coder, hivemind)")
+	rootCmd.Flags().StringP("session", "s", "", "Session ID to resume or create")
+	rootCmd.Flags().BoolP("delete", "D", false, "Delete the session specified by --session/-s before starting")
 
 	// Add format flag with validation logic
 	rootCmd.Flags().StringP("output-format", "f", format.Text.String(),
-		"Output format for non-interactive mode (text, json)")
+		"Output format for non-interactive mode (text, json, json_schema='{...}' or json_schema=/path/to/schema.json)")
 
 	// Add quiet flag to hide spinner in non-interactive mode
 	rootCmd.Flags().BoolP("quiet", "q", false, "Hide spinner in non-interactive mode")

@@ -22,7 +22,7 @@ builds:
       - -s -w -X github.com/MerrukTechnology/OpenCode-Native/internal/version.Version={{.Version}}
 
 archives:
-  - format: tar.gz
+  - formats: ["tar.gz"]
     name_template: >-
       {{ .ProjectName }}_
       {{- .Os }}_
@@ -31,7 +31,7 @@ archives:
       {{- else }}{{ .Arch }}{{ end }}
     format_overrides:
       - goos: windows
-        format: zip
+        formats: ["zip"]
 
 checksum:
   name_template: "checksums.txt"
@@ -61,7 +61,7 @@ aurs:
     package: |-
       install -Dm755 ./opencode "${pkgdir}/usr/bin/opencode"
 
-brews:
+homebrew_casks:
   - repository:
       owner: "MerrukTechnology"
       name: homebrew-tap
