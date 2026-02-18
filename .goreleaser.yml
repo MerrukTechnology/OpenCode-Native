@@ -7,29 +7,31 @@ before:
     - go mod tidy
 
 builds:
-  - env:
+  - id: "opencode-build"
+    main: ./main.go
+    binary: opencode
+    env:
       - CGO_ENABLED=0
     goos:
       - linux
       - darwin
       # Windows is optional, uncomment if needed
-      # - windows
+      - windows
     goarch:
       - amd64
       - arm64
     # Optimization: -s -w strips debug info (smaller binary)
     ldflags:
       - -s -w -X github.com/MerrukTechnology/OpenCode-Native/internal/version.Version={{.Version}}
-    main: ./main.go
 
 archives:
   - format: tar.gz
-    # Use a standard, clean naming convention
+    # Standard naming: opencode-native_Linux_x86_64.tar.gz
     name_template: >-
       {{ .ProjectName }}_
       {{- title .Os }}_
       {{- if eq .Arch "amd64" }}x86_64
-      {{- else if eq .Arch "386" }}i386
+      {{- else if eq .Arch "arm64" }}aarch64
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
     format_overrides:
@@ -51,7 +53,7 @@ aurs:
       - "Merruk Technology <yahyaclub@gmail.com>"
     license: "MIT"
     private_key: "{{ .Env.AUR_KEY }}"
-    git_url: "ssh://aur@aur.archlinux.org/obukhovaa-bin.git"
+    git_url: "ssh://aur@aur.archlinux.org/opencode-native--bin.git"
     provides:
       - opencode
     conflicts:
@@ -61,21 +63,23 @@ aurs:
 
 brews:
   - repository:
-      owner: obukhovaa
+      owner: "MerrukTechnology"
       name: homebrew-tap
+    directory: Formula
+    license: "MIT"
+    homepage: "https://github.com/MerrukTechnology/OpenCode-Native"
+    description: "Lightweight, native AI coding agent."
 
 nfpms:
   - maintainer: "MerrukTechnology"
-    description: "Lightweight, native AI coding agent optimized for performance."
     homepage: "https://github.com/MerrukTechnology/OpenCode-Native"
+    description: "Lightweight, native AI coding agent optimized for performance."
     license: "MIT"
     formats:
       - deb
       - rpm
-    file_name_template: >-
-      {{ .ProjectName }}-
-      {{- if eq .Os "darwin" }}mac
-      {{- else }}{{ .Os }}{{ end }}-{{ .Arch }}
+    # Better template for Linux package managers
+    file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
 changelog:
   sort: asc
