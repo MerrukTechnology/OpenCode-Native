@@ -346,9 +346,7 @@ func renderParams(paramsWidth int, params ...string) string {
 
 func removeWorkingDirPrefix(path string) string {
 	wd := config.WorkingDirectory()
-	if strings.HasPrefix(path, wd) {
-		path = strings.TrimPrefix(path, wd)
-	}
+	path = strings.TrimPrefix(path, wd)
 	path = strings.TrimPrefix(path, "../")
 	path = strings.TrimPrefix(path, "./")
 	path = strings.TrimPrefix(path, "/")

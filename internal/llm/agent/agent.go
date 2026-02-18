@@ -357,6 +357,7 @@ func (a *agent) processGeneration(ctx context.Context, sessionID, content string
 				msgs = a.filterMessagesFromSummary(msgs, session.SummaryMessageID)
 				// Preserve original problem and result from the last tool iteration to ensure no dead-loop
 				if preserveTail {
+					// TODO: Fix this, preserveTail is not defined correctly, it should be set to true somewhere when we are in a tool use loop, but currently it's always false, which means we are always losing the last tool result and agent message, which could cause the LLM to repeat the same tool call without learning from the previous result, leading to potential infinite loops.
 					preserveTail = false
 					msgHistory = append(msgs, agentMessage, *toolResults)
 				} else {
