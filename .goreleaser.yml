@@ -67,7 +67,7 @@ brews:
       name: homebrew-tap
     directory: Formula
     license: "MIT"
-    homepage: "https://github.com/MerrukTechnology/OpenCode-Native"
+    homepage: "https://github.com/MerrukTechnology/homebrew-tap"
     description: "Lightweight, native AI coding agent optimized for performance."
 
 nfpms:
