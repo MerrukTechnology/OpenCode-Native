@@ -3,7 +3,6 @@ project_name: opencode-native
 
 before:
   hooks:
-    # Optional: ensure dependencies are tidy before building
     - go mod tidy
 
 builds:
@@ -15,12 +14,10 @@ builds:
     goos:
       - linux
       - darwin
-      # Windows is optional, uncomment if needed
       - windows
     goarch:
       - amd64
       - arm64
-    # Optimization: -s -w strips debug info (smaller binary)
     ldflags:
       - -s -w -X github.com/MerrukTechnology/OpenCode-Native/internal/version.Version={{.Version}}
 
@@ -45,15 +42,20 @@ snapshot:
   # 'name_template' is deprecated in v2 for snapshots
   version_template: "{{ .Tag }}-next"
 
+release:
+  github:
+    owner: MerrukTechnology
+    name: OpenCode-Native
+
 aurs:
-  - name: "MerrukTechnology"
+  - name: "opencode-native-bin"
     homepage: "https://github.com/MerrukTechnology/OpenCode-Native"
     description: "Lightweight, native AI coding agent optimized for performance."
     maintainers:
       - "Merruk Technology <yahyaclub@gmail.com>"
     license: "MIT"
     private_key: "{{ .Env.AUR_KEY }}"
-    git_url: "ssh://aur@aur.archlinux.org/opencode-native--bin.git"
+    git_url: "ssh://aur@aur.archlinux.org/opencode-native-bin.git"
     provides:
       - opencode
     conflicts:
@@ -68,7 +70,7 @@ brews:
     directory: Formula
     license: "MIT"
     homepage: "https://github.com/MerrukTechnology/OpenCode-Native"
-    description: "Lightweight, native AI coding agent."
+    description: "Lightweight, native AI coding agent optimized for performance."
 
 nfpms:
   - maintainer: "MerrukTechnology"
@@ -78,7 +80,6 @@ nfpms:
     formats:
       - deb
       - rpm
-    # Better template for Linux package managers
     file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
 changelog:
