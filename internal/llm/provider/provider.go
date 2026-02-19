@@ -156,7 +156,7 @@ func NewProvider(providerName models.ModelProvider, opts ...ProviderClientOption
 			WithOpenAIBaseURL("https://openrouter.ai/api/v1"),
 			WithOpenAIExtraHeaders(map[string]string{
 				"HTTP-Referer": "opencode.ai",
-				"X-Title":      "OpenCode",
+				"X-Title":      "opencode",
 			}),
 		)
 		return &baseProvider[OpenAIClient]{
@@ -166,6 +166,26 @@ func NewProvider(providerName models.ModelProvider, opts ...ProviderClientOption
 	case models.ProviderXAI:
 		clientOptions.openaiOptions = append(clientOptions.openaiOptions,
 			WithOpenAIBaseURL("https://api.x.ai/v1"),
+		)
+		return &baseProvider[OpenAIClient]{
+			options: clientOptions,
+			client:  newOpenAIClient(clientOptions),
+		}, nil
+	case models.ProviderMistral:
+		clientOptions.openaiOptions = append(clientOptions.openaiOptions,
+			WithOpenAIBaseURL("https://api.mistral.ai/v1"),
+		)
+		return &baseProvider[OpenAIClient]{
+			options: clientOptions,
+			client:  newOpenAIClient(clientOptions),
+		}, nil
+	case models.ProviderKilo:
+		clientOptions.openaiOptions = append(clientOptions.openaiOptions,
+			WithOpenAIBaseURL("https://api.kilo.ai/api/gateway"),
+			WithOpenAIExtraHeaders(map[string]string{
+				"HTTP-Referer": "opencode.ai",
+				"X-Title":      "opencode",
+			}),
 		)
 		return &baseProvider[OpenAIClient]{
 			options: clientOptions,
