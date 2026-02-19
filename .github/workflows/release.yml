@@ -37,6 +37,7 @@ jobs:
           distribution: goreleaser
           version: latest
           args: release --clean
+          category: goreleaser
         env:
           GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           AUR_KEY: ${{ secrets.AUR_KEY }}
