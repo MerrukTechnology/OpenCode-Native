@@ -51,8 +51,7 @@ jobs:
           max-allowed-issues: 2147483647
 
       - name: Check and Repair SARIF file
-        with:
-          category: codacy-analysis-check-sarif
+        id: check-sarif
         run: |
           # Check if file exists and has actual content
           if [[ -s results.sarif ]]; then
