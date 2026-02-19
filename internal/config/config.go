@@ -931,21 +931,10 @@ func UpdateAgentModel(agentName AgentName, modelID models.ModelID) error {
 	if model.DefaultMaxTokens > 0 {
 		maxTokens = model.DefaultMaxTokens
 	}
-	newAgentCfg := Agent{
-		Model:           modelID,
-		MaxTokens:       maxTokens,
-		ReasoningEffort: existingAgentCfg.ReasoningEffort,
-		// Preserve upstream fields
-		Mode:        existingAgentCfg.Mode,
-		Name:        existingAgentCfg.Name,
-		Description: existingAgentCfg.Description,
-		Prompt:      existingAgentCfg.Prompt,
-		Color:       existingAgentCfg.Color,
-		Hidden:      existingAgentCfg.Hidden,
-		// Preserve rules/permissions
-		Permission: existingAgentCfg.Permission,
-		Tools:      existingAgentCfg.Tools,
-	}
+
+	newAgentCfg := existingAgentCfg
+	newAgentCfg.Model = modelID
+	newAgentCfg.MaxTokens = maxTokens
 	cfg.Agents[agentName] = newAgentCfg
 
 	if err := validateAgent(cfg, agentName, newAgentCfg); err != nil {
