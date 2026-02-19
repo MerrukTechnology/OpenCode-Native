@@ -41,7 +41,7 @@ jobs:
           # You can also omit the token and run the tools that support default configurations
           project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
           verbose: true
-          category: codacy-analysis-security
+          category: codacy-analysis-security-analysis
           output: results.sarif
           format: sarif
           # Adjust severity of non-security issues
@@ -51,6 +51,8 @@ jobs:
           max-allowed-issues: 2147483647
 
       - name: Check and Repair SARIF file
+        with:
+          category: codacy-analysis-check-sarif
         run: |
           # Check if file exists and has actual content
           if [[ -s results.sarif ]]; then
@@ -65,8 +67,6 @@ jobs:
             echo "❌ SARIF file missing. Creating minimal valid SARIF..."
             echo '{"$schema":"https://schemastore.azurewebsites.net","version":"2.1.0","runs":[{"tool":{"driver":{"name":"Codacy","rules":[]}},"results":[]}]}' > results.sarif
           fi
-        with:
-          category: codacy-analysis-check
 
       # Upload the SARIF file generated in the previous step
       - name: Upload SARIF results file
