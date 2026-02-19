@@ -146,9 +146,13 @@ Internal:
   - any-glob-to-any-file: 'internal/**/*'
 
 # Add 'feature' label to any PR where the head branch name starts with `feature` or has a `feature` section in the name
-feature:
+Feature:
  - head-branch: ['^feature', 'feature']
 
 # Add 'release' label to any PR that is opened against the `main` branch
-release:
+Release:
  - base-branch: 'main'
+
+# Add 'bug' label to any PR that has a `fix` section in the name
+Bug:
+ - head-branch: ['^fix', 'fix']
