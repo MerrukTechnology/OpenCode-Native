@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 
-	// "path/filepath"
 	"encoding/json"
+	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	"sync"
@@ -112,18 +113,31 @@ func AppendToSessionLogFile(sessionId string, filename string, content string) s
 	}
 	sessionPrefix := GetSessionPrefix(sessionId)
 
+	safeSessionPrefix := filepath.Base(sessionPrefix)
+	safeFilename := filepath.Base(filename)
+
 	sessionLogMutex.Lock()
 	defer sessionLogMutex.Unlock()
 
-	sessionPath := fmt.Sprintf("%s/%s", MessageDir, sessionPrefix)
+	sessionPath := filepath.Join(MessageDir, safeSessionPrefix)
+
 	if _, err := os.Stat(sessionPath); os.IsNotExist(err) {
-		if err := os.MkdirAll(sessionPath, 0o766); err != nil {
+		// 0o755 is more standard/secure than 0o766 (removes world-write)
+		if err := os.MkdirAll(sessionPath, 0o755); err != nil {
 			Error("Failed to create session directory", "dirpath", sessionPath, "error", err)
 			return ""
 		}
 	}
 
-	filePath := fmt.Sprintf("%s/%s", sessionPath, filename)
+	filePath := filepath.Join(sessionPath, safeFilename)
+
+	absMessageDir, _ := filepath.Abs(MessageDir)
+	absFinalPath, _ := filepath.Abs(filePath)
+
+	if !strings.HasPrefix(absFinalPath, absMessageDir) {
+		Error("Security violation: Path traversal detected", "path", filePath)
+		return ""
+	}
 
 	f, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
