@@ -49,22 +49,6 @@ jobs:
           # This will handover control about PR rejection to the GitHub side
           max-allowed-issues: 2147483647
 
-      - name: Check and Repair SARIF file
-        run: |
-          # Check if file exists and has actual content
-          if [[ -s results.sarif ]]; then
-            # Even if it exists, check if 'runs' is empty '[]'
-            if grep -q '"runs":\s*\[\s*\]' results.sarif; then
-              echo "⚠️ SARIF has empty runs array. Injecting valid placeholder..."
-              echo '{"$schema":"https://schemastore.azurewebsites.net","version":"2.1.0","runs":[{"tool":{"driver":{"name":"Codacy","rules":[]}},"results":[]}]}' > results.sarif
-            else
-              echo "✅ SARIF file is valid and contains data."
-            fi
-          else
-            echo "❌ SARIF file missing. Creating minimal valid SARIF..."
-            echo '{"$schema":"https://schemastore.azurewebsites.net","version":"2.1.0","runs":[{"tool":{"driver":{"name":"Codacy","rules":[]}},"results":[]}]}' > results.sarif
-          fi
-
       # Upload the SARIF file generated in the previous step
       - name: Upload SARIF results file
         uses: github/codeql-action/upload-sarif@v4
