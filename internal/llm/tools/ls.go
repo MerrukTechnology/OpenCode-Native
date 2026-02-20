@@ -168,53 +168,13 @@ func listDirectory(initialPath string, ignorePatterns []string, limit int) ([]st
 }
 
 func shouldSkip(path string, ignorePatterns []string) bool {
+	// Use fileutil.SkipHidden for consistent hidden/ignored detection
+	if fileutil.SkipHidden(path) {
+		return true
+	}
+
+	// Check custom ignore patterns
 	base := filepath.Base(path)
-
-	if base != "." && strings.HasPrefix(base, ".") {
-		return true
-	}
-
-	commonIgnored := []string{
-		"__pycache__",
-		"node_modules",
-		"dist",
-		"build",
-		"target",
-		"vendor",
-		"bin",
-		"obj",
-		".git",
-		".idea",
-		".vscode",
-		".DS_Store",
-		"*.pyc",
-		"*.pyo",
-		"*.pyd",
-		"*.so",
-		"*.dll",
-		"*.exe",
-	}
-
-	if strings.Contains(path, filepath.Join("__pycache__", "")) {
-		return true
-	}
-
-	for _, ignored := range commonIgnored {
-		if strings.HasSuffix(ignored, "/") {
-			if strings.Contains(path, filepath.Join(ignored[:len(ignored)-1], "")) {
-				return true
-			}
-		} else if strings.HasPrefix(ignored, "*.") {
-			if strings.HasSuffix(base, ignored[1:]) {
-				return true
-			}
-		} else {
-			if base == ignored {
-				return true
-			}
-		}
-	}
-
 	for _, pattern := range ignorePatterns {
 		matched, err := filepath.Match(pattern, base)
 		if err == nil && matched {

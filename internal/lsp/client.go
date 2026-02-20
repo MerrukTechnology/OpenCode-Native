@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/fileutil"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp/protocol"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/version"
@@ -553,25 +554,9 @@ func (c *Client) openTypeScriptFiles(ctx context.Context, workDir string) {
 }
 
 // shouldSkipDir returns true if the directory should be skipped during file search
+// Uses fileutil.SkipHidden for consistent behavior across the codebase
 func shouldSkipDir(path string) bool {
-	dirName := filepath.Base(path)
-
-	// Skip hidden directories
-	if strings.HasPrefix(dirName, ".") {
-		return true
-	}
-
-	// Skip common directories that won't contain relevant source files
-	skipDirs := map[string]bool{
-		"node_modules": true,
-		"dist":         true,
-		"build":        true,
-		"coverage":     true,
-		"vendor":       true,
-		"target":       true,
-	}
-
-	return skipDirs[dirName]
+	return fileutil.SkipHidden(path)
 }
 
 // pingWithWorkspaceSymbol tries a workspace/symbol request.

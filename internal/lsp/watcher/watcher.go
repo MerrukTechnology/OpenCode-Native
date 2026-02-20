@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/fileutil"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp/protocol"
@@ -813,28 +814,18 @@ var (
 )
 
 // shouldExcludeDir returns true if the directory should be excluded from watching/opening
+// Uses fileutil.SkipHidden for consistent behavior across the codebase
 func shouldExcludeDir(dirPath string) bool {
-	dirName := filepath.Base(dirPath)
-
-	// Skip dot directories
-	if strings.HasPrefix(dirName, ".") {
-		return true
-	}
-
-	// Skip common excluded directories
-	if excludedDirNames[dirName] {
-		return true
-	}
-
-	return false
+	return fileutil.SkipHidden(dirPath)
 }
 
 // shouldExcludeFile returns true if the file should be excluded from opening
+// Uses fileutil for consistent hidden/ignored detection
 func shouldExcludeFile(filePath string) bool {
-	fileName := filepath.Base(filePath)
 	cnf := config.Get()
-	// Skip dot files
-	if strings.HasPrefix(fileName, ".") {
+
+	// Use fileutil for hidden/ignored detection
+	if fileutil.SkipHidden(filePath) {
 		return true
 	}
 

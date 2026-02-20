@@ -41,10 +41,24 @@ var CommonIgnoredDirs = map[string]bool{
 	"build":            true,
 	"target":           true,
 	".git":             true,
+	".svn":             true,
+	".hg":              true,
 	".idea":            true,
 	".vscode":          true,
 	".cursor":          true,
 	".claude":          true,
+	".vscode-insiders": true,
+	".gradle":          true,
+	".cache":           true,
+	".gitignore":       true,
+	".gitattributes":   true,
+	".gitmodules":      true,
+	".gitkeep":         true,
+	".DS_Store":        true,
+	".env":             true,
+	".github":          true,
+	".githooks":        true,
+	".agents":          true,
 	"__pycache__":      true,
 	"bin":              true,
 	"obj":              true,
@@ -60,13 +74,24 @@ var CommonIgnoredDirs = map[string]bool{
 
 // CommonIgnoredExtensions is a map of file extensions that should be ignored
 var CommonIgnoredExtensions = map[string]bool{
-	".pyc":   true,
-	".pyo":   true,
-	".pyd":   true,
-	".so":    true,
-	".dll":   true,
-	".exe":   true,
-	".dylib": true,
+	".swp":   true,
+	".swo":   true,
+	".tmp":   true,
+	".temp":  true,
+	".bak":   true, // maybe we need to read this
+	".log":   true, // maybe we need to read this
+	".obj":   true,
+	".out":   true,
+	".pyc":   true, // Python bytecode
+	".pyo":   true, // Python optimized bytecode
+	".pyd":   true, // Python extension modules
+	".o":     true, // Object files
+	".so":    true, // Shared libraries
+	".dylib": true, // macOS shared libraries
+	".dll":   true, // Windows shared libraries
+	".a":     true, // Static libraries
+	".exe":   true, // Windows executables
+	".lock":  true, // Lock files
 }
 
 // ImageTypes maps image extensions to their type names
@@ -369,54 +394,62 @@ func IsIgnoredExtension(path string) bool {
 // Optimized to avoid heavy allocations like strings.Split.
 func SkipHidden(path string) bool {
 	// Standardize to forward slashes for cross-platform matching
-	cleanPath := filepath.ToSlash(path)
+	cleanPath := filepath.ToSlash(filepath.Clean(path))
 
-	// Quick check for hidden files/folders at root level (e.g., ".hidden.go")
-	base := filepath.Base(cleanPath)
-	if strings.HasPrefix(base, ".") && base != "." {
-		return true
-	}
-
-	// Quick check for hidden files/folders in subdirectories (e.g., "dir/.hidden")
-	if strings.Contains(cleanPath, "/.") {
-		return true
-	}
-
-	// Check against CommonIgnoredDirs
-	// We check each segment to catch things like "internal/node_modules/file.js"
-	segments := strings.Split(cleanPath, "/")
-	for _, segment := range segments {
-		if CommonIgnoredDirs[segment] {
+	// 1. Check for any hidden segment in the path (e.g., "src/.secret/file.go")
+	if strings.Contains(cleanPath, "/.") || strings.HasPrefix(cleanPath, ".") {
+		// Safety check: don't ignore the current directory itself
+		if cleanPath != "." && cleanPath != "./" {
 			return true
 		}
 	}
 
-	return false
+	// 2. Iterate through path segments to catch ignored directories
+	// Example: "internal/node_modules/react/index.js"
+	start := 0
+	for {
+		end := strings.IndexByte(cleanPath[start:], '/')
+		var segment string
+
+		if end == -1 {
+			segment = cleanPath[start:]
+		} else {
+			segment = cleanPath[start : start+end]
+		}
+
+		if segment != "" {
+			if IsIgnoredDir(segment) {
+				return true
+			}
+		}
+
+		// Check the segment against our primitive rules
+		if IsIgnoredDir(segment) {
+			return true
+		}
+
+		if end == -1 {
+			break
+		}
+		start += end + 1
+	}
+
+	// 3. Final check for forbidden extensions (e.g., .exe, .dll)
+	return IsIgnoredExtension(cleanPath)
 }
 
 // ShouldSkipPath checks if a path should be skipped based on ignore patterns
 // This is a more comprehensive version that combines hidden check with custom patterns
 func ShouldSkipPath(path string, ignorePatterns []string) bool {
-	base := filepath.Base(path)
-
-	// Check for hidden files
-	if base != "." && strings.HasPrefix(base, ".") {
+	// First, check the built-in "smart" ignores
+	if SkipHidden(path) {
 		return true
 	}
 
-	// Check common ignored directories
-	if IsIgnoredDir(path) {
-		return true
-	}
-
-	// Check ignored extensions
-	if IsIgnoredExtension(path) {
-		return true
-	}
-
-	// Check custom ignore patterns
+	// Then, check custom ignore patterns using doublestar for recursive support
 	for _, pattern := range ignorePatterns {
-		matched, err := filepath.Match(pattern, base)
+		// Use doublestar.Match for '**/temp/*' style patterns
+		matched, err := doublestar.Match(pattern, path)
 		if err == nil && matched {
 			return true
 		}

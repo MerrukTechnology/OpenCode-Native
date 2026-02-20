@@ -356,7 +356,7 @@ func TestShouldSkipPath(t *testing.T) {
 		{
 			name:           "custom pattern match",
 			path:           "/path/test_temp.txt",
-			ignorePatterns: []string{"*_temp.txt"},
+			ignorePatterns: []string{"**/*_temp.txt"},
 			expected:       true,
 		},
 		{
@@ -863,7 +863,7 @@ func TestListDirectory(t *testing.T) {
 		t.Errorf("Expected truncation with limit 1")
 	}
 
-	files, _, err = ListDirectory(tmpDir, []string{"*.go"}, 100)
+	files, _, err = ListDirectory(tmpDir, []string{"**/*.go"}, 100)
 	if err != nil {
 		t.Fatalf("ListDirectory with pattern failed: %v", err)
 	}
