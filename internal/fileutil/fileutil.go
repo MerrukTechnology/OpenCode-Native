@@ -417,14 +417,7 @@ func SkipHidden(path string) bool {
 			segment = cleanPath[start : start+end]
 		}
 
-		if segment != "" {
-			if IsIgnoredDir(segment) {
-				return true
-			}
-		}
-
-		// Check the segment against our primitive rules
-		if IsIgnoredDir(segment) {
+		if segment != "" && IsIgnoredDir(segment) {
 			return true
 		}
 
