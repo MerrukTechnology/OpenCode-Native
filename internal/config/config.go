@@ -430,6 +430,8 @@ func mapEnvVarsToViper() {
 		"XAI_API_KEY":        "providers.xai.apiKey",
 		"DEEPSEEK_API_KEY":   "providers.deepseek.apiKey",
 		"QWEN_API_KEY":       "providers.qwen.apiKey",
+		"MISTRAL_API_KEY":    "providers.mistral.apiKey",
+		"KILO_API_KEY":       "providers.kilocode.apiKey",
 		//"MOONSHOT_API_KEY":   "providers.moonshot.apiKey",
 		"VERTEXAI_PROJECT":  "providers.vertexai.project",
 		"VERTEXAI_LOCATION": "providers.vertexai.location",
@@ -623,6 +625,28 @@ func setDefaultModelForAgent(agent AgentName) bool {
 			WorkhorseModel:  models.BedrockClaude45Sonnet,
 			HivemindModel:   models.BedrockClaude45Sonnet,
 			FallbackModel:   models.BedrockClaude45Sonnet,
+		},
+		// 10. KiloCode
+		{
+			EnvKey:          "KILO_API_KEY",
+			CoderModel:      models.KiloCodeAuto,
+			SummarizerModel: models.KiloCodeAuto,
+			ExplorerModel:   models.KiloCodeAuto,
+			DescriptorModel: models.KiloCodeAuto,
+			WorkhorseModel:  models.KiloCodeAuto,
+			HivemindModel:   models.KiloCodeAuto,
+			FallbackModel:   models.KiloCodeAuto,
+		},
+		// 11. Mistral
+		{
+			EnvKey:          "MISTRAL_API_KEY",
+			CoderModel:      models.MistralGPT4O,
+			SummarizerModel: models.MistralGPT4O,
+			ExplorerModel:   models.MistralGPT4O,
+			DescriptorModel: models.MistralGPT4O,
+			WorkhorseModel:  models.MistralGPT4O,
+			HivemindModel:   models.MistralGPT4O,
+			FallbackModel:   models.MistralGPT4O,
 		},
 	}
 
@@ -833,8 +857,12 @@ func getProviderAPIKey(provider models.ModelProvider) string {
 		return os.Getenv("OPENAI_API_KEY")
 	case models.ProviderGemini:
 		return os.Getenv("GEMINI_API_KEY")
-	case models.ProviderGrok:
+	case models.ProviderGroq:
 		return os.Getenv("GROQ_API_KEY")
+	case models.ProviderKiloCode:
+		return os.Getenv("KILO_API_KEY")
+	case models.ProviderMistral:
+		return os.Getenv("MISTRAL_API_KEY")
 	case models.ProviderOpenRouter:
 		return os.Getenv("OPENROUTER_API_KEY")
 	case models.ProviderXAI:

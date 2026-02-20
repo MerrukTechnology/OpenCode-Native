@@ -143,7 +143,7 @@ func NewProvider(providerName models.ModelProvider, opts ...ProviderClientOption
 			options: clientOptions,
 			client:  newBedrockClient(clientOptions),
 		}, nil
-	case models.ProviderGrok:
+	case models.ProviderGroq:
 		clientOptions.openaiOptions = append(clientOptions.openaiOptions,
 			WithOpenAIBaseURL("https://api.groq.com/openai/v1"),
 		)
@@ -179,7 +179,7 @@ func NewProvider(providerName models.ModelProvider, opts ...ProviderClientOption
 			options: clientOptions,
 			client:  newOpenAIClient(clientOptions),
 		}, nil
-	case models.ProviderKilo:
+	case models.ProviderKiloCode:
 		clientOptions.openaiOptions = append(clientOptions.openaiOptions,
 			WithOpenAIBaseURL("https://api.kilo.ai/api/gateway"),
 			WithOpenAIExtraHeaders(map[string]string{
