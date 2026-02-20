@@ -25,14 +25,14 @@ func (app *App) initLSPClients(ctx context.Context) {
 	wg := sync.WaitGroup{}
 	for name, server := range install.ResolveServers(cfg) {
 		wg.Add(1)
-		go func() {
-			lspName := "LSP-" + name
+		go func(n string, s install.ResolvedServer) {
+			lspName := "LSP-" + n
 			defer logging.RecoverPanic(lspName, func() {
 				logging.ErrorPersist(fmt.Sprintf("Panic while starting %s", lspName))
 			})
 			defer wg.Done()
-			app.startLSPServer(ctx, name, server)
-		}()
+			app.startLSPServer(ctx, n, s)
+		}(name, server)
 	}
 	go func() {
 		wg.Wait()

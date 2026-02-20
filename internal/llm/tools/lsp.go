@@ -106,9 +106,9 @@ func (t *lspTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error) 
 		return NewTextErrorResponse(fmt.Sprintf("invalid operation: %s", params.Operation)), nil
 	}
 
-	file := params.FilePath
-	if !filepath.IsAbs(file) {
-		file = filepath.Join(config.WorkingDirectory(), file)
+	file, err := ValidatePathInWorkingDirectory(params.FilePath)
+	if err != nil {
+		return NewTextErrorResponse(err.Error()), nil
 	}
 
 	if _, err := os.Stat(file); os.IsNotExist(err) {

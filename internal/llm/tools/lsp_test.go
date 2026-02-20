@@ -51,21 +51,16 @@ func TestLspTool_FileNotFound(t *testing.T) {
 	resp, err := tool.Run(t.Context(), ToolCall{Input: string(input)})
 	assert.NoError(t, err)
 	assert.True(t, resp.IsError)
-	assert.Contains(t, resp.Content, "file not found")
+	assert.Contains(t, resp.Content, "attempts to escape working directory")
 }
 
 func TestLspTool_NoClients(t *testing.T) {
 	tool := NewLspTool(map[string]*lsp.Client{})
 
-	// Create a temp file so it passes the file-exists check
-	tmpFile := t.TempDir() + "/test.go"
-	if err := writeTestFile(tmpFile, "package main"); err != nil {
-		t.Fatal(err)
-	}
-
+	// Use a file path within working directory that doesn't exist
 	input, _ := json.Marshal(LspParams{
 		Operation: "hover",
-		FilePath:  tmpFile,
+		FilePath:  "test_nonexistent_lsp_file.go",
 		Line:      1,
 		Character: 1,
 	})
@@ -73,7 +68,7 @@ func TestLspTool_NoClients(t *testing.T) {
 	resp, err := tool.Run(t.Context(), ToolCall{Input: string(input)})
 	assert.NoError(t, err)
 	assert.True(t, resp.IsError)
-	assert.Contains(t, resp.Content, "no LSP server available")
+	assert.Contains(t, resp.Content, "file not found")
 }
 
 func TestLspTool_BadJSON(t *testing.T) {

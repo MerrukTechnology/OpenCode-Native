@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp"
 )
 
@@ -105,10 +104,10 @@ func (v *viewTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error)
 		return NewTextErrorResponse("file_path is required"), nil
 	}
 
-	// Handle relative paths
-	filePath := params.FilePath
-	if !filepath.IsAbs(filePath) {
-		filePath = filepath.Join(config.WorkingDirectory(), filePath)
+	// Validate and resolve the file path
+	filePath, err := ValidatePathInWorkingDirectory(params.FilePath)
+	if err != nil {
+		return NewTextErrorResponse(err.Error()), nil
 	}
 
 	// Check if file exists

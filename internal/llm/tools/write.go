@@ -114,9 +114,9 @@ func (w *writeTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 		return NewTextErrorResponse("content is required"), nil
 	}
 
-	filePath := params.FilePath
-	if !filepath.IsAbs(filePath) {
-		filePath = filepath.Join(config.WorkingDirectory(), filePath)
+	filePath, err := ValidatePathInWorkingDirectory(params.FilePath)
+	if err != nil {
+		return NewTextErrorResponse(err.Error()), nil
 	}
 
 	fileInfo, err := os.Stat(filePath)

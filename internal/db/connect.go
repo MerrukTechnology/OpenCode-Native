@@ -30,7 +30,9 @@ func Connect() (*sql.DB, error) {
 
 	if err := goose.SetDialect(provider.Dialect()); err != nil {
 		logging.Error("Failed to set dialect", "error", err)
-		db.Close()
+		if closeErr := db.Close(); closeErr != nil {
+			logging.Error("Failed to close database connection", "error", closeErr)
+		}
 		return nil, fmt.Errorf("failed to set dialect: %w", err)
 	}
 
@@ -43,7 +45,9 @@ func Connect() (*sql.DB, error) {
 	// Run migrations
 	if err := goose.Up(db, migrationDir); err != nil {
 		logging.Error("Failed to apply migrations", "error", err)
-		db.Close()
+		if closeErr := db.Close(); closeErr != nil {
+			logging.Error("Failed to close database connection", "error", closeErr)
+		}
 		return nil, fmt.Errorf("failed to apply migrations: %w", err)
 	}
 

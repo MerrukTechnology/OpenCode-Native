@@ -115,7 +115,9 @@ func (s *service) createWithVersion(ctx context.Context, sessionID, path, conten
 			Version:   version,
 		})
 		if txErr != nil {
-			tx.Rollback()
+			if rbErr := tx.Rollback(); rbErr != nil {
+				logging.Error("Failed to rollback transaction", "error", rbErr)
+			}
 			logging.Error("Failed to create a file history", "path", path, "sessionID", sessionID, "version", version, "cause", txErr.Error())
 
 			if strings.Contains(txErr.Error(), "UNIQUE constraint failed") {
