@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
-	"path/filepath"
 	"sort"
 	"strings"
 
@@ -155,9 +154,7 @@ func runRipgrep(cmd *exec.Cmd, searchRoot string, limit int) ([]string, error) {
 			continue
 		}
 		absPath := string(p)
-		if !filepath.IsAbs(absPath) {
-			absPath = filepath.Join(searchRoot, absPath)
-		}
+		absPath = fileutil.ResolvePath(absPath, searchRoot)
 		if fileutil.SkipHidden(absPath) {
 			continue
 		}

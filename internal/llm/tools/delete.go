@@ -11,6 +11,7 @@ import (
 	agentregistry "github.com/MerrukTechnology/OpenCode-Native/internal/agent"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/diff"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/fileutil"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/history"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/permission"
@@ -102,9 +103,7 @@ func (d *deleteTool) Run(ctx context.Context, call ToolCall) (ToolResponse, erro
 	}
 
 	absPath := params.Path
-	if !filepath.IsAbs(absPath) {
-		absPath = filepath.Join(config.WorkingDirectory(), absPath)
-	}
+	absPath = fileutil.ResolvePath(absPath, config.WorkingDirectory())
 
 	fileInfo, err := os.Lstat(absPath)
 	if err != nil {

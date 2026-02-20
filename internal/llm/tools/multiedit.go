@@ -12,6 +12,7 @@ import (
 	agentregistry "github.com/MerrukTechnology/OpenCode-Native/internal/agent"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/diff"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/fileutil"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/history"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp"
@@ -140,10 +141,7 @@ func (m *multiEditTool) Run(ctx context.Context, call ToolCall) (ToolResponse, e
 		return NewTextErrorResponse("edits array must not be empty"), nil
 	}
 
-	if !filepath.IsAbs(params.FilePath) {
-		wd := config.WorkingDirectory()
-		params.FilePath = filepath.Join(wd, params.FilePath)
-	}
+	params.FilePath = fileutil.ResolvePath(params.FilePath, config.WorkingDirectory())
 
 	fileInfo, err := os.Stat(params.FilePath)
 	if err != nil {

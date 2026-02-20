@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/fileutil"
 )
 
 type LSParams struct {
@@ -100,9 +101,8 @@ func (l *lsTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error) {
 	if searchPath == "" {
 		searchPath = l.cfg.WorkingDirectory()
 	}
-
 	if !filepath.IsAbs(searchPath) {
-		searchPath = filepath.Join(l.cfg.WorkingDirectory(), searchPath)
+		searchPath = fileutil.ResolvePath(searchPath, l.cfg.WorkingDirectory())
 	}
 
 	if _, err := os.Stat(searchPath); os.IsNotExist(err) {

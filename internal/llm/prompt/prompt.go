@@ -90,9 +90,10 @@ func processContextPaths(workDir string, paths []string) string {
 			defer wg.Done()
 
 			if strings.HasSuffix(p, "/") {
-				filepath.WalkDir(filepath.Join(workDir, p), func(path string, d os.DirEntry, err error) error {
-					if err != nil {
-						return err
+				// Walk the directory (error is handled inside the walk function)
+				_ = filepath.WalkDir(filepath.Join(workDir, p), func(path string, d os.DirEntry, errors error) error {
+					if errors != nil {
+						return errors // This stops the walk for this specific path
 					}
 					if !d.IsDir() {
 						if tryMarkProcessed(path, processedFiles, &processedMutex) {
@@ -103,6 +104,10 @@ func processContextPaths(workDir string, paths []string) string {
 					}
 					return nil
 				})
+
+				//if _err != nil {
+				//	return _err // Handle the error as needed, e.g., log it and decide whether to continue or return
+				//}
 			} else {
 				fullPath := filepath.Join(workDir, p)
 				if tryMarkProcessed(fullPath, processedFiles, &processedMutex) {

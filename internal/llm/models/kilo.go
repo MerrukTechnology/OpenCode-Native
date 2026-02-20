@@ -3,7 +3,7 @@ package models
 const (
 	ProviderKilo ModelProvider = "kilo"
 
-	KiloGPT4O    ModelID = "kilo.gpt-4o"
+	KiloGPT4O ModelID = "kilo.gpt-4o"
 )
 
 var KiloModels = map[ModelID]Model{

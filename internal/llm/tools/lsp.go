@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/fileutil"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp/protocol"
 )
@@ -107,9 +108,7 @@ func (t *lspTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error) 
 	}
 
 	file := params.FilePath
-	if !filepath.IsAbs(file) {
-		file = filepath.Join(config.WorkingDirectory(), file)
-	}
+	file = fileutil.ResolvePath(file, config.WorkingDirectory())
 
 	if _, err := os.Stat(file); os.IsNotExist(err) {
 		return NewTextErrorResponse(fmt.Sprintf("file not found: %s", file)), nil
