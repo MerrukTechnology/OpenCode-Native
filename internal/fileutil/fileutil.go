@@ -759,28 +759,50 @@ func FileContainsPattern(filePath string, pattern *regexp.Regexp) (bool, int, st
 // UNIFIED FILE VALIDATION
 // ============================================
 
-// ValidateFileOperation performs comprehensive validation for file operations
-func ValidateFileOperation(path, workingDir string, operation FileOperation) *FileValidationResult {
+// validationOptions configures the behavior of validatePath
+type validationOptions struct {
+	// allowNonExistent indicates whether non-existent files are acceptable
+	allowNonExistent bool
+	// allowDirectory indicates whether directories are acceptable
+	allowDirectory bool
+	// useLstat indicates whether to use Lstat (follows symlinks) instead of Stat
+	useLstat bool
+	// outsideDirError is the error message for paths outside working directory
+	outsideDirError string
+	// notExistError is the error message format for non-existent paths
+	notExistError string
+}
+
+// validatePath is the internal helper that handles common path validation logic.
+// It resolves the path, checks working directory bounds, and retrieves file info.
+func validatePath(path, workingDir string, opts validationOptions) *FileValidationResult {
 	result := &FileValidationResult{
 		AbsPath: ResolvePath(path, workingDir),
 	}
 
 	// Check if path is within working directory
 	if !IsInWorkingDir(result.AbsPath, workingDir) {
-		result.Error = errors.New("cannot access files outside the working directory")
+		result.Error = errors.New(opts.outsideDirError)
 		return result
 	}
 
-	// Get file info
-	info, err := os.Stat(result.AbsPath)
+	// Get file info using appropriate stat function
+	var info os.FileInfo
+	var err error
+	if opts.useLstat {
+		info, err = os.Lstat(result.AbsPath)
+	} else {
+		info, err = os.Stat(result.AbsPath)
+	}
+
 	if err != nil {
 		if os.IsNotExist(err) {
 			result.Exists = false
-			// For create operations, non-existence is OK
-			if operation == OpCreate {
+			// For operations that allow creating new files, non-existence is OK
+			if opts.allowNonExistent {
 				return result
 			}
-			result.Error = fmt.Errorf("file not found: %s", result.AbsPath)
+			result.Error = fmt.Errorf(opts.notExistError, result.AbsPath)
 			return result
 		}
 		result.Error = fmt.Errorf("failed to access file: %w", err)
@@ -791,6 +813,30 @@ func ValidateFileOperation(path, workingDir string, operation FileOperation) *Fi
 	result.IsDirectory = info.IsDir()
 	result.ModTime = info.ModTime()
 	result.Size = info.Size()
+
+	// Check if directory is acceptable for this operation
+	if result.IsDirectory && !opts.allowDirectory {
+		result.Error = fmt.Errorf("path is a directory, not a file: %s", result.AbsPath)
+		return result
+	}
+
+	return result
+}
+
+// ValidateFileOperation performs comprehensive validation for file operations
+func ValidateFileOperation(path, workingDir string, operation FileOperation) *FileValidationResult {
+	opts := validationOptions{
+		allowNonExistent: operation == OpCreate,
+		allowDirectory:   false,
+		useLstat:         false,
+		outsideDirError:  "cannot access files outside the working directory",
+		notExistError:    "file not found: %s",
+	}
+
+	result := validatePath(path, workingDir, opts)
+	if result.Error != nil {
+		return result
+	}
 
 	// For read operations, check if file was modified since last read
 	// This is handled by the caller using LastReadTime
@@ -818,74 +864,33 @@ func ValidateFileForRead(path, workingDir string, lastReadTime time.Time) *FileV
 
 // ValidateFileForReadWithoutLastRead validates a file for reading without last read check
 func ValidateFileForReadWithoutLastRead(path, workingDir string) *FileValidationResult {
-	result := &FileValidationResult{
-		AbsPath: ResolvePath(path, workingDir),
+	opts := validationOptions{
+		allowNonExistent: false,
+		allowDirectory:   false,
+		useLstat:         false,
+		outsideDirError:  "cannot access files outside the working directory",
+		notExistError:    "file not found: %s",
 	}
-
-	// Check if path is within working directory
-	if !IsInWorkingDir(result.AbsPath, workingDir) {
-		result.Error = errors.New("cannot access files outside the working directory")
-		return result
-	}
-
-	info, err := os.Stat(result.AbsPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			result.Exists = false
-			result.Error = fmt.Errorf("file not found: %s", result.AbsPath)
-			return result
-		}
-		result.Error = fmt.Errorf("failed to access file: %w", err)
-		return result
-	}
-
-	result.Exists = true
-	result.IsDirectory = info.IsDir()
-	result.ModTime = info.ModTime()
-	result.Size = info.Size()
-
-	if result.IsDirectory {
-		result.Error = fmt.Errorf("path is a directory, not a file: %s", result.AbsPath)
-	}
-
-	return result
+	return validatePath(path, workingDir, opts)
 }
 
 // ValidateFileForWrite validates a file for writing
 func ValidateFileForWrite(path, workingDir string, lastReadTime time.Time) *FileValidationResult {
-	result := &FileValidationResult{
-		AbsPath: ResolvePath(path, workingDir),
+	opts := validationOptions{
+		allowNonExistent: true, // Writing can create new files
+		allowDirectory:   false,
+		useLstat:         false,
+		outsideDirError:  "cannot write to files outside the working directory",
+		notExistError:    "file not found: %s",
 	}
 
-	// Check if path is within working directory
-	if !IsInWorkingDir(result.AbsPath, workingDir) {
-		result.Error = errors.New("cannot write to files outside the working directory")
+	result := validatePath(path, workingDir, opts)
+	if result.Error != nil {
 		return result
 	}
 
-	info, err := os.Stat(result.AbsPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			// File doesn't exist - OK for create
-			result.Exists = false
-			return result
-		}
-		result.Error = fmt.Errorf("failed to access file: %w", err)
-		return result
-	}
-
-	result.Exists = true
-	result.IsDirectory = info.IsDir()
-	result.ModTime = info.ModTime()
-	result.Size = info.Size()
-
-	if result.IsDirectory {
-		result.Error = fmt.Errorf("path is a directory, not a file: %s", result.AbsPath)
-		return result
-	}
-
-	// Check if file was modified since last read
-	if !lastReadTime.IsZero() && result.ModTime.After(lastReadTime) {
+	// Check if file was modified since last read (only for existing files)
+	if result.Exists && !lastReadTime.IsZero() && result.ModTime.After(lastReadTime) {
 		result.IsModified = true
 		result.LastReadTime = lastReadTime
 		result.Error = fmt.Errorf("file has been modified since it was last read (mod time: %s, last read: %s)",
@@ -897,33 +902,14 @@ func ValidateFileForWrite(path, workingDir string, lastReadTime time.Time) *File
 
 // ValidateFileForDelete validates a file for deletion
 func ValidateFileForDelete(path, workingDir string) *FileValidationResult {
-	result := &FileValidationResult{
-		AbsPath: ResolvePath(path, workingDir),
+	opts := validationOptions{
+		allowNonExistent: false,
+		allowDirectory:   true, // Directories can be deleted
+		useLstat:         true, // Use Lstat to handle symlinks properly
+		outsideDirError:  "cannot delete files outside the working directory",
+		notExistError:    "file or directory does not exist: %s",
 	}
-
-	// Check if path is within working directory
-	if !IsInWorkingDir(result.AbsPath, workingDir) {
-		result.Error = errors.New("cannot delete files outside the working directory")
-		return result
-	}
-
-	info, err := os.Lstat(result.AbsPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			result.Exists = false
-			result.Error = fmt.Errorf("file or directory does not exist: %s", result.AbsPath)
-			return result
-		}
-		result.Error = fmt.Errorf("failed to access path: %w", err)
-		return result
-	}
-
-	result.Exists = true
-	result.IsDirectory = info.IsDir()
-	result.ModTime = info.ModTime()
-	result.Size = info.Size()
-
-	return result
+	return validatePath(path, workingDir, opts)
 }
 
 // EnsureParentDir ensures the parent directory of a path exists
