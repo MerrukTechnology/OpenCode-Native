@@ -16,10 +16,15 @@ import (
 	"github.com/MerrukTechnology/OpenCode-Native/internal/permission"
 )
 
+// Output defines the output schema for an agent.
 type Output struct {
 	Schema map[string]any `json:"schema,omitempty" yaml:"schema,omitempty"`
 }
 
+// AgentInfo holds the configuration for an agent.
+// It includes metadata like name, description, mode, and tool permissions.
+// AgentInfo holds the configuration for an agent.
+// It includes metadata like name, description, mode, and tool permissions.
 type AgentInfo struct {
 	ID              string           `yaml:"-"`
 	Name            string           `yaml:"name,omitempty"`
@@ -39,6 +44,8 @@ type AgentInfo struct {
 	Location        string           `yaml:"-"`
 }
 
+// Registry provides access to agent configurations.
+// It allows querying agents by ID, listing all agents, and checking tool permissions.
 type Registry interface {
 	Get(id string) (AgentInfo, bool)
 	List() []AgentInfo
@@ -59,6 +66,9 @@ var (
 	registryOnce     sync.Once
 )
 
+// GetRegistry returns the global agent registry instance.
+// It initializes the registry on first call with built-in agents,
+// discovered markdown agents, and configuration overrides.
 func GetRegistry() Registry {
 	registryOnce.Do(func() {
 		registryInstance = newRegistry()
@@ -66,6 +76,8 @@ func GetRegistry() Registry {
 	return registryInstance
 }
 
+// InvalidateRegistry clears the cached registry so it will be reloaded on next GetRegistry call.
+// This is useful when agent configurations change at runtime.
 func InvalidateRegistry() {
 	registryOnce = sync.Once{}
 	registryInstance = nil

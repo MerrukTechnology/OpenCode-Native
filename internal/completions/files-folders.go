@@ -184,6 +184,8 @@ func (cg *filesAndFoldersContextGroup) GetChildEntries(query string) ([]dialog.C
 	return items, nil
 }
 
+// NewFileAndFolderContextGroup creates a completion provider for file and folder paths.
+// It uses ripgrep, fuzzysearch, or fzf to find matching files based on user query.
 func NewFileAndFolderContextGroup() dialog.CompletionProvider {
 	return &filesAndFoldersContextGroup{
 		prefix: "file",

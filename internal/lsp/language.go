@@ -7,6 +7,7 @@ import (
 	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp/protocol"
 )
 
+// DetectLanguageID detects the language ID for a file based on its URI/extension.
 func DetectLanguageID(uri string) protocol.LanguageKind {
 	ext := strings.ToLower(filepath.Ext(uri))
 	switch ext {

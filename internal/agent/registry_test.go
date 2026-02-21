@@ -3,6 +3,7 @@ package agent
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
@@ -50,7 +51,7 @@ You are in code review mode. Focus on quality.
 	if agent.Prompt == "" {
 		t.Error("Prompt should not be empty")
 	}
-	if !contains(agent.Prompt, "code review mode") {
+	if !strings.Contains(agent.Prompt, "code review mode") {
 		t.Errorf("Prompt = %q, should contain 'code review mode'", agent.Prompt)
 	}
 }
@@ -359,15 +360,6 @@ func TestDisabledViaMarkdownMerge(t *testing.T) {
 	}
 }
 
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsAt(s, substr))
-}
-
 func containsAt(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
+	return strings.Contains(s, substr)
 }

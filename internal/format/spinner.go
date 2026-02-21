@@ -9,7 +9,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// Spinner wraps the bubbles spinner for non-interactive mode
+// Spinner provides a terminal spinner animation for non-interactive mode.
+// It displays a loading indicator while operations are in progress.
 type Spinner struct {
 	model  spinner.Model
 	done   chan struct{}

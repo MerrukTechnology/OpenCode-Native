@@ -11,10 +11,12 @@ import (
 
 // Requests
 
+// HandleWorkspaceConfiguration handles the workspace/configuration request.
 func HandleWorkspaceConfiguration(params json.RawMessage) (any, error) {
 	return []map[string]any{{}}, nil
 }
 
+// HandleRegisterCapability handles the client/registerCapability request.
 func HandleRegisterCapability(params json.RawMessage) (any, error) {
 	var registerParams protocol.RegistrationParams
 	if err := json.Unmarshal(params, &registerParams); err != nil {
@@ -46,6 +48,7 @@ func HandleRegisterCapability(params json.RawMessage) (any, error) {
 	return nil, nil
 }
 
+// HandleApplyEdit handles the workspace/applyEdit request.
 func HandleApplyEdit(params json.RawMessage) (any, error) {
 	var edit protocol.ApplyWorkspaceEditParams
 	if err := json.Unmarshal(params, &edit); err != nil {
@@ -81,6 +84,7 @@ func notifyFileWatchRegistration(id string, watchers []protocol.FileSystemWatche
 
 // Notifications
 
+// HandleServerMessage handles server messages (window/showMessage notification).
 func HandleServerMessage(params json.RawMessage) {
 	cnf := config.Get()
 	var msg struct {
@@ -94,6 +98,7 @@ func HandleServerMessage(params json.RawMessage) {
 	}
 }
 
+// HandleDiagnostics handles diagnostics notifications (textDocument/publishDiagnostics).
 func HandleDiagnostics(client *Client, params json.RawMessage) {
 	var diagParams protocol.PublishDiagnosticsParams
 	if err := json.Unmarshal(params, &diagParams); err != nil {

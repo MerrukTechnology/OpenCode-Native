@@ -10,6 +10,7 @@ import (
 	"strings"
 )
 
+// ActionType represents the type of file change action.
 type ActionType string
 
 const (
@@ -18,6 +19,7 @@ const (
 	ActionUpdate ActionType = "update"
 )
 
+// FileChange represents a single file change with old and new content.
 type FileChange struct {
 	Type       ActionType
 	OldContent *string
@@ -25,16 +27,19 @@ type FileChange struct {
 	MovePath   *string
 }
 
+// Commit holds a collection of file changes.
 type Commit struct {
 	Changes map[string]FileChange
 }
 
+// Chunk represents a section of changes within a file.
 type Chunk struct {
 	OrigIndex int      // line index of the first line in the original file
 	DelLines  []string // lines to delete
 	InsLines  []string // lines to insert
 }
 
+// PatchAction represents a patch action for a single file.
 type PatchAction struct {
 	Type     ActionType
 	NewFile  *string
@@ -42,10 +47,12 @@ type PatchAction struct {
 	MovePath *string
 }
 
+// Patch represents a collection of patch actions for multiple files.
 type Patch struct {
 	Actions map[string]PatchAction
 }
 
+// DiffError represents an error that occurs during diff or patch operations.
 type DiffError struct {
 	message string
 }
@@ -54,7 +61,7 @@ func (e DiffError) Error() string {
 	return e.message
 }
 
-// Helper functions for error handling
+// NewDiffError creates a new DiffError with the given message.
 func NewDiffError(message string) DiffError {
 	return DiffError{message: message}
 }
@@ -71,6 +78,7 @@ func contextError(index int, context string, isEOF bool) DiffError {
 	return NewDiffError(fmt.Sprintf("%s %d:\n%s", prefix, index, context))
 }
 
+// Parser parses patch text into structured Patch data.
 type Parser struct {
 	currentFiles map[string]string
 	lines        []string
@@ -79,6 +87,7 @@ type Parser struct {
 	fuzz         int
 }
 
+// NewParser creates a new Parser with the given current files and patch text lines.
 func NewParser(currentFiles map[string]string, lines []string) *Parser {
 	return &Parser{
 		currentFiles: currentFiles,
