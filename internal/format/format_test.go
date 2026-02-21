@@ -104,85 +104,96 @@ func TestParseWithSchema(t *testing.T) {
 	}
 }
 
-func TestParseWithSchema_FilePath(t *testing.T) {
+func TestParseWithSchema_FileHandling(t *testing.T) {
 	dir := t.TempDir()
 	schemaFile := filepath.Join(dir, "schema.json")
 	os.WriteFile(schemaFile, []byte(`{"type":"object","properties":{"name":{"type":"string"}}}`), 0o644)
 
-	format, schema, err := ParseWithSchema("json_schema=" + schemaFile)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if format != JSONSchema {
-		t.Errorf("format = %q, want %q", format, JSONSchema)
-	}
-	if schema == nil {
-		t.Fatal("expected schema to be non-nil")
-	}
-	if schema["type"] != "object" {
-		t.Errorf("schema type = %v, want 'object'", schema["type"])
-	}
-}
+	realSchemaFile := filepath.Join(dir, "real-schema.json")
+	os.WriteFile(realSchemaFile, []byte(`{"type":"object","properties":{"score":{"type":"number"}},"required":["score"]}`), 0o644)
 
-func TestParseWithSchema_Ref(t *testing.T) {
-	dir := t.TempDir()
-	schemaFile := filepath.Join(dir, "real-schema.json")
-	os.WriteFile(schemaFile, []byte(`{"type":"object","properties":{"score":{"type":"number"}},"required":["score"]}`), 0o644)
+	badSchemaFile := filepath.Join(dir, "bad.json")
+	os.WriteFile(badSchemaFile, []byte(`not json`), 0o644)
 
-	input := `json_schema={"$ref":"` + schemaFile + `"}`
-	format, schema, err := ParseWithSchema(input)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+		check   func(t *testing.T, format OutputFormat, schema map[string]any)
+	}{
+		{
+			name:  "file path loads schema",
+			input: "json_schema=" + schemaFile,
+			check: func(t *testing.T, format OutputFormat, schema map[string]any) {
+				if format != JSONSchema {
+					t.Errorf("format = %q, want %q", format, JSONSchema)
+				}
+				if schema == nil {
+					t.Fatal("expected schema to be non-nil")
+				}
+				if schema["type"] != "object" {
+					t.Errorf("schema type = %v, want 'object'", schema["type"])
+				}
+			},
+		},
+		{
+			name:  "$ref to file loads schema",
+			input: `json_schema={"$ref":"` + realSchemaFile + `"}`,
+			check: func(t *testing.T, format OutputFormat, schema map[string]any) {
+				if format != JSONSchema {
+					t.Errorf("format = %q, want %q", format, JSONSchema)
+				}
+				if schema == nil {
+					t.Fatal("expected schema to be non-nil")
+				}
+				if schema["type"] != "object" {
+					t.Errorf("schema type = %v, want 'object'", schema["type"])
+				}
+				props, ok := schema["properties"].(map[string]any)
+				if !ok {
+					t.Fatal("expected properties map")
+				}
+				if _, ok := props["score"]; !ok {
+					t.Error("expected 'score' property from referenced file")
+				}
+			},
+		},
+		{
+			name:    "$ref to non-existent path returns error",
+			input:   `json_schema={"$ref":"/nonexistent/path.json"}`,
+			wantErr: true,
+		},
+		{
+			name:    "$ref non-string returns error",
+			input:   `json_schema={"$ref":42}`,
+			wantErr: true,
+		},
+		{
+			name:    "file path with invalid JSON returns error",
+			input:   "json_schema=" + badSchemaFile,
+			wantErr: true,
+		},
+		{
+			name:    "non-existent file path returns error",
+			input:   "json_schema=/tmp/nonexistent-schema-12345.json",
+			wantErr: true,
+		},
 	}
-	if format != JSONSchema {
-		t.Errorf("format = %q, want %q", format, JSONSchema)
-	}
-	if schema == nil {
-		t.Fatal("expected schema to be non-nil")
-	}
-	if schema["type"] != "object" {
-		t.Errorf("schema type = %v, want 'object'", schema["type"])
-	}
-	props, ok := schema["properties"].(map[string]any)
-	if !ok {
-		t.Fatal("expected properties map")
-	}
-	if _, ok := props["score"]; !ok {
-		t.Error("expected 'score' property from referenced file")
-	}
-}
 
-func TestParseWithSchema_RefInvalidPath(t *testing.T) {
-	input := `json_schema={"$ref":"/nonexistent/path.json"}`
-	_, _, err := ParseWithSchema(input)
-	if err == nil {
-		t.Error("expected error for non-existent $ref path")
-	}
-}
-
-func TestParseWithSchema_RefNonString(t *testing.T) {
-	input := `json_schema={"$ref":42}`
-	_, _, err := ParseWithSchema(input)
-	if err == nil {
-		t.Error("expected error for non-string $ref")
-	}
-}
-
-func TestParseWithSchema_FilePathInvalidJSON(t *testing.T) {
-	dir := t.TempDir()
-	schemaFile := filepath.Join(dir, "bad.json")
-	os.WriteFile(schemaFile, []byte(`not json`), 0o644)
-
-	_, _, err := ParseWithSchema("json_schema=" + schemaFile)
-	if err == nil {
-		t.Error("expected error for file with invalid JSON")
-	}
-}
-
-func TestParseWithSchema_FilePathNonExistent(t *testing.T) {
-	_, _, err := ParseWithSchema("json_schema=/tmp/nonexistent-schema-12345.json")
-	if err == nil {
-		t.Error("expected error for non-existent file path")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			format, schema, err := ParseWithSchema(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseWithSchema(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+				return
+			}
+			if tt.wantErr {
+				return
+			}
+			if tt.check != nil {
+				tt.check(t, format, schema)
+			}
+		})
 	}
 }
 
@@ -277,151 +288,177 @@ func TestIsValid(t *testing.T) {
 
 func TestResolveSchemaString(t *testing.T) {
 	dir := t.TempDir()
-
-	// Create a schema file for $ref and file path tests
 	schemaFile := filepath.Join(dir, "schema.json")
 	os.WriteFile(schemaFile, []byte(`{"type":"object","properties":{"x":{"type":"number"}}}`), 0o644)
 
-	t.Run("inline JSON", func(t *testing.T) {
-		schema, err := resolveSchemaString(`{"type":"string"}`)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if schema["type"] != "string" {
-			t.Errorf("type = %v, want 'string'", schema["type"])
-		}
-	})
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+		check   func(t *testing.T, schema map[string]any)
+	}{
+		{
+			name:  "inline JSON",
+			input: `{"type":"string"}`,
+			check: func(t *testing.T, schema map[string]any) {
+				if schema["type"] != "string" {
+					t.Errorf("type = %v, want 'string'", schema["type"])
+				}
+			},
+		},
+		{
+			name:  "file path",
+			input: schemaFile,
+			check: func(t *testing.T, schema map[string]any) {
+				if schema["type"] != "object" {
+					t.Errorf("type = %v, want 'object'", schema["type"])
+				}
+			},
+		},
+		{
+			name:  "$ref to file",
+			input: `{"$ref":"` + schemaFile + `"}`,
+			check: func(t *testing.T, schema map[string]any) {
+				if schema["type"] != "object" {
+					t.Errorf("type = %v, want 'object'", schema["type"])
+				}
+			},
+		},
+		{
+			name:  "$ref ignores other fields",
+			input: `{"$ref":"` + schemaFile + `","description":"ignored"}`,
+			check: func(t *testing.T, schema map[string]any) {
+				if _, ok := schema["description"]; ok {
+					t.Error("expected 'description' from inline to be ignored when $ref is present")
+				}
+			},
+		},
+		{
+			name:    "$ref empty string returns error",
+			input:   `{"$ref":""}`,
+			wantErr: true,
+		},
+	}
 
-	t.Run("file path", func(t *testing.T) {
-		schema, err := resolveSchemaString(schemaFile)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if schema["type"] != "object" {
-			t.Errorf("type = %v, want 'object'", schema["type"])
-		}
-	})
-
-	t.Run("$ref to file", func(t *testing.T) {
-		schema, err := resolveSchemaString(`{"$ref":"` + schemaFile + `"}`)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if schema["type"] != "object" {
-			t.Errorf("type = %v, want 'object'", schema["type"])
-		}
-	})
-
-	t.Run("$ref ignores other fields", func(t *testing.T) {
-		schema, err := resolveSchemaString(`{"$ref":"` + schemaFile + `","description":"ignored"}`)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		// Should have properties from the referenced file, not "description"
-		if _, ok := schema["description"]; ok {
-			t.Error("expected 'description' from inline to be ignored when $ref is present")
-		}
-	})
-
-	t.Run("$ref empty string", func(t *testing.T) {
-		_, err := resolveSchemaString(`{"$ref":""}`)
-		if err == nil {
-			t.Error("expected error for empty $ref")
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			schema, err := resolveSchemaString(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("resolveSchemaString(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+				return
+			}
+			if tt.wantErr {
+				return
+			}
+			if tt.check != nil {
+				tt.check(t, schema)
+			}
+		})
+	}
 }
 
 func TestResolveSchemaRef(t *testing.T) {
 	dir := t.TempDir()
-
 	schemaFile := filepath.Join(dir, "real-schema.json")
-	os.WriteFile(schemaFile, []byte(`{"type":"object","properties":{"score":{"type":"number"}}}`), 0o644)
+	os.WriteFile(schemaFile, []byte(`{"type":"object","properties":{"score":{"type":"number"}}}`), 0o755)
 
-	t.Run("no $ref returns schema unchanged", func(t *testing.T) {
-		schema := map[string]any{"type": "object", "properties": map[string]any{}}
-		result, err := ResolveSchemaRef(schema, "")
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if result["type"] != "object" {
-			t.Errorf("type = %v, want 'object'", result["type"])
-		}
-	})
+	subDir := filepath.Join(dir, "sub")
+	os.MkdirAll(subDir, 0o755)
 
-	t.Run("nil schema returns nil", func(t *testing.T) {
-		result, err := ResolveSchemaRef(nil, "")
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if result != nil {
-			t.Error("expected nil result for nil schema")
-		}
-	})
+	tests := []struct {
+		name    string
+		schema  map[string]any
+		baseDir string
+		wantErr bool
+		check   func(t *testing.T, result map[string]any)
+	}{
+		{
+			name:   "no $ref returns schema unchanged",
+			schema: map[string]any{"type": "object", "properties": map[string]any{}},
+			check: func(t *testing.T, result map[string]any) {
+				if result["type"] != "object" {
+					t.Errorf("type = %v, want 'object'", result["type"])
+				}
+			},
+		},
+		{
+			name:   "nil schema returns nil",
+			schema: nil,
+			check: func(t *testing.T, result map[string]any) {
+				if result != nil {
+					t.Error("expected nil result for nil schema")
+				}
+			},
+		},
+		{
+			name:   "absolute $ref",
+			schema: map[string]any{"$ref": schemaFile},
+			check: func(t *testing.T, result map[string]any) {
+				if result["type"] != "object" {
+					t.Errorf("type = %v, want 'object'", result["type"])
+				}
+			},
+		},
+		{
+			name:    "relative $ref resolved against baseDir",
+			schema:  map[string]any{"$ref": "real-schema.json"},
+			baseDir: dir,
+			check: func(t *testing.T, result map[string]any) {
+				if result["type"] != "object" {
+					t.Errorf("type = %v, want 'object'", result["type"])
+				}
+				props, ok := result["properties"].(map[string]any)
+				if !ok {
+					t.Fatal("expected properties map")
+				}
+				if _, ok := props["score"]; !ok {
+					t.Error("expected 'score' property from file")
+				}
+			},
+		},
+		{
+			name:    "relative $ref with ../ resolved against baseDir",
+			schema:  map[string]any{"$ref": "../real-schema.json"},
+			baseDir: subDir,
+			check: func(t *testing.T, result map[string]any) {
+				if result["type"] != "object" {
+					t.Errorf("type = %v, want 'object'", result["type"])
+				}
+			},
+		},
+		{
+			name:    "relative $ref without baseDir uses cwd returns error",
+			schema:  map[string]any{"$ref": "/nonexistent/path.json"},
+			baseDir: "",
+			wantErr: true,
+		},
+		{
+			name:    "$ref non-string value returns error",
+			schema:  map[string]any{"$ref": 42},
+			baseDir: "",
+			wantErr: true,
+		},
+		{
+			name:    "$ref empty string returns error",
+			schema:  map[string]any{"$ref": ""},
+			baseDir: "",
+			wantErr: true,
+		},
+	}
 
-	t.Run("absolute $ref", func(t *testing.T) {
-		schema := map[string]any{"$ref": schemaFile}
-		result, err := ResolveSchemaRef(schema, "")
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if result["type"] != "object" {
-			t.Errorf("type = %v, want 'object'", result["type"])
-		}
-	})
-
-	t.Run("relative $ref resolved against baseDir", func(t *testing.T) {
-		schema := map[string]any{"$ref": "real-schema.json"}
-		result, err := ResolveSchemaRef(schema, dir)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if result["type"] != "object" {
-			t.Errorf("type = %v, want 'object'", result["type"])
-		}
-		props, ok := result["properties"].(map[string]any)
-		if !ok {
-			t.Fatal("expected properties map")
-		}
-		if _, ok := props["score"]; !ok {
-			t.Error("expected 'score' property from file")
-		}
-	})
-
-	t.Run("relative $ref with ../ resolved against baseDir", func(t *testing.T) {
-		subDir := filepath.Join(dir, "sub")
-		os.MkdirAll(subDir, 0o755)
-
-		schema := map[string]any{"$ref": "../real-schema.json"}
-		result, err := ResolveSchemaRef(schema, subDir)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if result["type"] != "object" {
-			t.Errorf("type = %v, want 'object'", result["type"])
-		}
-	})
-
-	t.Run("relative $ref without baseDir uses cwd", func(t *testing.T) {
-		schema := map[string]any{"$ref": "/nonexistent/path.json"}
-		_, err := ResolveSchemaRef(schema, "")
-		if err == nil {
-			t.Error("expected error for nonexistent file")
-		}
-	})
-
-	t.Run("$ref non-string value", func(t *testing.T) {
-		schema := map[string]any{"$ref": 42}
-		_, err := ResolveSchemaRef(schema, "")
-		if err == nil {
-			t.Error("expected error for non-string $ref")
-		}
-	})
-
-	t.Run("$ref empty string", func(t *testing.T) {
-		schema := map[string]any{"$ref": ""}
-		_, err := ResolveSchemaRef(schema, "")
-		if err == nil {
-			t.Error("expected error for empty $ref")
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ResolveSchemaRef(tt.schema, tt.baseDir)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ResolveSchemaRef() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantErr {
+				return
+			}
+			if tt.check != nil {
+				tt.check(t, result)
+			}
+		})
+	}
 }

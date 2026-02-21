@@ -100,7 +100,7 @@ func (s *stubHistoryService) Delete(context.Context, string) error { return nil 
 
 func (s *stubHistoryService) DeleteSessionFiles(context.Context, string) error { return nil }
 
-func setupEditTest(t *testing.T) (context.Context, string, BaseTool) {
+func setupToolTest(t *testing.T, toolName string) (context.Context, string, BaseTool) {
 	t.Helper()
 	ctrl := gomock.NewController(t)
 
@@ -108,9 +108,17 @@ func setupEditTest(t *testing.T) (context.Context, string, BaseTool) {
 	mockPerms.EXPECT().Request(gomock.Any()).Return(true).AnyTimes()
 
 	files := &stubHistoryService{}
-	tool := NewEditTool(nil, mockPerms, files, &stubRegistry{})
+	var tool BaseTool
+	switch toolName {
+	case EditToolName:
+		tool = NewEditTool(nil, mockPerms, files, &stubRegistry{})
+	case MultiEditToolName:
+		tool = NewMultiEditTool(nil, mockPerms, files, &stubRegistry{})
+	default:
+		t.Fatalf("unknown tool: %s", toolName)
+	}
 
-	tmpFile, err := os.CreateTemp("", "edit_test_*.txt")
+	tmpFile, err := os.CreateTemp("", "tool_test_*.txt")
 	require.NoError(t, err)
 	tmpPath := tmpFile.Name()
 	tmpFile.Close()
@@ -131,14 +139,16 @@ func writeAndTrack(t *testing.T, path, content string) {
 	recordFileRead(path)
 }
 
-func runEdit(t *testing.T, tool BaseTool, ctx context.Context, params EditParams) ToolResponse {
+func runTool(t *testing.T, tool BaseTool, ctx context.Context, toolName string, params any) ToolResponse {
 	t.Helper()
 	paramsJSON, err := json.Marshal(params)
 	require.NoError(t, err)
-	resp, err := tool.Run(ctx, ToolCall{Name: EditToolName, Input: string(paramsJSON)})
+	resp, err := tool.Run(ctx, ToolCall{Name: toolName, Input: string(paramsJSON)})
 	require.NoError(t, err)
 	return resp
 }
+
+// --- Tool Info Tests ---
 
 func TestEditTool_Info(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -156,133 +166,6 @@ func TestEditTool_Info(t *testing.T) {
 	assert.Contains(t, info.Parameters, "replace_all")
 }
 
-func TestEditTool_Replace(t *testing.T) {
-	t.Run("single match", func(t *testing.T) {
-		ctx, tmpPath, tool := setupEditTest(t)
-		writeAndTrack(t, tmpPath, "hello world")
-
-		resp := runEdit(t, tool, ctx, EditParams{
-			FilePath:  tmpPath,
-			OldString: "world",
-			NewString: "go",
-		})
-		assert.False(t, resp.IsError)
-
-		content, _ := os.ReadFile(tmpPath)
-		assert.Equal(t, "hello go", string(content))
-	})
-
-	t.Run("multiple matches without replaceAll fails", func(t *testing.T) {
-		ctx, tmpPath, tool := setupEditTest(t)
-		writeAndTrack(t, tmpPath, "foo bar foo")
-
-		resp := runEdit(t, tool, ctx, EditParams{
-			FilePath:  tmpPath,
-			OldString: "foo",
-			NewString: "baz",
-		})
-		assert.True(t, resp.IsError)
-		assert.Contains(t, resp.Content, "multiple times")
-		assert.Contains(t, resp.Content, "replace_all")
-	})
-
-	t.Run("replaceAll replaces all occurrences", func(t *testing.T) {
-		ctx, tmpPath, tool := setupEditTest(t)
-		writeAndTrack(t, tmpPath, "foo bar foo baz foo")
-
-		resp := runEdit(t, tool, ctx, EditParams{
-			FilePath:   tmpPath,
-			OldString:  "foo",
-			NewString:  "qux",
-			ReplaceAll: true,
-		})
-		assert.False(t, resp.IsError)
-
-		content, _ := os.ReadFile(tmpPath)
-		assert.Equal(t, "qux bar qux baz qux", string(content))
-	})
-
-	t.Run("old_string not found", func(t *testing.T) {
-		ctx, tmpPath, tool := setupEditTest(t)
-		writeAndTrack(t, tmpPath, "hello world")
-
-		resp := runEdit(t, tool, ctx, EditParams{
-			FilePath:  tmpPath,
-			OldString: "nonexistent",
-			NewString: "something",
-		})
-		assert.True(t, resp.IsError)
-		assert.Contains(t, resp.Content, "not found")
-	})
-}
-
-func TestEditTool_CreateFile(t *testing.T) {
-	ctx, _, tool := setupEditTest(t)
-
-	newFile := filepath.Join(os.TempDir(), fmt.Sprintf("edit_create_%d.txt", os.Getpid()))
-	t.Cleanup(func() { os.Remove(newFile) })
-
-	resp := runEdit(t, tool, ctx, EditParams{
-		FilePath:  newFile,
-		OldString: "",
-		NewString: "new file content",
-	})
-	assert.False(t, resp.IsError)
-
-	content, err := os.ReadFile(newFile)
-	require.NoError(t, err)
-	assert.Equal(t, "new file content", string(content))
-}
-
-func TestEditTool_FileNotRead(t *testing.T) {
-	ctx, tmpPath, tool := setupEditTest(t)
-	require.NoError(t, os.WriteFile(tmpPath, []byte("content"), 0o644))
-
-	resp := runEdit(t, tool, ctx, EditParams{
-		FilePath:  tmpPath,
-		OldString: "content",
-		NewString: "new",
-	})
-	assert.True(t, resp.IsError)
-	assert.Contains(t, resp.Content, "must read the file")
-}
-
-// --- MultiEdit Tests ---
-
-func setupMultiEditTest(t *testing.T) (context.Context, string, BaseTool) {
-	t.Helper()
-	ctrl := gomock.NewController(t)
-
-	mockPerms := mock_permission.NewMockService(ctrl)
-	mockPerms.EXPECT().Request(gomock.Any()).Return(true).AnyTimes()
-
-	files := &stubHistoryService{}
-	tool := NewMultiEditTool(nil, mockPerms, files, &stubRegistry{})
-
-	tmpFile, err := os.CreateTemp("", "multiedit_test_*.txt")
-	require.NoError(t, err)
-	tmpPath := tmpFile.Name()
-	tmpFile.Close()
-	t.Cleanup(func() {
-		os.Remove(tmpPath)
-		ctrl.Finish()
-	})
-
-	ctx := context.WithValue(context.Background(), SessionIDContextKey, "test-session")
-	ctx = context.WithValue(ctx, MessageIDContextKey, "test-message")
-
-	return ctx, tmpPath, tool
-}
-
-func runMultiEdit(t *testing.T, tool BaseTool, ctx context.Context, params MultiEditParams) ToolResponse {
-	t.Helper()
-	paramsJSON, err := json.Marshal(params)
-	require.NoError(t, err)
-	resp, err := tool.Run(ctx, ToolCall{Name: MultiEditToolName, Input: string(paramsJSON)})
-	require.NoError(t, err)
-	return resp
-}
-
 func TestMultiEditTool_Info(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -296,11 +179,107 @@ func TestMultiEditTool_Info(t *testing.T) {
 	assert.Contains(t, info.Parameters, "edits")
 }
 
+// --- Edit Tool Tests ---
+
+func TestEditTool_Replace(t *testing.T) {
+	tests := []struct {
+		name         string
+		content      string
+		params       EditParams
+		wantError    bool
+		wantContent  string
+		wantContains []string
+	}{
+		{
+			name:        "single match",
+			content:     "hello world",
+			params:      EditParams{FilePath: "", OldString: "world", NewString: "go"},
+			wantError:   false,
+			wantContent: "hello go",
+		},
+		{
+			name:         "multiple matches without replaceAll fails",
+			content:      "foo bar foo",
+			params:       EditParams{FilePath: "", OldString: "foo", NewString: "baz"},
+			wantError:    true,
+			wantContains: []string{"multiple times", "replace_all"},
+		},
+		{
+			name:        "replaceAll replaces all occurrences",
+			content:     "foo bar foo baz foo",
+			params:      EditParams{FilePath: "", OldString: "foo", NewString: "qux", ReplaceAll: true},
+			wantError:   false,
+			wantContent: "qux bar qux baz qux",
+		},
+		{
+			name:         "old_string not found",
+			content:      "hello world",
+			params:       EditParams{FilePath: "", OldString: "nonexistent", NewString: "something"},
+			wantError:    true,
+			wantContains: []string{"not found"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, tmpPath, tool := setupToolTest(t, EditToolName)
+			tt.params.FilePath = tmpPath
+			writeAndTrack(t, tmpPath, tt.content)
+
+			resp := runTool(t, tool, ctx, EditToolName, tt.params)
+
+			if tt.wantError {
+				assert.True(t, resp.IsError)
+				for _, msg := range tt.wantContains {
+					assert.Contains(t, resp.Content, msg)
+				}
+			} else {
+				assert.False(t, resp.IsError)
+				content, _ := os.ReadFile(tmpPath)
+				assert.Equal(t, tt.wantContent, string(content))
+			}
+		})
+	}
+}
+
+func TestEditTool_CreateFile(t *testing.T) {
+	ctx, _, tool := setupToolTest(t, EditToolName)
+
+	newFile := filepath.Join(os.TempDir(), fmt.Sprintf("edit_create_%d.txt", os.Getpid()))
+	t.Cleanup(func() { os.Remove(newFile) })
+
+	resp := runTool(t, tool, ctx, EditToolName, EditParams{
+		FilePath:  newFile,
+		OldString: "",
+		NewString: "new file content",
+	})
+	assert.False(t, resp.IsError)
+
+	content, err := os.ReadFile(newFile)
+	require.NoError(t, err)
+	assert.Equal(t, "new file content", string(content))
+}
+
+func TestEditTool_FileNotRead(t *testing.T) {
+	ctx, tmpPath, tool := setupToolTest(t, EditToolName)
+	require.NoError(t, os.WriteFile(tmpPath, []byte("content"), 0o644))
+
+	resp := runTool(t, tool, ctx, EditToolName, EditParams{
+		FilePath:  tmpPath,
+		OldString: "content",
+		NewString: "new",
+	})
+	assert.True(t, resp.IsError)
+	assert.Contains(t, resp.Content, "must read the file")
+}
+
+// --- MultiEdit Tool Tests ---
+
 func TestMultiEditTool_SequentialEdits(t *testing.T) {
-	ctx, tmpPath, tool := setupMultiEditTest(t)
+	ctx, tmpPath, tool := setupToolTest(t, MultiEditToolName)
 	writeAndTrack(t, tmpPath, "aaa bbb ccc")
 
-	resp := runMultiEdit(t, tool, ctx, MultiEditParams{
+	resp := runTool(t, tool, ctx, MultiEditToolName, MultiEditParams{
 		FilePath: tmpPath,
 		Edits: []MultiEditItem{
 			{OldString: "aaa", NewString: "xxx"},
@@ -315,10 +294,10 @@ func TestMultiEditTool_SequentialEdits(t *testing.T) {
 }
 
 func TestMultiEditTool_EditDependsOnPrevious(t *testing.T) {
-	ctx, tmpPath, tool := setupMultiEditTest(t)
+	ctx, tmpPath, tool := setupToolTest(t, MultiEditToolName)
 	writeAndTrack(t, tmpPath, "foo bar")
 
-	resp := runMultiEdit(t, tool, ctx, MultiEditParams{
+	resp := runTool(t, tool, ctx, MultiEditToolName, MultiEditParams{
 		FilePath: tmpPath,
 		Edits: []MultiEditItem{
 			{OldString: "foo", NewString: "baz"},
@@ -332,11 +311,11 @@ func TestMultiEditTool_EditDependsOnPrevious(t *testing.T) {
 }
 
 func TestMultiEditTool_AtomicFailure(t *testing.T) {
-	ctx, tmpPath, tool := setupMultiEditTest(t)
+	ctx, tmpPath, tool := setupToolTest(t, MultiEditToolName)
 	original := "hello world"
 	writeAndTrack(t, tmpPath, original)
 
-	resp := runMultiEdit(t, tool, ctx, MultiEditParams{
+	resp := runTool(t, tool, ctx, MultiEditToolName, MultiEditParams{
 		FilePath: tmpPath,
 		Edits: []MultiEditItem{
 			{OldString: "hello", NewString: "hi"},
@@ -351,10 +330,10 @@ func TestMultiEditTool_AtomicFailure(t *testing.T) {
 }
 
 func TestMultiEditTool_ReplaceAll(t *testing.T) {
-	ctx, tmpPath, tool := setupMultiEditTest(t)
+	ctx, tmpPath, tool := setupToolTest(t, MultiEditToolName)
 	writeAndTrack(t, tmpPath, "var x = 1;\nvar y = x + x;")
 
-	resp := runMultiEdit(t, tool, ctx, MultiEditParams{
+	resp := runTool(t, tool, ctx, MultiEditToolName, MultiEditParams{
 		FilePath: tmpPath,
 		Edits: []MultiEditItem{
 			{OldString: "x", NewString: "z", ReplaceAll: true},
@@ -366,57 +345,66 @@ func TestMultiEditTool_ReplaceAll(t *testing.T) {
 	assert.Equal(t, "var z = 1;\nvar y = z + z;", string(content))
 }
 
-func TestMultiEditTool_EmptyEdits(t *testing.T) {
-	ctx, tmpPath, tool := setupMultiEditTest(t)
-	writeAndTrack(t, tmpPath, "content")
-
-	resp := runMultiEdit(t, tool, ctx, MultiEditParams{
-		FilePath: tmpPath,
-		Edits:    []MultiEditItem{},
-	})
-	assert.True(t, resp.IsError)
-	assert.Contains(t, resp.Content, "must not be empty")
-}
-
-func TestMultiEditTool_EmptyOldString(t *testing.T) {
-	ctx, tmpPath, tool := setupMultiEditTest(t)
-	writeAndTrack(t, tmpPath, "content")
-
-	resp := runMultiEdit(t, tool, ctx, MultiEditParams{
-		FilePath: tmpPath,
-		Edits: []MultiEditItem{
-			{OldString: "", NewString: "new"},
+func TestMultiEditTool_Validation(t *testing.T) {
+	tests := []struct {
+		name         string
+		content      string
+		params       MultiEditParams
+		wantError    bool
+		wantContains []string
+	}{
+		{
+			name:         "empty edits",
+			content:      "content",
+			params:       MultiEditParams{FilePath: "", Edits: []MultiEditItem{}},
+			wantError:    true,
+			wantContains: []string{"must not be empty"},
 		},
-	})
-	assert.True(t, resp.IsError)
-	assert.Contains(t, resp.Content, "old_string cannot be empty")
-}
-
-func TestMultiEditTool_FileNotRead(t *testing.T) {
-	ctx, tmpPath, tool := setupMultiEditTest(t)
-	require.NoError(t, os.WriteFile(tmpPath, []byte("content"), 0o644))
-
-	resp := runMultiEdit(t, tool, ctx, MultiEditParams{
-		FilePath: tmpPath,
-		Edits: []MultiEditItem{
-			{OldString: "content", NewString: "new"},
+		{
+			name:         "empty old_string",
+			content:      "content",
+			params:       MultiEditParams{FilePath: "", Edits: []MultiEditItem{{OldString: "", NewString: "new"}}},
+			wantError:    true,
+			wantContains: []string{"old_string cannot be empty"},
 		},
-	})
-	assert.True(t, resp.IsError)
-	assert.Contains(t, resp.Content, "must read the file")
-}
-
-func TestMultiEditTool_MultipleMatchesWithoutReplaceAll(t *testing.T) {
-	ctx, tmpPath, tool := setupMultiEditTest(t)
-	writeAndTrack(t, tmpPath, "foo bar foo")
-
-	resp := runMultiEdit(t, tool, ctx, MultiEditParams{
-		FilePath: tmpPath,
-		Edits: []MultiEditItem{
-			{OldString: "foo", NewString: "baz"},
+		{
+			name:         "multiple matches without replaceAll",
+			content:      "foo bar foo",
+			params:       MultiEditParams{FilePath: "", Edits: []MultiEditItem{{OldString: "foo", NewString: "baz"}}},
+			wantError:    true,
+			wantContains: []string{"multiple times", "replace_all"},
 		},
-	})
-	assert.True(t, resp.IsError)
-	assert.Contains(t, resp.Content, "multiple times")
-	assert.Contains(t, resp.Content, "replace_all")
+		{
+			name:         "file not read",
+			content:      "content",
+			params:       MultiEditParams{FilePath: "", Edits: []MultiEditItem{{OldString: "content", NewString: "new"}}},
+			wantError:    true,
+			wantContains: []string{"must read the file"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, tmpPath, tool := setupToolTest(t, MultiEditToolName)
+			tt.params.FilePath = tmpPath
+
+			// Only write file if not testing "file not read" case
+			if tt.name != "file not read" {
+				writeAndTrack(t, tmpPath, tt.content)
+			} else {
+				require.NoError(t, os.WriteFile(tmpPath, []byte(tt.content), 0o644))
+			}
+
+			resp := runTool(t, tool, ctx, MultiEditToolName, tt.params)
+
+			if tt.wantError {
+				assert.True(t, resp.IsError)
+				for _, msg := range tt.wantContains {
+					assert.Contains(t, resp.Content, msg)
+				}
+			} else {
+				assert.False(t, resp.IsError)
+			}
+		})
+	}
 }
