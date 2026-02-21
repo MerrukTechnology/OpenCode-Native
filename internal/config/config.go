@@ -729,7 +729,7 @@ func validateAgent(cfg *Config, name AgentName, agent Agent) error {
 	providerCfg, providerExists := cfg.Providers[provider]
 
 	if !providerExists {
-		apiKey := getProviderAPIKey(provider)
+		apiKey := GetProviderAPIKey(provider)
 		if apiKey == "" {
 			logging.Warn("provider not configured for model, reverting default", "agent", name)
 			if setDefaultModelForAgent(name) {
@@ -848,8 +848,8 @@ func validateSessionProvider() error {
 	return nil
 }
 
-// getProviderAPIKey gets the API key from environment.
-func getProviderAPIKey(provider models.ModelProvider) string {
+// GetProviderAPIKey gets the API key from environment.
+func GetProviderAPIKey(provider models.ModelProvider) string {
 	switch provider {
 	case models.ProviderAnthropic:
 		return os.Getenv("ANTHROPIC_API_KEY")

@@ -307,11 +307,29 @@ func GetSelectedModel(cfg *config.Config) models.Model {
 }
 
 func getEnabledProviders(cfg *config.Config) []models.ModelProvider {
-	var providers []models.ModelProvider
+	providersMap := make(map[models.ModelProvider]bool)
+
+	// Add providers from config
 	for providerId, provider := range cfg.Providers {
 		if !provider.Disabled {
-			providers = append(providers, providerId)
+			providersMap[providerId] = true
 		}
+	}
+
+	// Also add providers that have API keys available via environment variables
+	for _, provider := range getAllProviderIds() {
+		if !providersMap[provider] {
+			// Check if provider has API key available via env or other means
+			if hasProviderAPIKey(provider) {
+				providersMap[provider] = true
+			}
+		}
+	}
+
+	// Convert map to slice
+	var providers []models.ModelProvider
+	for provider := range providersMap {
+		providers = append(providers, provider)
 	}
 
 	// Sort by provider popularity
@@ -329,6 +347,35 @@ func getEnabledProviders(cfg *config.Config) []models.ModelProvider {
 		return rA - rB
 	})
 	return providers
+}
+
+// getAllProviderIds returns all known provider IDs
+func getAllProviderIds() []models.ModelProvider {
+	return []models.ModelProvider{
+		models.ProviderVertexAI,
+		models.ProviderAnthropic,
+		models.ProviderOpenAI,
+		models.ProviderGemini,
+		models.ProviderGroq,
+		models.ProviderXAI,
+		models.ProviderKiloCode,
+		models.ProviderMistral,
+		models.ProviderOpenRouter,
+		models.ProviderDeepSeek,
+		models.ProviderBedrock,
+		models.ProviderLocal,
+	}
+}
+
+// hasProviderAPIKey checks if a provider has an API key available
+func hasProviderAPIKey(provider models.ModelProvider) bool {
+	cfg := config.Get()
+	// First check if already in config
+	if p, ok := cfg.Providers[provider]; ok && p.APIKey != "" && !p.Disabled {
+		return true
+	}
+	// Check environment variables
+	return config.GetProviderAPIKey(provider) != ""
 }
 
 // findProviderIndex returns the index of the provider in the list, or -1 if not found
