@@ -356,7 +356,7 @@ func (e *editTool) deleteContent(ctx context.Context, filePath, oldString string
 	// Check if file exists in history
 	file, err := e.files.GetByPathAndSession(ctx, filePath, sessionID)
 	if err != nil {
-		file, err = e.files.Create(ctx, sessionID, filePath, oldContent)
+		_, err = e.files.Create(ctx, sessionID, filePath, oldContent)
 		if err != nil {
 			// Log error but don't fail the operation
 			return NewEmptyResponse(), fmt.Errorf("error creating file history: %w", err)
