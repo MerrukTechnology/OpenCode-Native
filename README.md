@@ -12,7 +12,7 @@ OpenCode is a CLI tool that brings AI assistance to your terminal. It provides b
 
 - **Interactive TUI** built with [Bubble Tea](https://github.com/charmbracelet/bubbletea)
 - **Non-interactive mode** for headless automation and autonomous agents
-- **Multiple AI providers**: OpenAI, Anthropic, Google Gemini, AWS Bedrock, VertexAI, and self-hosted
+- **Multiple AI providers**: OpenAI, Anthropic, Google Gemini, AWS Bedrock, VertexAI, KiloCode, Mistral, and self-hosted
 - **Tool integration**: file operations, shell commands, code search, LSP code intelligence
 - **MCP support**: extend capabilities via Model Context Protocol servers
 - **Agent skills**: reusable instruction sets loaded on-demand ([guide](docs/skills.md))
@@ -333,6 +333,8 @@ export LOCAL_ENDPOINT_API_KEY=secret
 | `AWS_ACCESS_KEY_ID` | AWS Bedrock |
 | `AWS_SECRET_ACCESS_KEY` | AWS Bedrock |
 | `AWS_REGION` | AWS Bedrock |
+| `KILO_API_KEY` | KiloCode models |
+| `MISTRAL_API_KEY` | Mistral models |
 | `LOCAL_ENDPOINT` | Self-hosted model endpoint |
 | `LOCAL_ENDPOINT_API_KEY` | Self-hosted model API key |
 | `SHELL` | Default shell |
@@ -350,6 +352,8 @@ export LOCAL_ENDPOINT_API_KEY=secret
 | **Google Gemini** | Gemini 3.0 Pro, Gemini 3.0 Flash |
 | **AWS Bedrock** | Claude 4.5 Sonnet |
 | **VertexAI** | Gemini 3.0 Pro, Gemini 3.0 Flash, Claude 4.6 Sonnet (1M), Claude 4.6 Opus (1M) |
+| **KiloCode** | KiloCode Auto |
+| **Mistral** | GPT-4o (via Mistral) |
 | **Local** | Any OpenAI-compatible API |
 
 ## Tools

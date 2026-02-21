@@ -756,38 +756,6 @@ func shouldPreloadFiles(serverName string) bool {
 // Common patterns for directories and files to exclude
 // TODO: make configurable
 var (
-	excludedDirNames = map[string]bool{
-		".git":         true,
-		"node_modules": true,
-		"dist":         true,
-		"build":        true,
-		"out":          true,
-		"bin":          true,
-		".idea":        true,
-		".vscode":      true,
-		".cache":       true,
-		"coverage":     true,
-		".gradle":      true, // JVM build system
-		"target":       true, // Rust build output
-		"vendor":       true, // Go vendor directory
-	}
-
-	excludedFileExtensions = map[string]bool{
-		".swp":   true,
-		".swo":   true,
-		".tmp":   true,
-		".temp":  true,
-		".bak":   true,
-		".log":   true,
-		".o":     true, // Object files
-		".so":    true, // Shared libraries
-		".dylib": true, // macOS shared libraries
-		".dll":   true, // Windows shared libraries
-		".a":     true, // Static libraries
-		".exe":   true, // Windows executables
-		".lock":  true, // Lock files
-	}
-
 	// Large binary files that shouldn't be opened
 	largeBinaryExtensions = map[string]bool{
 		".png":  true,
@@ -831,7 +799,7 @@ func shouldExcludeFile(filePath string) bool {
 
 	// Check file extension
 	ext := strings.ToLower(filepath.Ext(filePath))
-	if excludedFileExtensions[ext] || largeBinaryExtensions[ext] {
+	if fileutil.CommonIgnoredExtensions[ext] || largeBinaryExtensions[ext] {
 		return true
 	}
 

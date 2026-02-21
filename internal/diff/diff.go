@@ -655,10 +655,10 @@ func applyHighlighting(content string, segments []Segment, segmentType LineType,
 			// Apply foreground and background highlight
 			sb.WriteString("\x1b[38;2;")
 			r, g, b, _ := fgColor.RGBA()
-			sb.WriteString(fmt.Sprintf("%d;%d;%dm", r>>8, g>>8, b>>8))
+			fmt.Fprintf(&sb, "%d;%d;%dm", r>>8, g>>8, b>>8)
 			sb.WriteString("\x1b[48;2;")
 			r, g, b, _ = bgColor.RGBA()
-			sb.WriteString(fmt.Sprintf("%d;%d;%dm", r>>8, g>>8, b>>8))
+			fmt.Fprintf(&sb, "%d;%d;%dm", r>>8, g>>8, b>>8)
 			sb.WriteString(char)
 			// Reset foreground and background
 			sb.WriteString("\x1b[39m")
