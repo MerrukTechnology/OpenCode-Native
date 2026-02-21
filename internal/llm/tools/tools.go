@@ -3,6 +3,9 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"path/filepath"
+	"strings"
 
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 )
@@ -100,6 +103,31 @@ func NewTextErrorResponse(content string) toolResponse {
 		Content: content,
 		IsError: true,
 	})
+}
+
+// ValidatePathInWorkingDirectory checks if a path is within the working directory
+// to prevent path traversal attacks. It returns the absolute path if valid, or an error if not.
+func ValidatePathInWorkingDirectory(filePath string) (string, error) {
+	// Resolve to absolute path if relative
+	if !filepath.IsAbs(filePath) {
+		filePath = filepath.Join(config.WorkingDirectory(), filePath)
+	}
+
+	// Get the working directory
+	workingDir := config.WorkingDirectory()
+
+	// Compute the relative path from working directory to target
+	relPath, err := filepath.Rel(workingDir, filePath)
+	if err != nil {
+		return "", fmt.Errorf("error validating file path: %w", err)
+	}
+
+	// Check for path traversal - if path starts with "..", it's trying to escape
+	if strings.HasPrefix(relPath, "..") {
+		return "", fmt.Errorf("invalid file path: %s attempts to escape working directory (outside the working directory)", filePath)
+	}
+
+	return filePath, nil
 }
 
 type ToolCall struct {

@@ -17,6 +17,7 @@ import (
 	"github.com/MerrukTechnology/OpenCode-Native/internal/message"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/permission"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/session"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/task"
 )
 
 var (
@@ -41,6 +42,8 @@ var (
 	// TODO: add todo tool
 	managerToolNames = []string{
 		TaskToolName,
+		tools.PlanTaskToolName,
+		tools.UpdateStepToolName,
 	}
 )
 
@@ -92,6 +95,10 @@ func NewToolSet(
 			return tools.NewBashTool(permissions, reg)
 		case TaskToolName:
 			return NewAgentTool(sessions, messages, lspClients, permissions, historyService, reg, mcpRegistry)
+		case tools.PlanTaskToolName:
+			return tools.NewPlanTaskTool(task.NewInMemoryTaskService())
+		case tools.UpdateStepToolName:
+			return tools.NewUpdateStepTool(task.NewInMemoryTaskService())
 		default:
 			return nil
 		}

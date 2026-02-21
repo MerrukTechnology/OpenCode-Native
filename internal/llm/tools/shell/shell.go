@@ -42,12 +42,16 @@ type commandResult struct {
 var (
 	shellInstance     *PersistentShell
 	shellInstanceOnce sync.Once
+	shellInstanceMu   sync.RWMutex
 )
 
 func GetPersistentShell(workingDir string) *PersistentShell {
 	shellInstanceOnce.Do(func() {
 		shellInstance = newPersistentShell(workingDir)
 	})
+
+	shellInstanceMu.Lock()
+	defer shellInstanceMu.Unlock()
 
 	if shellInstance == nil {
 		shellInstance = newPersistentShell(workingDir)
@@ -169,13 +173,25 @@ func (s *PersistentShell) execCommand(command string, timeout time.Duration, ctx
 		os.Remove(cwdFile)
 	}()
 
+	// Write command to temporary script file to avoid eval injection
+	scriptFile := filepath.Join(tempDir, fmt.Sprintf("opencode-script-%d", time.Now().UnixNano()))
+	scriptContent := fmt.Sprintf("#!/bin/sh\n%s\n", command)
+	if err := os.WriteFile(scriptFile, []byte(scriptContent), 0o700); err != nil {
+		return commandResult{
+			stderr:   fmt.Sprintf("Failed to write script file: %v", err),
+			exitCode: 1,
+			err:      err,
+		}
+	}
+	defer os.Remove(scriptFile)
+
 	fullCommand := fmt.Sprintf(`
-eval %s < /dev/null > %s 2> %s
+sh %s < /dev/null > %s 2> %s
 EXEC_EXIT_CODE=$?
 pwd > %s
 echo $EXEC_EXIT_CODE > %s
 `,
-		shellQuote(command),
+		shellQuote(scriptFile),
 		shellQuote(stdoutFile),
 		shellQuote(stderrFile),
 		shellQuote(cwdFile),
@@ -197,6 +213,9 @@ echo $EXEC_EXIT_CODE > %s
 
 	done := make(chan bool)
 	go func() {
+		ticker := time.NewTicker(10 * time.Millisecond)
+		defer ticker.Stop()
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -205,7 +224,7 @@ echo $EXEC_EXIT_CODE > %s
 				done <- true
 				return
 
-			case <-time.After(10 * time.Millisecond):
+			case <-ticker.C:
 				if fileExists(statusFile) && fileSize(statusFile) > 0 {
 					done <- true
 					return

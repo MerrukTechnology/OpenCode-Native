@@ -259,6 +259,10 @@ func toolName(name string) string {
 		return "Code Intelligence"
 	case tools.StructOutputToolName:
 		return "Structured Output"
+	case tools.PlanTaskToolName:
+		return "Plan Task"
+	case tools.UpdateStepToolName:
+		return "Update Step"
 	}
 	return name
 }
@@ -297,6 +301,10 @@ func getToolAction(name string) string {
 		return "Doing code intelligence..."
 	case tools.StructOutputToolName:
 		return "Formatting output..."
+	case tools.PlanTaskToolName:
+		return "Creating task plan..."
+	case tools.UpdateStepToolName:
+		return "Updating step status..."
 	}
 	return "Working..."
 }
@@ -484,6 +492,22 @@ func renderToolParams(paramWidth int, toolCall message.ToolCall) string {
 		json.Unmarshal([]byte(toolCall.Input), &params)
 		filePath := removeWorkingDirPrefix(params.Path)
 		return renderParams(paramWidth, filePath)
+	case tools.PlanTaskToolName:
+		var params tools.PlanTaskParams
+		json.Unmarshal([]byte(toolCall.Input), &params)
+		toolParams := []string{params.Title}
+		if len(params.Steps) > 0 {
+			toolParams = append(toolParams, "steps", fmt.Sprintf("%d", len(params.Steps)))
+		}
+		return renderParams(paramWidth, toolParams...)
+	case tools.UpdateStepToolName:
+		var params tools.UpdateStepParams
+		json.Unmarshal([]byte(toolCall.Input), &params)
+		toolParams := []string{
+			fmt.Sprintf("step %d", params.StepIndex),
+			"status", params.Status,
+		}
+		return renderParams(paramWidth, toolParams...)
 	default:
 		input := strings.ReplaceAll(toolCall.Input, "\n", " ")
 		params = renderParams(paramWidth, input)

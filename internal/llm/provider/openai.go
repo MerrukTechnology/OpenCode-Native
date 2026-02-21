@@ -201,8 +201,12 @@ func (o *openaiClient) send(ctx context.Context, messages []message.Message, too
 	params := o.preparedParams(o.convertMessages(messages), o.convertTools(tools))
 	cfg := config.Get()
 	if cfg.Debug {
-		jsonData, _ := json.Marshal(params)
-		logging.Debug("Prepared messages", "messages", string(jsonData))
+		jsonData, err := json.Marshal(params)
+		if err != nil {
+			logging.Debug("Failed to marshal params", "error", err)
+		} else {
+			logging.Debug("Prepared messages", "messages", string(jsonData))
+		}
 	}
 	attempts := 0
 	for {
@@ -230,7 +234,7 @@ func (o *openaiClient) send(ctx context.Context, messages []message.Message, too
 		}
 
 		content := ""
-		if openaiResponse.Choices[0].Message.Content != "" {
+		if len(openaiResponse.Choices) > 0 && openaiResponse.Choices[0].Message.Content != "" {
 			content = openaiResponse.Choices[0].Message.Content
 		}
 
@@ -258,8 +262,12 @@ func (o *openaiClient) stream(ctx context.Context, messages []message.Message, t
 
 	cfg := config.Get()
 	if cfg.Debug {
-		jsonData, _ := json.Marshal(params)
-		logging.Debug("Prepared messages", "messages", string(jsonData))
+		jsonData, err := json.Marshal(params)
+		if err != nil {
+			logging.Debug("Failed to marshal params", "error", err)
+		} else {
+			logging.Debug("Prepared messages", "messages", string(jsonData))
+		}
 	}
 
 	attempts := 0

@@ -6,10 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	agentregistry "github.com/MerrukTechnology/OpenCode-Native/internal/agent"
-	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/diff"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/fileutil"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/history"
@@ -102,8 +100,10 @@ func (d *deleteTool) Run(ctx context.Context, call ToolCall) (ToolResponse, erro
 		return NewTextErrorResponse("path is required"), nil
 	}
 
-	absPath := params.Path
-	absPath = fileutil.ResolvePath(absPath, config.WorkingDirectory())
+	absPath, err := ValidatePathInWorkingDirectory(params.Path)
+	if err != nil {
+		return NewTextErrorResponse(err.Error()), nil
+	}
 
 	fileInfo, err := os.Lstat(absPath)
 	if err != nil {
@@ -111,11 +111,6 @@ func (d *deleteTool) Run(ctx context.Context, call ToolCall) (ToolResponse, erro
 			return NewTextErrorResponse(fmt.Sprintf("file or directory does not exist: %s", absPath)), nil
 		}
 		return NewEmptyResponse(), fmt.Errorf("error checking path: %w", err)
-	}
-
-	rootDir := config.WorkingDirectory()
-	if !strings.HasPrefix(absPath, rootDir) {
-		return NewTextErrorResponse("cannot delete files outside the working directory"), nil
 	}
 
 	sessionID, messageID := GetContextValues(ctx)
