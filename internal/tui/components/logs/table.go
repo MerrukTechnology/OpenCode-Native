@@ -104,14 +104,18 @@ func (i *tableCmp) setRows() {
 	})
 
 	for _, log := range logs {
-		bm, _ := json.Marshal(log.Attributes)
+		bm, err := json.Marshal(log.Attributes)
+		attrStr := "{}"
+		if err == nil {
+			attrStr = string(bm)
+		}
 
 		row := table.Row{
 			log.ID,
 			log.Time.Format("15:04:05"),
 			log.Level,
 			log.Message,
-			string(bm),
+			attrStr,
 		}
 		rows = append(rows, row)
 	}

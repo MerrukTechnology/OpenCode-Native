@@ -111,6 +111,12 @@ func (b *Broker[T]) Publish(t EventType, payload T) {
 		select {
 		case sub <- event:
 		default:
+			// BUG: Message dropped due to full channel
+			// This is intentional to prevent blocking the publisher, but
+			// can cause event loss during high load. Consider:
+			// 1. Increasing bufferSize constant (currently 64)
+			// 2. Using blocking sends with timeout instead
+			// 3. Implementing a drop policy with metrics/monitoring
 		}
 	}
 }

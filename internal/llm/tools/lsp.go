@@ -107,8 +107,10 @@ func (t *lspTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error) 
 		return NewTextErrorResponse(fmt.Sprintf("invalid operation: %s", params.Operation)), nil
 	}
 
-	file := params.FilePath
-	file = fileutil.ResolvePath(file, config.WorkingDirectory())
+	file, err := ValidatePathInWorkingDirectory(params.FilePath)
+	if err != nil {
+		return NewTextErrorResponse(err.Error()), nil
+	}
 
 	if _, err := os.Stat(file); os.IsNotExist(err) {
 		return NewTextErrorResponse(fmt.Sprintf("file not found: %s", file)), nil

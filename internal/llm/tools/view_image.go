@@ -8,9 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
-	"github.com/MerrukTechnology/OpenCode-Native/internal/fileutil"
 )
 
 type ViewImageParams struct {
@@ -93,9 +90,10 @@ func (v *viewImageTool) Run(ctx context.Context, call ToolCall) (ToolResponse, e
 		return NewTextErrorResponse("file_path is required"), nil
 	}
 
-	// Handle relative paths
-	filePath := params.FilePath
-	filePath = fileutil.ResolvePath(filePath, config.WorkingDirectory())
+	filePath, err := ValidatePathInWorkingDirectory(params.FilePath)
+	if err != nil {
+		return NewTextErrorResponse(err.Error()), nil
+	}
 
 	// Check if file exists
 	fileInfo, err := os.Stat(filePath)
