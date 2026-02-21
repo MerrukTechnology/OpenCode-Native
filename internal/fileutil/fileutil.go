@@ -711,14 +711,7 @@ func GlobToRegex(glob string) string {
 
 // EscapeRegexPattern escapes special regex characters
 func EscapeRegexPattern(pattern string) string {
-	specialChars := []string{"\\", ".", "+", "*", "?", "(", ")", "[", "]", "{", "}", "^", "$", "|"}
-	escaped := pattern
-
-	for _, char := range specialChars {
-		escaped = strings.ReplaceAll(escaped, char, "\\"+char)
-	}
-
-	return escaped
+	return regexp.QuoteMeta(pattern)
 }
 
 // ============================================
