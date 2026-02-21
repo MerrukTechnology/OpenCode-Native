@@ -191,7 +191,8 @@ func GetRgCmd(globPattern string) *exec.Cmd {
 	}
 	if globPattern != "" {
 		if !filepath.IsAbs(globPattern) && !strings.HasPrefix(globPattern, string(filepath.Separator)) {
-			globPattern = string(filepath.Separator) + globPattern
+		if !filepath.IsAbs(globPattern) && !strings.HasPrefix(globPattern, "/") {
+			globPattern = "/" + globPattern
 		}
 		rgArgs = append(rgArgs, "--glob", globPattern)
 	}
