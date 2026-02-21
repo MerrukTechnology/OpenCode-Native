@@ -4,6 +4,8 @@ import (
 	"context"
 	"strings"
 	"testing"
+
+	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 )
 
 func TestValidateAndTruncate(t *testing.T) {
@@ -113,6 +115,164 @@ func TestIsTaskAgent(t *testing.T) {
 		ctx := context.WithValue(context.Background(), IsTaskAgentContextKey, "not a bool")
 		if IsTaskAgent(ctx) {
 			t.Error("expected false when context has wrong type")
+		}
+	})
+}
+
+func TestGetContextValues(t *testing.T) {
+	t.Run("returns empty strings for empty context", func(t *testing.T) {
+		ctx := context.Background()
+		sessionID, messageID := GetContextValues(ctx)
+		if sessionID != "" || messageID != "" {
+			t.Errorf("expected empty strings, got sessionID=%q, messageID=%q", sessionID, messageID)
+		}
+	})
+
+	t.Run("returns sessionID when only sessionID is set", func(t *testing.T) {
+		ctx := context.WithValue(context.Background(), SessionIDContextKey, "test-session-123")
+		sessionID, messageID := GetContextValues(ctx)
+		if sessionID != "test-session-123" {
+			t.Errorf("expected sessionID=test-session-123, got %q", sessionID)
+		}
+		if messageID != "" {
+			t.Errorf("expected empty messageID, got %q", messageID)
+		}
+	})
+
+	t.Run("returns both values when both are set", func(t *testing.T) {
+		ctx := context.Background()
+		ctx = context.WithValue(ctx, SessionIDContextKey, "session-456")
+		ctx = context.WithValue(ctx, MessageIDContextKey, "message-789")
+		sessionID, messageID := GetContextValues(ctx)
+		if sessionID != "session-456" {
+			t.Errorf("expected sessionID=session-456, got %q", sessionID)
+		}
+		if messageID != "message-789" {
+			t.Errorf("expected messageID=message-789, got %q", messageID)
+		}
+	})
+}
+
+func TestGetAgentID(t *testing.T) {
+	t.Run("returns empty string for empty context", func(t *testing.T) {
+		ctx := context.Background()
+		agentID := GetAgentID(ctx)
+		if agentID != "" {
+			t.Errorf("expected empty string, got %q", agentID)
+		}
+	})
+
+	t.Run("returns agentID when set", func(t *testing.T) {
+		ctx := context.WithValue(context.Background(), AgentIDContextKey, config.AgentCoder)
+		agentID := GetAgentID(ctx)
+		if agentID != config.AgentCoder {
+			t.Errorf("expected agentID=%q, got %q", config.AgentCoder, agentID)
+		}
+	})
+
+	t.Run("returns empty string when wrong type", func(t *testing.T) {
+		ctx := context.WithValue(context.Background(), AgentIDContextKey, 12345)
+		agentID := GetAgentID(ctx)
+		if agentID != "" {
+			t.Errorf("expected empty string for wrong type, got %q", agentID)
+		}
+	})
+}
+
+func TestWithResponseMetadata(t *testing.T) {
+	t.Run("adds metadata to response", func(t *testing.T) {
+		response := NewTextResponse("test content")
+		metadata := map[string]string{"key": "value"}
+		response = WithResponseMetadata(response, metadata)
+
+		if response.Metadata == "" {
+			t.Error("expected metadata to be set")
+		}
+		if !strings.Contains(response.Metadata, "key") {
+			t.Errorf("expected metadata to contain 'key', got %q", response.Metadata)
+		}
+	})
+
+	t.Run("returns unchanged response for nil metadata", func(t *testing.T) {
+		response := NewTextResponse("test content")
+		originalMetadata := response.Metadata
+		response = WithResponseMetadata(response, nil)
+
+		if response.Metadata != originalMetadata {
+			t.Error("expected metadata to be unchanged for nil input")
+		}
+	})
+}
+
+func TestToolInfoStruct(t *testing.T) {
+	info := ToolInfo{
+		Name:        "test_tool",
+		Description: "A test tool",
+		Parameters: map[string]any{
+			"type": "object",
+		},
+		Required: []string{"path"},
+	}
+
+	if info.Name != "test_tool" {
+		t.Errorf("Name = %q, want %q", info.Name, "test_tool")
+	}
+	if len(info.Required) != 1 {
+		t.Errorf("Required length = %d, want %d", len(info.Required), 1)
+	}
+}
+
+func TestToolCallStruct(t *testing.T) {
+	call := ToolCall{
+		ID:    "call-123",
+		Name:  "read_file",
+		Input: `{"path": "/test/file.txt"}`,
+	}
+
+	if call.ID != "call-123" {
+		t.Errorf("ID = %q, want %q", call.ID, "call-123")
+	}
+	if call.Name != "read_file" {
+		t.Errorf("Name = %q, want %q", call.Name, "read_file")
+	}
+}
+
+func TestToolResponseTypes(t *testing.T) {
+	t.Run("text response type", func(t *testing.T) {
+		if ToolResponseTypeText != "text" {
+			t.Errorf("ToolResponseTypeText = %q, want %q", ToolResponseTypeText, "text")
+		}
+	})
+
+	t.Run("image response type", func(t *testing.T) {
+		if ToolResponseTypeImage != "image" {
+			t.Errorf("ToolResponseTypeImage = %q, want %q", ToolResponseTypeImage, "image")
+		}
+	})
+}
+
+func TestContextKeys(t *testing.T) {
+	t.Run("session ID context key", func(t *testing.T) {
+		if SessionIDContextKey != "session_id" {
+			t.Errorf("SessionIDContextKey = %q, want %q", SessionIDContextKey, "session_id")
+		}
+	})
+
+	t.Run("message ID context key", func(t *testing.T) {
+		if MessageIDContextKey != "message_id" {
+			t.Errorf("MessageIDContextKey = %q, want %q", MessageIDContextKey, "message_id")
+		}
+	})
+
+	t.Run("is task agent context key", func(t *testing.T) {
+		if IsTaskAgentContextKey != "is_task_agent" {
+			t.Errorf("IsTaskAgentContextKey = %q, want %q", IsTaskAgentContextKey, "is_task_agent")
+		}
+	})
+
+	t.Run("agent ID context key", func(t *testing.T) {
+		if AgentIDContextKey != "agent_id" {
+			t.Errorf("AgentIDContextKey = %q, want %q", AgentIDContextKey, "agent_id")
 		}
 	})
 }

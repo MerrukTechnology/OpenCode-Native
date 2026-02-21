@@ -1,6 +1,8 @@
 package skill
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -455,6 +457,391 @@ Content`,
 			}
 			if !tt.shouldError && err != nil {
 				t.Errorf("Expected no error for %s, got %v", tt.name, err)
+			}
+		})
+	}
+}
+
+func TestSkillError(t *testing.T) {
+	tests := []struct {
+		name     string
+		skillErr *SkillError
+		want     string
+	}{
+		{
+			name: "with wrapped error",
+			skillErr: &SkillError{
+				Path:    "/path/to/skill.md",
+				Message: "failed to parse",
+				Err:     ErrInvalidFrontmatter,
+			},
+			want: "/path/to/skill.md: failed to parse: invalid skill frontmatter",
+		},
+		{
+			name: "without wrapped error",
+			skillErr: &SkillError{
+				Path:    "/path/to/skill.md",
+				Message: "some error",
+			},
+			want: "/path/to/skill.md: some error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.skillErr.Error(); got != tt.want {
+				t.Errorf("SkillError.Error() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSkillErrorUnwrap(t *testing.T) {
+	wrappedErr := ErrInvalidFrontmatter
+	skillErr := &SkillError{
+		Path:    "/path/to/skill.md",
+		Message: "failed",
+		Err:     wrappedErr,
+	}
+
+	unwrapped := skillErr.Unwrap()
+	if unwrapped != wrappedErr {
+		t.Errorf("Unwrap() = %v, want %v", unwrapped, wrappedErr)
+	}
+
+	// Test nil error
+	skillErrNoWrap := &SkillError{
+		Path:    "/path/to/skill.md",
+		Message: "no wrap",
+	}
+	if skillErrNoWrap.Unwrap() != nil {
+		t.Errorf("Unwrap() should return nil for no wrapped error")
+	}
+}
+
+func TestSplitFrontmatter_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name            string
+		input           string
+		wantFrontmatter string
+		wantContent     string
+		wantErr         bool
+	}{
+		{
+			name:            "CRLF line endings",
+			input:           "---\r\nname: test\r\ndescription: desc\r\n---\r\n\r\nContent",
+			wantFrontmatter: "name: test\r\ndescription: desc\r",
+			wantContent:     "\r\nContent",
+			wantErr:         false,
+		},
+		{
+			name:    "only start delimiter",
+			input:   "---\nname: test",
+			wantErr: true,
+		},
+		{
+			name:    "empty file",
+			input:   "",
+			wantErr: true,
+		},
+		{
+			name: "content with dashes",
+			input: `---
+name: test
+description: desc
+---
+
+---
+This has dashes
+---`,
+			wantFrontmatter: "name: test\ndescription: desc",
+			wantContent:     "\n---\nThis has dashes\n---",
+			wantErr:         false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			frontmatter, content, err := splitFrontmatter(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("splitFrontmatter() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr {
+				if frontmatter != tt.wantFrontmatter {
+					t.Errorf("frontmatter = %q, want %q", frontmatter, tt.wantFrontmatter)
+				}
+				if content != tt.wantContent {
+					t.Errorf("content = %q, want %q", content, tt.wantContent)
+				}
+			}
+		})
+	}
+}
+
+func TestParseSkillFile_ContentTooLarge(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	skillDir := filepath.Join(tmpDir, "large-skill")
+	if err := os.MkdirAll(skillDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create content larger than maxContentSize (100KB)
+	largeContent := make([]byte, 101*1024)
+	for i := range largeContent {
+		largeContent[i] = 'a'
+	}
+
+	content := fmt.Sprintf(`---
+name: large-skill
+description: A large skill
+---
+%s`, string(largeContent))
+
+	skillPath := filepath.Join(skillDir, "SKILL.md")
+	if err := os.WriteFile(skillPath, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := parseSkillFile(skillPath)
+	if err == nil {
+		t.Error("Expected error for content too large, got nil")
+	}
+
+	var skillErr *SkillError
+	if errors.As(err, &skillErr) {
+		if skillErr.Err != ErrContentTooLarge {
+			t.Errorf("Expected ErrContentTooLarge, got %v", skillErr.Err)
+		}
+	} else {
+		t.Errorf("Expected SkillError, got %T", err)
+	}
+}
+
+func TestScanDirectory(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create skill directory structure
+	skillDir := filepath.Join(tmpDir, "skills", "test-skill")
+	if err := os.MkdirAll(skillDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	skillContent := `---
+name: test-skill
+description: A test skill
+---
+Test content`
+
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(skillContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Test scanning
+	skills := scanDirectory(filepath.Join(tmpDir, "skills"), "**/SKILL.md")
+	if len(skills) != 1 {
+		t.Errorf("Expected 1 skill, got %d", len(skills))
+		return
+	}
+
+	if skills[0].Name != "test-skill" {
+		t.Errorf("Expected name 'test-skill', got %q", skills[0].Name)
+	}
+}
+
+func TestScanDirectory_NonexistentDir(t *testing.T) {
+	skills := scanDirectory("/nonexistent/path", "**/SKILL.md")
+	if len(skills) != 0 {
+		t.Errorf("Expected 0 skills for nonexistent directory, got %d", len(skills))
+	}
+}
+
+func TestIsClaudeSkillsDisabled(t *testing.T) {
+	// Save original value
+	orig := os.Getenv("OPENCODE_DISABLE_CLAUDE_SKILLS")
+	defer os.Setenv("OPENCODE_DISABLE_CLAUDE_SKILLS", orig)
+
+	tests := []struct {
+		name  string
+		value string
+		want  bool
+	}{
+		{"disabled", "true", true},
+		{"enabled empty", "", false},
+		{"enabled other", "false", false},
+		{"enabled random", "yes", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			os.Setenv("OPENCODE_DISABLE_CLAUDE_SKILLS", tt.value)
+			got := isClaudeSkillsDisabled()
+			if got != tt.want {
+				t.Errorf("isClaudeSkillsDisabled() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestInfoStruct(t *testing.T) {
+	info := Info{
+		Name:          "test-skill",
+		Description:   "A test skill",
+		License:       "MIT",
+		Compatibility: "opencode",
+		Metadata: map[string]any{
+			"audience": "developers",
+			"version":  1.0,
+		},
+		Location: "/path/to/skill",
+		Content:  "Skill content here",
+	}
+
+	if info.Name != "test-skill" {
+		t.Errorf("Name = %q, want %q", info.Name, "test-skill")
+	}
+	if info.License != "MIT" {
+		t.Errorf("License = %q, want %q", info.License, "MIT")
+	}
+	if info.Metadata["audience"] != "developers" {
+		t.Errorf("Metadata[audience] = %v, want %v", info.Metadata["audience"], "developers")
+	}
+}
+
+func TestValidateFrontmatter(t *testing.T) {
+	tests := []struct {
+		name    string
+		skill   *Info
+		wantErr bool
+	}{
+		{
+			name: "valid skill",
+			skill: &Info{
+				Name:        "valid-skill",
+				Description: "A valid description",
+			},
+			wantErr: false,
+		},
+		{
+			name: "empty name",
+			skill: &Info{
+				Name:        "",
+				Description: "Has description",
+			},
+			wantErr: true,
+		},
+		{
+			name: "empty description",
+			skill: &Info{
+				Name:        "some-name",
+				Description: "",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid name format",
+			skill: &Info{
+				Name:        "Invalid_Name",
+				Description: "Has description",
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateFrontmatter(tt.skill)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateFrontmatter() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestDiscoverGlobalSkills(t *testing.T) {
+	// This test verifies the function doesn't panic
+	// Actual discovery depends on home directory structure
+	skills := discoverGlobalSkills()
+	// Should return a slice (possibly empty)
+	if skills == nil {
+		t.Error("discoverGlobalSkills() should not return nil")
+	}
+}
+
+func TestAll(t *testing.T) {
+	// Invalidate cache to ensure clean state
+	Invalidate()
+
+	// All() should return a slice (possibly empty)
+	skills := All()
+	if skills == nil {
+		t.Error("All() should not return nil")
+	}
+}
+
+func TestGet_NotFound(t *testing.T) {
+	// Invalidate cache
+	Invalidate()
+
+	_, err := Get("nonexistent-skill-xyz")
+	if err == nil {
+		t.Error("Get() should return error for nonexistent skill")
+	}
+	if !errors.Is(err, ErrSkillNotFound) {
+		t.Errorf("Get() error should wrap ErrSkillNotFound, got %v", err)
+	}
+}
+
+func TestValidateName_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{"single char", "a", false},
+		{"numbers only", "123", false},
+		{"max length", string(make([]byte, 64)), false},
+		{"unicode", "skill-日本語", true},
+		{"dot", "skill.name", true},
+		{"slash", "skill/name", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Fill max length test with valid chars
+			input := tt.input
+			if tt.name == "max length" {
+				for i := range input {
+					input = input[:i] + "a" + input[i+1:]
+				}
+			}
+
+			err := validateName(input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateName(%q) error = %v, wantErr %v", input, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateDescription_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{"single char", "a", false},
+		{"whitespace only", "   ", false},
+		{"unicode", "日本語の説明", false},
+		{"max length", string(make([]byte, 1024)), false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateDescription(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateDescription() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

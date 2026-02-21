@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
-	"github.com/MerrukTechnology/OpenCode-Native/internal/fileutil"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp/protocol"
 )

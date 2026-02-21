@@ -9,7 +9,6 @@ import (
 
 	agentregistry "github.com/MerrukTechnology/OpenCode-Native/internal/agent"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/diff"
-	"github.com/MerrukTechnology/OpenCode-Native/internal/fileutil"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/history"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/permission"
