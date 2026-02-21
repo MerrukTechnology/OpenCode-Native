@@ -357,7 +357,7 @@ func (a appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			contextWindow := model.ContextWindow
 			tokens := a.selectedSession.CompletionTokens + a.selectedSession.PromptTokens
 			logging.Info("auto-compaction status", "contextLength", contextWindow, "tokens", tokens)
-			if (tokens >= int64(float64(contextWindow)*0.95)) && config.Get().AutoCompact {
+			if (tokens >= int64(float64(contextWindow)*agent.AutoCompactionThreshold)) && config.Get().AutoCompact {
 				logging.Info("auto-compaction triggered...")
 				return a, util.CmdHandler(startCompactSessionMsg{})
 			}

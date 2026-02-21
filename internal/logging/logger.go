@@ -45,24 +45,36 @@ func Error(msg string, args ...any) {
 	slog.Error(msg, append([]any{"source", source}, args...)...)
 }
 
-func InfoPersist(msg string, args ...any) {
+func logPersist(level slog.Level, msg string, args ...any) {
 	args = append(args, persistKeyArg, true)
-	slog.Info(msg, args...)
+	switch level {
+	case slog.LevelInfo:
+		slog.Info(msg, args...)
+	case slog.LevelDebug:
+		slog.Debug(msg, args...)
+	case slog.LevelWarn:
+		slog.Warn(msg, args...)
+	case slog.LevelError:
+		slog.Error(msg, args...)
+	default:
+		slog.Info(msg, args...)
+	}
+}
+
+func InfoPersist(msg string, args ...any) {
+	logPersist(slog.LevelInfo, msg, args...)
 }
 
 func DebugPersist(msg string, args ...any) {
-	args = append(args, persistKeyArg, true)
-	slog.Debug(msg, args...)
+	logPersist(slog.LevelDebug, msg, args...)
 }
 
 func WarnPersist(msg string, args ...any) {
-	args = append(args, persistKeyArg, true)
-	slog.Warn(msg, args...)
+	logPersist(slog.LevelWarn, msg, args...)
 }
 
 func ErrorPersist(msg string, args ...any) {
-	args = append(args, persistKeyArg, true)
-	slog.Error(msg, args...)
+	logPersist(slog.LevelError, msg, args...)
 }
 
 // RecoverPanic is a common function to handle panics gracefully.
@@ -99,16 +111,37 @@ func RecoverPanic(name string, cleanup func()) {
 }
 
 // Message Logging for Debug
-var MessageDir string
+var (
+	MessageDir   string
+	messageDirMu sync.RWMutex
+)
+
+func SetMessageDir(dir string) {
+	messageDirMu.Lock()
+	defer messageDirMu.Unlock()
+	MessageDir = dir
+}
+func GetMessageDir() string {
+	messageDirMu.RLock()
+	defer messageDirMu.RUnlock()
+	return MessageDir
+}
 
 func GetSessionPrefix(sessionId string) string {
+	// Ensure we don't slice beyond the string length.
+	if len(sessionId) == 0 {
+		return ""
+	}
+	if len(sessionId) < 8 {
+		return sessionId
+	}
 	return sessionId[:8]
 }
 
 var sessionLogMutex sync.Mutex
 
 func AppendToSessionLogFile(sessionId string, filename string, content string) string {
-	if MessageDir == "" || sessionId == "" {
+	if GetMessageDir() == "" || sessionId == "" {
 		return ""
 	}
 	sessionPrefix := GetSessionPrefix(sessionId)
@@ -131,8 +164,17 @@ func AppendToSessionLogFile(sessionId string, filename string, content string) s
 
 	filePath := filepath.Join(sessionPath, safeFilename)
 
-	absMessageDir, _ := filepath.Abs(MessageDir)
-	absFinalPath, _ := filepath.Abs(filePath)
+	absMessageDir, err := filepath.Abs(MessageDir)
+	if err != nil {
+		Error("Failed to resolve absolute path for MessageDir", "messagedir", MessageDir, "error", err)
+		return ""
+	}
+
+	absFinalPath, err := filepath.Abs(filePath)
+	if err != nil {
+		Error("Failed to resolve absolute path for session log file", "filepath", filePath, "error", err)
+		return ""
+	}
 
 	if !strings.HasPrefix(absFinalPath, absMessageDir) {
 		Error("Security violation: Path traversal detected", "path", filePath)

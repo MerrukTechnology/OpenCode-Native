@@ -412,7 +412,6 @@ func (p *baseProvider[C]) AdjustMaxTokens(estimatedTokens int64) int64 {
 	newMaxTokens := maxTokens
 	for estimatedTokens+newMaxTokens >= model.ContextWindow {
 		newMaxTokens = newMaxTokens / 2
-		p.client.setMaxTokens(newMaxTokens)
 		if float64(newMaxTokens) < float64(model.ContextWindow)*0.05 {
 			logging.Warn(
 				"New max_tokens is below 5% of total context, can't shrink further, proceeding",
@@ -429,6 +428,7 @@ func (p *baseProvider[C]) AdjustMaxTokens(estimatedTokens int64) int64 {
 		}
 	}
 	if maxTokens != newMaxTokens {
+		p.client.setMaxTokens(newMaxTokens)
 		logging.Info("max_tokens value has changed", "model", model.Name, "old", maxTokens, "new", newMaxTokens)
 	}
 
