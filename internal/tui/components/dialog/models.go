@@ -198,6 +198,25 @@ func (m *modelDialogCmp) View() string {
 		Padding(0, 0, 1).
 		Render(fmt.Sprintf("Select %s Model", providerName))
 
+	// Handle empty models list
+	if len(m.models) == 0 {
+		content := lipgloss.JoinVertical(
+			lipgloss.Left,
+			title,
+			baseStyle.Width(maxDialogWidth).Render("No models available"),
+		)
+		return baseStyle.Padding(1, 2).
+			Border(lipgloss.RoundedBorder()).
+			BorderBackground(t.Background()).
+			BorderForeground(t.TextMuted()).
+			Width(lipgloss.Width(content) + 4).
+			Render(content)
+	}
+
+	// Ensure scrollOffset and selectedIdx are within bounds
+	m.scrollOffset = max(0, min(m.scrollOffset, len(m.models)-1))
+	m.selectedIdx = max(0, min(m.selectedIdx, len(m.models)-1))
+
 	// Render visible models
 	endIdx := min(m.scrollOffset+numVisibleModels, len(m.models))
 	modelItems := make([]string, 0, endIdx-m.scrollOffset)
