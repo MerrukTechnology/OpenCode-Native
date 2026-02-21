@@ -35,13 +35,13 @@ curl -fsSL https://raw.githubusercontent.com/MerrukTechnology/OpenCode-Native/re
 ### Homebrew
 
 ```bash
-brew install obukhovaa/tap/opencode
+brew install MerrukTechnology/tap/opencode
 ```
 
 ### AUR (Arch Linux)
 
 ```bash
-yay -S obukhovaa-bin
+yay -S opencode-native-bin
 ```
 
 ### Go
