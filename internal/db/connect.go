@@ -1,3 +1,5 @@
+// Package db provides database access for sessions, messages, and files.
+// It supports both SQLite and MySQL providers with automatic migrations.
 package db
 
 import (

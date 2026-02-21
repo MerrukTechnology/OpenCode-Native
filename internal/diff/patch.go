@@ -1,3 +1,5 @@
+// Package diff provides utilities for computing and rendering differences between files.
+// It supports unified diff parsing, side-by-side rendering, and patch application.
 package diff
 
 import (

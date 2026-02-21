@@ -1,3 +1,5 @@
+// Package fileutil provides utility functions for file operations including
+// reading, writing, searching, and managing files and directories.
 package fileutil
 
 import (

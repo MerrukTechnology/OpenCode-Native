@@ -4,12 +4,14 @@ const (
 	ProviderGemini ModelProvider = "gemini"
 
 	// Models
-	Gemini20Flash     ModelID = "gemini-2.0-flash"
-	Gemini20FlashLite ModelID = "gemini-2.0-flash-lite"
-	Gemini25Flash     ModelID = "gemini-2.5-flash"
-	Gemini25          ModelID = "gemini-2.5"
-	Gemini30Pro       ModelID = "gemini-3.0-pro"
-	Gemini30Flash     ModelID = "gemini-3.0-flash"
+	Gemini20Flash        ModelID = "gemini-2.0-flash"
+	Gemini20FlashLite    ModelID = "gemini-2.0-flash-lite"
+	Gemini25Flash        ModelID = "gemini-2.5-flash"
+	Gemini25             ModelID = "gemini-2.5"
+	Gemini30Pro          ModelID = "gemini-3.0-pro"
+	Gemini30Flash        ModelID = "gemini-3.0-flash"
+	Gemini31ProPreview   ModelID = "gemini-3.1-pro-preview"
+	Gemini31FlashPreview ModelID = "gemini-3.1-flash-preview"
 )
 
 var GeminiModels = map[ModelID]Model{
@@ -85,6 +87,36 @@ var GeminiModels = map[ModelID]Model{
 		Name:                     "Gemini 3.0 Flash",
 		Provider:                 ProviderGemini,
 		APIModel:                 "gemini-3-flash-preview",
+		CostPer1MIn:              0.5,
+		CostPer1MInCached:        0.05,
+		CostPer1MOutCached:       0.3833,
+		CostPer1MOut:             3,
+		ContextWindow:            1048576,
+		DefaultMaxTokens:         65535,
+		SupportsAttachments:      true,
+		SupportsAdaptiveThinking: true,
+		CanReason:                true,
+	},
+	Gemini31ProPreview: {
+		ID:                       Gemini31ProPreview,
+		Name:                     "Gemini 3.1 Pro Preview",
+		Provider:                 ProviderGemini,
+		APIModel:                 "gemini-3.1-pro-preview",
+		CostPer1MIn:              2,
+		CostPer1MInCached:        0.2,
+		CostPer1MOutCached:       0.3833,
+		CostPer1MOut:             12,
+		ContextWindow:            1048576,
+		DefaultMaxTokens:         65535,
+		SupportsAttachments:      true,
+		SupportsAdaptiveThinking: true,
+		CanReason:                true,
+	},
+	Gemini31FlashPreview: {
+		ID:                       Gemini31FlashPreview,
+		Name:                     "Gemini 3.1 Flash Preview",
+		Provider:                 ProviderGemini,
+		APIModel:                 "gemini-3.1-flash-preview",
 		CostPer1MIn:              0.5,
 		CostPer1MInCached:        0.05,
 		CostPer1MOutCached:       0.3833,
