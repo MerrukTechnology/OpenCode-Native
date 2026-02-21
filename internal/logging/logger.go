@@ -186,14 +186,24 @@ func AppendToSessionLogFile(sessionId string, filename string, content string) s
 		Error("Failed to open session log file", "filepath", filePath, "error", err)
 		return ""
 	}
-
 	// Append chunk to file
 	_, err = f.WriteString(content)
 	if err != nil {
 		Error("Failed to write chunk to session log file", "filepath", filePath, "error", err)
 		// Best effort close; log if it fails but prioritize the write error.
+		// Best effort close; log if it fails but prioritize the write error.
 		if cerr := f.Close(); cerr != nil {
 			Error("Failed to close session log file after write error", "filepath", filePath, "error", cerr)
+		}
+		if cerr := f.Close(); cerr != nil {
+			Error("Failed to close session log file after write error", "filepath", filePath, "error", cerr)
+
+	// Ensure data is flushed and close the file, handling any error explicitly.
+	if err := f.Close(); err != nil {
+		Error("Failed to close session log file", "filepath", filePath, "error", err)
+		return ""
+	}
+
 		}
 		return ""
 	}
