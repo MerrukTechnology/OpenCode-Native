@@ -455,6 +455,13 @@ func ShouldSkipPath(path string, ignorePatterns []string) bool {
 // FILE READING AND WRITING
 // ============================================
 
+// isTextFileFromBytes checks if the given bytes represent text content.
+// It uses the same logic as IsTextFile but works on already-read bytes.
+func isTextFileFromBytes(data []byte) bool {
+	contentType := http.DetectContentType(data)
+	return strings.HasPrefix(contentType, "text/") || contentType == "application/octet-stream"
+}
+
 // IsTextFile checks if a file is likely text vs binary to prevent AI from reading garbage.
 func IsTextFile(path string) (bool, error) {
 	f, err := os.Open(path)
@@ -470,8 +477,7 @@ func IsTextFile(path string) (bool, error) {
 		return false, err
 	}
 
-	contentType := http.DetectContentType(buffer[:n])
-	return strings.HasPrefix(contentType, "text/") || contentType == "application/octet-stream", nil
+	return isTextFileFromBytes(buffer[:n]), nil
 }
 
 // ReadFile reads a file and returns its content
@@ -484,13 +490,23 @@ func ReadFile(path string) (string, error) {
 }
 
 // SafeReadFile reads a file only if it meets security and size requirements.
+// It opens the file once and reuses the file descriptor for all operations,
+// avoiding redundant I/O operations.
 func SafeReadFile(path, workingDir string) (string, error) {
 	safePath, err := SecureResolvePath(path, workingDir)
 	if err != nil {
 		return "", err
 	}
 
-	info, err := os.Stat(safePath)
+	// Open file once
+	f, err := os.Open(safePath)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	// Get file info from the file descriptor (no additional I/O)
+	info, err := f.Stat()
 	if err != nil {
 		return "", err
 	}
@@ -499,15 +515,32 @@ func SafeReadFile(path, workingDir string) (string, error) {
 		return "", fmt.Errorf("file too large (%d bytes). Max allowed: %d", info.Size(), MaxReadSize)
 	}
 
-	isText, err := IsTextFile(safePath)
-	if err != nil || !isText {
+	// Read first 512 bytes for content type detection
+	header := make([]byte, 512)
+	n, err := f.Read(header)
+	if err != nil && err != io.EOF {
+		return "", err
+	}
+	header = header[:n]
+
+	// Check if text file
+	if !isTextFileFromBytes(header) {
 		return "", errors.New("file appears to be binary or unsupported format")
 	}
 
-	content, err := os.ReadFile(safePath)
-	if err != nil {
-		return "", err
+	// Read the remainder of the file
+	var remainder []byte
+	if info.Size() > int64(n) {
+		remainder, err = io.ReadAll(f)
+		if err != nil {
+			return "", err
+		}
 	}
+
+	// Combine header and remainder
+	content := make([]byte, 0, len(header)+len(remainder))
+	content = append(content, header...)
+	content = append(content, remainder...)
 
 	return string(content), nil
 }

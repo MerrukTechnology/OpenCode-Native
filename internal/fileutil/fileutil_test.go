@@ -1008,3 +1008,183 @@ func TestGetFileInfo(t *testing.T) {
 		t.Errorf("Expected error for non-existent file")
 	}
 }
+
+func TestSafeReadFile(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	tests := []struct {
+		name        string
+		content     []byte
+		fileName    string
+		expectError bool
+		errorMatch  string
+	}{
+		{
+			name:        "small text file",
+			content:     []byte("hello world"),
+			fileName:    "test.txt",
+			expectError: false,
+		},
+		{
+			name:        "empty file",
+			content:     []byte{},
+			fileName:    "empty.txt",
+			expectError: false,
+		},
+		{
+			name:        "text file exactly 512 bytes",
+			content:     make([]byte, 512),
+			fileName:    "exact512.txt",
+			expectError: false,
+		},
+		{
+			name:        "text file larger than 512 bytes",
+			content:     append(make([]byte, 512), []byte("additional content")...),
+			fileName:    "large.txt",
+			expectError: false,
+		},
+		{
+			name:        "binary file - PNG header",
+			content:     []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D},
+			fileName:    "image.png",
+			expectError: true,
+			errorMatch:  "binary",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Fill text content with printable characters for text files
+			if !tt.expectError && len(tt.content) > 0 && !strings.Contains(tt.name, "binary") && !strings.Contains(tt.name, "PNG") {
+				for i := range tt.content {
+					tt.content[i] = 'a'
+				}
+			}
+
+			testFile := filepath.Join(tmpDir, tt.fileName)
+			if err := os.WriteFile(testFile, tt.content, 0644); err != nil {
+				t.Fatalf("failed to create temp file: %v", err)
+			}
+
+			result, err := SafeReadFile(testFile, tmpDir)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("SafeReadFile(%q) expected error but got none", testFile)
+				} else if tt.errorMatch != "" && !strings.Contains(err.Error(), tt.errorMatch) {
+					t.Errorf("SafeReadFile(%q) error = %v, want error containing %q", testFile, err, tt.errorMatch)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("SafeReadFile(%q) unexpected error: %v", testFile, err)
+				}
+				if string(tt.content) != result {
+					t.Errorf("SafeReadFile(%q) = %q, want %q", testFile, result, string(tt.content))
+				}
+			}
+		})
+	}
+}
+
+func TestSafeReadFile_TooLarge(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "large.txt")
+
+	// Create a file larger than MaxReadSize
+	largeContent := make([]byte, MaxReadSize+1)
+	for i := range largeContent {
+		largeContent[i] = 'a'
+	}
+
+	if err := os.WriteFile(testFile, largeContent, 0644); err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+
+	_, err := SafeReadFile(testFile, tmpDir)
+	if err == nil {
+		t.Errorf("SafeReadFile(%q) expected error for large file", testFile)
+	}
+	if !strings.Contains(err.Error(), "too large") {
+		t.Errorf("SafeReadFile(%q) error = %v, want error containing 'too large'", testFile, err)
+	}
+}
+
+func TestSafeReadFile_PathTraversal(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Try to read a file outside the working directory
+	_, err := SafeReadFile("/etc/passwd", tmpDir)
+	if err == nil {
+		t.Errorf("SafeReadFile('/etc/passwd') expected error for path traversal")
+	}
+}
+
+func TestSafeReadFile_NonExistent(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	_, err := SafeReadFile(filepath.Join(tmpDir, "nonexistent.txt"), tmpDir)
+	if err == nil {
+		t.Errorf("SafeReadFile(nonexistent) expected error")
+	}
+}
+
+func TestIsTextFile(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	tests := []struct {
+		name        string
+		content     []byte
+		fileName    string
+		expectText  bool
+		expectError bool
+	}{
+		{
+			name:       "text file",
+			content:    []byte("hello world"),
+			fileName:   "test.txt",
+			expectText: true,
+		},
+		{
+			name:       "empty file",
+			content:    []byte{},
+			fileName:   "empty.txt",
+			expectText: true, // Empty files are considered text (application/octet-stream)
+		},
+		{
+			name:       "binary file - PNG header",
+			content:    []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D},
+			fileName:   "image.png",
+			expectText: false,
+		},
+		{
+			name:       "go source file",
+			content:    []byte("package main\n\nfunc main() {}"),
+			fileName:   "main.go",
+			expectText: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testFile := filepath.Join(tmpDir, tt.fileName)
+			if err := os.WriteFile(testFile, tt.content, 0644); err != nil {
+				t.Fatalf("failed to create temp file: %v", err)
+			}
+
+			isText, err := IsTextFile(testFile)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("IsTextFile(%q) expected error but got none", testFile)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("IsTextFile(%q) unexpected error: %v", testFile, err)
+				}
+				if isText != tt.expectText {
+					t.Errorf("IsTextFile(%q) = %v, want %v", testFile, isText, tt.expectText)
+				}
+			}
+		})
+	}
+}

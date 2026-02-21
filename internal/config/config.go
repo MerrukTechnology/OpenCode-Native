@@ -168,7 +168,7 @@ type PermissionConfig struct {
 	// Rules maps tool names to permission logic.
 	Rules map[string]any `json:"rules,omitempty"` // tool name -> "allow" | {"pattern": "action"}
 
-	// Depricated: use Rules instead, Needed for backward compatibility.
+	// Deprecated: use Rules instead, Needed for backward compatibility.
 	Skill map[string]string `json:"skill,omitempty"`
 }
 
@@ -189,7 +189,7 @@ type Config struct {
 	DisableLSPDownload bool                              `json:"disableLSPDownload,omitempty"`
 	SessionProvider    SessionProviderConfig             `json:"sessionProvider,omitempty"`
 
-	// Depricated: use Rules instead, Needed for backward compatibility.
+	// Deprecated: use Rules instead, Needed for backward compatibility.
 	Skills     *SkillsConfig     `json:"skills,omitempty"`
 	Permission *PermissionConfig `json:"permission,omitempty"`
 }
