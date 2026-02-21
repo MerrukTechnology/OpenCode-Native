@@ -9,7 +9,7 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-git fetch --force --tags
+git fetch --tags
 
 # Get the latest Git tag
 latest_tag=$(git tag | grep -E '[0-9]' | sort -V | tail -1)
