@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/fileutil"
 )
 
 type LSParams struct {
@@ -100,9 +101,8 @@ func (l *lsTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error) {
 	if searchPath == "" {
 		searchPath = l.cfg.WorkingDirectory()
 	}
-
 	if !filepath.IsAbs(searchPath) {
-		searchPath = filepath.Join(l.cfg.WorkingDirectory(), searchPath)
+		searchPath = fileutil.ResolvePath(searchPath, l.cfg.WorkingDirectory())
 	}
 
 	if _, err := os.Stat(searchPath); os.IsNotExist(err) {
@@ -168,53 +168,13 @@ func listDirectory(initialPath string, ignorePatterns []string, limit int) ([]st
 }
 
 func shouldSkip(path string, ignorePatterns []string) bool {
+	// Use fileutil.SkipHidden for consistent hidden/ignored detection
+	if fileutil.SkipHidden(path) {
+		return true
+	}
+
+	// Check custom ignore patterns
 	base := filepath.Base(path)
-
-	if base != "." && strings.HasPrefix(base, ".") {
-		return true
-	}
-
-	commonIgnored := []string{
-		"__pycache__",
-		"node_modules",
-		"dist",
-		"build",
-		"target",
-		"vendor",
-		"bin",
-		"obj",
-		".git",
-		".idea",
-		".vscode",
-		".DS_Store",
-		"*.pyc",
-		"*.pyo",
-		"*.pyd",
-		"*.so",
-		"*.dll",
-		"*.exe",
-	}
-
-	if strings.Contains(path, filepath.Join("__pycache__", "")) {
-		return true
-	}
-
-	for _, ignored := range commonIgnored {
-		if strings.HasSuffix(ignored, "/") {
-			if strings.Contains(path, filepath.Join(ignored[:len(ignored)-1], "")) {
-				return true
-			}
-		} else if strings.HasPrefix(ignored, "*.") {
-			if strings.HasSuffix(base, ignored[1:]) {
-				return true
-			}
-		} else {
-			if base == ignored {
-				return true
-			}
-		}
-	}
-
 	for _, pattern := range ignorePatterns {
 		matched, err := filepath.Match(pattern, base)
 		if err == nil && matched {
@@ -291,7 +251,7 @@ func createFileTree(sortedPaths []string) []*TreeNode {
 func printTree(tree []*TreeNode, rootPath string) string {
 	var result strings.Builder
 
-	result.WriteString(fmt.Sprintf("- %s%s\n", rootPath, string(filepath.Separator)))
+	fmt.Fprintf(&result, "- %s%s\n", rootPath, string(filepath.Separator))
 
 	for _, node := range tree {
 		printNode(&result, node, 1)

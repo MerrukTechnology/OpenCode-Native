@@ -143,7 +143,7 @@ func NewProvider(providerName models.ModelProvider, opts ...ProviderClientOption
 			options: clientOptions,
 			client:  newBedrockClient(clientOptions),
 		}, nil
-	case models.ProviderGrok:
+	case models.ProviderGroq:
 		clientOptions.openaiOptions = append(clientOptions.openaiOptions,
 			WithOpenAIBaseURL("https://api.groq.com/openai/v1"),
 		)
@@ -179,7 +179,7 @@ func NewProvider(providerName models.ModelProvider, opts ...ProviderClientOption
 			options: clientOptions,
 			client:  newOpenAIClient(clientOptions),
 		}, nil
-	case models.ProviderKilo:
+	case models.ProviderKiloCode:
 		clientOptions.openaiOptions = append(clientOptions.openaiOptions,
 			WithOpenAIBaseURL("https://api.kilo.ai/api/gateway"),
 			WithOpenAIExtraHeaders(map[string]string{
@@ -412,7 +412,6 @@ func (p *baseProvider[C]) AdjustMaxTokens(estimatedTokens int64) int64 {
 	newMaxTokens := maxTokens
 	for estimatedTokens+newMaxTokens >= model.ContextWindow {
 		newMaxTokens = newMaxTokens / 2
-		p.client.setMaxTokens(newMaxTokens)
 		if float64(newMaxTokens) < float64(model.ContextWindow)*0.05 {
 			logging.Warn(
 				"New max_tokens is below 5% of total context, can't shrink further, proceeding",
@@ -429,6 +428,7 @@ func (p *baseProvider[C]) AdjustMaxTokens(estimatedTokens int64) int64 {
 		}
 	}
 	if maxTokens != newMaxTokens {
+		p.client.setMaxTokens(newMaxTokens)
 		logging.Info("max_tokens value has changed", "model", model.Name, "old", maxTokens, "new", newMaxTokens)
 	}
 

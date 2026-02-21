@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
+
+	"github.com/MerrukTechnology/OpenCode-Native/internal/fileutil"
 )
 
 // OutputFormat represents the output format type for non-interactive mode
@@ -126,8 +127,8 @@ func ResolveSchemaRef(schema map[string]any, baseDir string) (map[string]any, er
 	if !isStr || refPath == "" {
 		return nil, fmt.Errorf("$ref must be a non-empty file path string")
 	}
-	if baseDir != "" && !filepath.IsAbs(refPath) {
-		refPath = filepath.Join(baseDir, refPath)
+	if baseDir != "" {
+		refPath = fileutil.ResolvePath(refPath, baseDir)
 	}
 	return loadSchemaFromFile(refPath)
 }

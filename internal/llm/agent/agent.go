@@ -309,9 +309,8 @@ func (a *agent) processGeneration(ctx context.Context, sessionID, content string
 	var structOutput *message.ToolResult
 	structOutputIsErr := true
 	cycles := 0
-	preserveTail := false
 
-	// Susped to get lazy tools
+	// Suspend to get lazy tools
 	toolSet := a.resolveTools()
 
 	for {
@@ -355,12 +354,13 @@ func (a *agent) processGeneration(ctx context.Context, sessionID, content string
 					return a.err(fmt.Errorf("failed to get session after compaction: %w", errMsg))
 				}
 				msgs = a.filterMessagesFromSummary(msgs, session.SummaryMessageID)
-				// Preserve original problem and result from the last tool iteration to ensure no dead-loop
-				if preserveTail {
-					// TODO: Fix this, preserveTail is not defined correctly, it should be set to true somewhere when we are in a tool use loop, but currently it's always false, which means we are always losing the last tool result and agent message, which could cause the LLM to repeat the same tool call without learning from the previous result, leading to potential infinite loops.
-					preserveTail = false
+				// Preserve original problem and result from the last tool iteration to ensure no dead-loop.
+				// If we have a recent agentMessage and toolResults, keep them in the history so the LLM
+				// can see the previous tool call and its outcome after compaction.
+				if toolResults != nil {
 					msgHistory = append(msgs, agentMessage, *toolResults)
 				} else {
+					// Fallback: no tool results to preserve, continue from the user message.
 					msgHistory = append(msgs, userMsg)
 				}
 
@@ -433,7 +433,6 @@ func (a *agent) processGeneration(ctx context.Context, sessionID, content string
 			}
 
 			msgHistory = append(msgHistory, agentMessage, *toolResults)
-			preserveTail = true
 			continue
 		}
 		return AgentEvent{
@@ -598,8 +597,8 @@ out:
 	return assistantMsg, &msg, nil
 }
 
-func (a *agent) finishMessage(ctx context.Context, msg *message.Message, finishReson message.FinishReason) {
-	msg.AddFinish(finishReson)
+func (a *agent) finishMessage(ctx context.Context, msg *message.Message, finishReason message.FinishReason) {
+	msg.AddFinish(finishReason)
 	_ = a.messages.Update(ctx, *msg)
 }
 

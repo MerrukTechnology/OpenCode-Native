@@ -1,7 +1,7 @@
 package models
 
 const (
-	ProviderGrok ModelProvider = "groq"
+	ProviderGroq ModelProvider = "groq"
 
 	// GROQ
 	QWENQwq ModelID = "qwen-qwq"
@@ -19,7 +19,7 @@ var GroqModels = map[ModelID]Model{
 	QWENQwq: {
 		ID:                 QWENQwq,
 		Name:               "Qwen Qwq",
-		Provider:           ProviderGrok,
+		Provider:           ProviderGroq,
 		APIModel:           "qwen-qwq-32b",
 		CostPer1MIn:        0.29,
 		CostPer1MInCached:  0.275,
@@ -35,7 +35,7 @@ var GroqModels = map[ModelID]Model{
 	Llama4Scout: {
 		ID:                  Llama4Scout,
 		Name:                "Llama4Scout",
-		Provider:            ProviderGrok,
+		Provider:            ProviderGroq,
 		APIModel:            "meta-llama/llama-4-scout-17b-16e-instruct",
 		CostPer1MIn:         0.11,
 		CostPer1MInCached:   0,
@@ -48,7 +48,7 @@ var GroqModels = map[ModelID]Model{
 	Llama4Maverick: {
 		ID:                  Llama4Maverick,
 		Name:                "Llama4Maverick",
-		Provider:            ProviderGrok,
+		Provider:            ProviderGroq,
 		APIModel:            "meta-llama/llama-4-maverick-17b-128e-instruct",
 		CostPer1MIn:         0.20,
 		CostPer1MInCached:   0,
@@ -61,7 +61,7 @@ var GroqModels = map[ModelID]Model{
 	Llama3_3_70BVersatile: {
 		ID:                  Llama3_3_70BVersatile,
 		Name:                "Llama3_3_70BVersatile",
-		Provider:            ProviderGrok,
+		Provider:            ProviderGroq,
 		APIModel:            "llama-3.3-70b-versatile",
 		CostPer1MIn:         0.59,
 		CostPer1MInCached:   0,
@@ -74,7 +74,7 @@ var GroqModels = map[ModelID]Model{
 	DeepseekR1DistillLlama70b: {
 		ID:                  DeepseekR1DistillLlama70b,
 		Name:                "DeepseekR1DistillLlama70b",
-		Provider:            ProviderGrok,
+		Provider:            ProviderGroq,
 		APIModel:            "deepseek-r1-distill-llama-70b",
 		CostPer1MIn:         0.75,
 		CostPer1MInCached:   0,
@@ -87,7 +87,7 @@ var GroqModels = map[ModelID]Model{
 	Kimi_K2_0905: {
 		ID:                  Kimi_K2_0905,
 		Name:                "Kimi K2 0905",
-		Provider:            ProviderGrok,
+		Provider:            ProviderGroq,
 		APIModel:            "moonshotai/kimi-k2-instruct-0905",
 		CostPer1MIn:         1,
 		CostPer1MInCached:   0,

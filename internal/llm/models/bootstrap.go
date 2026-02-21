@@ -7,6 +7,8 @@ func init() {
 	maps.Copy(SupportedModels, OpenAIModels)
 	maps.Copy(SupportedModels, GeminiModels)
 	maps.Copy(SupportedModels, GroqModels)
+	maps.Copy(SupportedModels, MistralModels)
+	maps.Copy(SupportedModels, KiloCodeModels)
 	maps.Copy(SupportedModels, XAIModels)
 	maps.Copy(SupportedModels, OpenRouterModels)
 	maps.Copy(SupportedModels, DeepSeekModels)

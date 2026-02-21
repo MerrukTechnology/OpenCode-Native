@@ -30,7 +30,6 @@ Key Features:
 - Interactive AI chat with multiple model providers (OpenAI, Anthropic, xAI, etc.)
 - Code analysis and editing capabilities
 - LSP (Language Server Protocol) integration
-- Web search support for current information (xAI models)
 - File system operations and project navigation
 - Multi-turn conversations with context retention`,
 	Example: `

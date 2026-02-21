@@ -6,7 +6,7 @@ require (
 	github.com/JohannesKaufmann/html-to-markdown v1.6.0
 	github.com/PuerkitoBio/goquery v1.11.0
 	github.com/alecthomas/chroma/v2 v2.23.1
-	github.com/anthropics/anthropic-sdk-go v1.22.1
+	github.com/anthropics/anthropic-sdk-go v1.26.0
 	github.com/aymanbagabas/go-udiff v0.3.1
 	github.com/bmatcuk/doublestar/v4 v4.10.0
 	github.com/catppuccin/go v0.3.0
@@ -142,7 +142,7 @@ require (
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/term v0.40.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
-	google.golang.org/genai v1.46.0
+	google.golang.org/genai v1.47.0
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260209200024-4cfbd4190f57 // indirect
 	google.golang.org/grpc v1.79.1 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect

@@ -267,7 +267,7 @@ func TestShouldSkip(t *testing.T) {
 			name:           "node_modules directory",
 			path:           "/path/to/node_modules/package",
 			ignorePatterns: []string{},
-			expected:       false, // The shouldSkip function doesn't directly check for node_modules in the path
+			expected:       true, // fileutil.SkipHidden checks for node_modules in path segments
 		},
 		{
 			name:           "normal file",
