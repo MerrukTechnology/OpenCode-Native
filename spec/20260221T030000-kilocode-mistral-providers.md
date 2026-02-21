@@ -26,7 +26,7 @@ const (
 // internal/llm/models/mistral.go
 const (
     ProviderMistral ModelProvider = "mistral"
-    MistralGPT4O    ModelID       = "Mistral.gpt-4o"
+    MistralGPT4O    ModelID       = "mistral.gpt-4o"
 )
 ```
 
