@@ -251,7 +251,7 @@ func createFileTree(sortedPaths []string) []*TreeNode {
 func printTree(tree []*TreeNode, rootPath string) string {
 	var result strings.Builder
 
-	result.WriteString(fmt.Sprintf("- %s%s\n", rootPath, string(filepath.Separator)))
+	fmt.Fprintf(&result, "- %s%s\n", rootPath, string(filepath.Separator))
 
 	for _, node := range tree {
 		printNode(&result, node, 1)
