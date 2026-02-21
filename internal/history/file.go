@@ -17,9 +17,11 @@ import (
 )
 
 const (
+	// InitialVersion is the version string for the first version of a file.
 	InitialVersion = "initial"
 )
 
+// File represents a versioned file in the session history.
 type File struct {
 	ID        string
 	SessionID string
@@ -30,6 +32,7 @@ type File struct {
 	UpdatedAt int64
 }
 
+// Service provides operations for managing file history.
 type Service interface {
 	pubsub.Suscriber[File]
 	Create(ctx context.Context, sessionID, path, content string) (File, error)
@@ -51,6 +54,7 @@ type service struct {
 	q  db.QuerierWithTx
 }
 
+// NewService creates a new file history service.
 func NewService(q db.QuerierWithTx, database *sql.DB) Service {
 	return &service{
 		Broker: pubsub.NewBroker[File](),

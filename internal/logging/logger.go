@@ -1,12 +1,15 @@
+// Package logging provides structured logging functionality for the application.
+// It wraps the standard slog package with additional features like session-based
+// log persistence, panic recovery, and message directory management.
 package logging
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
 	"strings"
 
-	"encoding/json"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
@@ -25,21 +28,25 @@ func getCaller() string {
 	return caller
 }
 
+// Info logs a message at INFO level with the caller's source location.
 func Info(msg string, args ...any) {
 	source := getCaller()
 	slog.Info(msg, append([]any{"source", source}, args...)...)
 }
 
+// Debug logs a message at DEBUG level with the caller's source location.
 func Debug(msg string, args ...any) {
 	source := getCaller()
 	slog.Debug(msg, append([]any{"source", source}, args...)...)
 }
 
+// Warn logs a message at WARN level with the caller's source location.
 func Warn(msg string, args ...any) {
 	source := getCaller()
 	slog.Warn(msg, append([]any{"source", source}, args...)...)
 }
 
+// Error logs a message at ERROR level with the caller's source location.
 func Error(msg string, args ...any) {
 	source := getCaller()
 	slog.Error(msg, append([]any{"source", source}, args...)...)
@@ -61,18 +68,22 @@ func logPersist(level slog.Level, msg string, args ...any) {
 	}
 }
 
+// InfoPersist logs a message at INFO level that should be persisted to the status bar.
 func InfoPersist(msg string, args ...any) {
 	logPersist(slog.LevelInfo, msg, args...)
 }
 
+// DebugPersist logs a message at DEBUG level that should be persisted to the status bar.
 func DebugPersist(msg string, args ...any) {
 	logPersist(slog.LevelDebug, msg, args...)
 }
 
+// WarnPersist logs a message at WARN level that should be persisted to the status bar.
 func WarnPersist(msg string, args ...any) {
 	logPersist(slog.LevelWarn, msg, args...)
 }
 
+// ErrorPersist logs a message at ERROR level that should be persisted to the status bar.
 func ErrorPersist(msg string, args ...any) {
 	logPersist(slog.LevelError, msg, args...)
 }
@@ -110,23 +121,29 @@ func RecoverPanic(name string, cleanup func()) {
 	}
 }
 
-// Message Logging for Debug
+// MessageDir is the directory where session messages are stored.
 var (
 	MessageDir   string
 	messageDirMu sync.RWMutex
 )
 
+// SetMessageDir sets the directory where session messages are stored.
 func SetMessageDir(dir string) {
 	messageDirMu.Lock()
 	defer messageDirMu.Unlock()
 	MessageDir = dir
 }
+
+// GetMessageDir returns the directory where session messages are stored.
 func GetMessageDir() string {
 	messageDirMu.RLock()
 	defer messageDirMu.RUnlock()
 	return MessageDir
 }
 
+// GetSessionPrefix returns a shortened version of the session ID for use in filenames.
+// If the session ID is shorter than 8 characters, it returns the full ID.
+// If the session ID is empty, it returns an empty string.
 func GetSessionPrefix(sessionId string) string {
 	// Ensure we don't slice beyond the string length.
 	if len(sessionId) == 0 {
@@ -140,6 +157,10 @@ func GetSessionPrefix(sessionId string) string {
 
 var sessionLogMutex sync.Mutex
 
+// AppendToSessionLogFile appends content to a session log file.
+// It returns the absolute path to the file on success, or an empty string on failure.
+// The function validates that the resulting path stays within the message directory
+// to prevent path traversal attacks.
 func AppendToSessionLogFile(sessionId string, filename string, content string) string {
 	if GetMessageDir() == "" || sessionId == "" {
 		return ""
@@ -207,18 +228,30 @@ func AppendToSessionLogFile(sessionId string, filename string, content string) s
 	return filePath
 }
 
-func WriteRequestMessageJson(sessionId string, requestSeqId int, message any) string {
+// marshalAndWrite is a helper that marshals data to JSON and returns the string.
+// It returns an empty string if MessageDir is not set, sessionId is empty, or requestSeqId is <= 0.
+func marshalAndWrite(sessionId string, requestSeqId int, data any, errorMsg string) string {
 	if MessageDir == "" || sessionId == "" || requestSeqId <= 0 {
 		return ""
 	}
-	msgJson, err := json.Marshal(message)
+	dataJson, err := json.Marshal(data)
 	if err != nil {
-		Error("Failed to marshal message", "session_id", sessionId, "request_seq_id", requestSeqId, "error", err)
+		Error(errorMsg, "session_id", sessionId, "request_seq_id", requestSeqId, "error", err)
 		return ""
 	}
-	return WriteRequestMessage(sessionId, requestSeqId, string(msgJson))
+	return string(dataJson)
 }
 
+// WriteRequestMessageJson marshals the message to JSON and writes it to a session log file.
+func WriteRequestMessageJson(sessionId string, requestSeqId int, message any) string {
+	jsonStr := marshalAndWrite(sessionId, requestSeqId, message, "Failed to marshal message")
+	if jsonStr == "" {
+		return ""
+	}
+	return WriteRequestMessage(sessionId, requestSeqId, jsonStr)
+}
+
+// WriteRequestMessage writes a request message to a session log file.
 func WriteRequestMessage(sessionId string, requestSeqId int, message string) string {
 	if MessageDir == "" || sessionId == "" || requestSeqId <= 0 {
 		return ""
@@ -228,18 +261,16 @@ func WriteRequestMessage(sessionId string, requestSeqId int, message string) str
 	return AppendToSessionLogFile(sessionId, filename, message)
 }
 
+// AppendToStreamSessionLogJson marshals the chunk to JSON and appends it to a session stream log.
 func AppendToStreamSessionLogJson(sessionId string, requestSeqId int, jsonableChunk any) string {
-	if MessageDir == "" || sessionId == "" || requestSeqId <= 0 {
+	jsonStr := marshalAndWrite(sessionId, requestSeqId, jsonableChunk, "Failed to marshal message")
+	if jsonStr == "" {
 		return ""
 	}
-	chunkJson, err := json.Marshal(jsonableChunk)
-	if err != nil {
-		Error("Failed to marshal message", "session_id", sessionId, "request_seq_id", requestSeqId, "error", err)
-		return ""
-	}
-	return AppendToStreamSessionLog(sessionId, requestSeqId, string(chunkJson))
+	return AppendToStreamSessionLog(sessionId, requestSeqId, jsonStr)
 }
 
+// AppendToStreamSessionLog appends a chunk to a session stream log file.
 func AppendToStreamSessionLog(sessionId string, requestSeqId int, chunk string) string {
 	if MessageDir == "" || sessionId == "" || requestSeqId <= 0 {
 		return ""
@@ -248,29 +279,22 @@ func AppendToStreamSessionLog(sessionId string, requestSeqId int, chunk string) 
 	return AppendToSessionLogFile(sessionId, filename, chunk)
 }
 
+// WriteChatResponseJson marshals the response to JSON and writes it to a session log file.
 func WriteChatResponseJson(sessionId string, requestSeqId int, response any) string {
-	if MessageDir == "" || sessionId == "" || requestSeqId <= 0 {
-		return ""
-	}
-	responseJson, err := json.Marshal(response)
-	if err != nil {
-		Error("Failed to marshal response", "session_id", sessionId, "request_seq_id", requestSeqId, "error", err)
+	jsonStr := marshalAndWrite(sessionId, requestSeqId, response, "Failed to marshal response")
+	if jsonStr == "" {
 		return ""
 	}
 	filename := fmt.Sprintf("%d_response.json", requestSeqId)
-
-	return AppendToSessionLogFile(sessionId, filename, string(responseJson))
+	return AppendToSessionLogFile(sessionId, filename, jsonStr)
 }
 
+// WriteToolResultsJson marshals the tool results to JSON and writes them to a session log file.
 func WriteToolResultsJson(sessionId string, requestSeqId int, toolResults any) string {
-	if MessageDir == "" || sessionId == "" || requestSeqId <= 0 {
-		return ""
-	}
-	toolResultsJson, err := json.Marshal(toolResults)
-	if err != nil {
-		Error("Failed to marshal tool results", "session_id", sessionId, "request_seq_id", requestSeqId, "error", err)
+	jsonStr := marshalAndWrite(sessionId, requestSeqId, toolResults, "Failed to marshal tool results")
+	if jsonStr == "" {
 		return ""
 	}
 	filename := fmt.Sprintf("%d_tool_results.json", requestSeqId)
-	return AppendToSessionLogFile(sessionId, filename, string(toolResultsJson))
+	return AppendToSessionLogFile(sessionId, filename, jsonStr)
 }

@@ -6,7 +6,9 @@
 
 # ⌬ OpenCode
 
-OpenCode is a CLI tool that brings AI assistance to your terminal. It provides both a TUI (Terminal User Interface) and a headless non-interactive mode for scripting and autonomous agents.
+OpenCode is a powerful CLI tool that brings AI assistance directly to your terminal. It provides both an interactive Terminal User Interface (TUI) for human users and a headless non-interactive mode ideal for scripting and autonomous agents. OpenCode acts as an intelligent coding assistant that can read, edit, and create files, execute shell commands, search through codebases, and integrate with various AI language models.
+
+Designed for developers who prefer command-line workflows, OpenCode offers deep integration with popular AI providers while maintaining a seamless terminal experience. Whether you need help debugging code, implementing new features, or automating repetitive development tasks, OpenCode provides the tools and flexibility to get the job done efficiently.
 
 ## Features
 
@@ -214,7 +216,6 @@ You are a code review specialist...
 
 The file basename (without `.md`) becomes the agent ID. Custom agents default to `subagent` mode.
 
-
 ### Auto Compact
 
 When enabled (default), automatically summarizes conversations approaching the context window limit (95%) and continues in a new session.
@@ -343,18 +344,68 @@ export LOCAL_ENDPOINT_API_KEY=secret
 | `OPENCODE_DISABLE_CLAUDE_SKILLS` | Disable `.claude/skills/` discovery |
 | `OPENCODE_DISABLE_LSP_DOWNLOAD` | Disable auto-install of LSP servers |
 
+## Architecture
+
+OpenCode is organized into several key packages that work together to provide a seamless AI coding experience:
+
+```
+internal/
+├── agent/           # Agent registry and management
+├── app/             # Application setup and LSP integration
+├── completions/    # Shell completions
+├── config/          # Configuration management
+├── db/              # Database providers (SQLite, MySQL)
+├── diff/            # Diff/patch functionality
+├── fileutil/        # File utilities
+├── format/          # Code formatting
+├── history/         # File change tracking
+├── llm/
+│   ├── agent/       # Agent implementation and tool execution
+│   ├── models/      # Model definitions and metadata
+│   ├── prompt/      # System prompts for different agents
+│   ├── provider/   # LLM provider implementations
+│   └── tools/      # Tool implementations (edit, bash, grep, etc.)
+├── logging/        # Logging infrastructure
+├── lsp/             # LSP client and language server management
+├── message/        # Message types and content handling
+├── permission/     # Permission system for tool access
+├── session/         # Session management
+├── skill/          # Agent skills system
+└── tui/             # Terminal User Interface
+```
+
+### Key Components
+
+| Component | Purpose |
+|-----------|---------|
+| **Agent System** | Manages different AI agent types (coder, hivemind, explorer, etc.) |
+| **LLM Providers** | Unified interface for OpenAI, Anthropic, Google Gemini, VertexAI, and more |
+| **Tool System** | File operations, shell commands, code search, LSP integration |
+| **Skills** | Reusable instruction sets loaded on-demand for specialized tasks |
+| **Session Storage** | SQLite or MySQL for persistent conversation history |
+| **LSP Client** | Auto-detects languages and provides code intelligence |
+
+For a detailed architecture overview, see the [Providers and Models Guide](docs/providers-models.md).
+
 ## Supported Models
+
+OpenCode supports a wide range of LLM providers and models:
 
 | Provider | Models |
 |----------|--------|
-| **OpenAI** | GPT-5, O3 Mini, O4 Mini |
-| **Anthropic** | Claude 4.6 Sonnet (1M), Claude 4.6 Opus (1M) |
-| **Google Gemini** | Gemini 3.0 Pro, Gemini 3.0 Flash |
-| **AWS Bedrock** | Claude 4.5 Sonnet |
-| **VertexAI** | Gemini 3.0 Pro, Gemini 3.0 Flash, Claude 4.6 Sonnet (1M), Claude 4.6 Opus (1M) |
+| **OpenAI** | GPT-5, O3 Mini, O4 Mini, GPT-4o, GPT-4o-mini, GPT-4 Turbo |
+| **Anthropic** | Claude 4.6 Sonnet (200K), Claude 4.6 Opus (200K), Claude 4.5 Sonnet |
+| **Google Gemini** | Gemini 3.0 Pro, Gemini 3.0 Flash, Gemini 2.0 Flash |
+| **AWS Bedrock** | Claude 4.5 Sonnet (via Bedrock) |
+| **VertexAI** | Claude 4.6 Sonnet (1M), Claude 4.6 Opus (1M), Gemini 3.0 Pro, Gemini 3.0 Flash |
 | **KiloCode** | KiloCode Auto |
-| **Mistral** | GPT-4o (via Mistral) |
-| **Local** | Any OpenAI-compatible API |
+| **Mistral** | Mistral models |
+| **Groq** | Groq-hosted models |
+| **DeepSeek** | DeepSeek chat models |
+| **OpenRouter** | Aggregated access to 100+ models |
+| **Local/Ollama** | Any OpenAI-compatible local model |
+
+For a complete list of supported models and their configurations, see the [Providers and Models Guide](docs/providers-models.md).
 
 ## Tools
 
@@ -446,6 +497,7 @@ make build
 ```
 
 ### Release
+
 ```bash
 make release SCOPE=patch
 # or

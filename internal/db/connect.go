@@ -1,3 +1,5 @@
+// Package db provides database access for sessions, messages, and files.
+// It supports both SQLite and MySQL providers with automatic migrations.
 package db
 
 import (
@@ -10,6 +12,9 @@ import (
 	"github.com/pressly/goose/v3"
 )
 
+// Connect creates a new database connection based on the current configuration.
+// It sets up the provider, connects to the database, runs migrations, and
+// backfills project IDs for existing sessions.
 func Connect() (*sql.DB, error) {
 	cfg := config.Get()
 

@@ -22,6 +22,7 @@ import (
 	"github.com/MerrukTechnology/OpenCode-Native/internal/version"
 )
 
+// Client represents an LSP client that communicates with an LSP server.
 type Client struct {
 	Cmd    *exec.Cmd
 	stdin  io.WriteCloser
@@ -58,6 +59,7 @@ type Client struct {
 	serverState atomic.Value
 }
 
+// NewClient creates and starts a new LSP client with the given command and environment.
 func NewClient(ctx context.Context, command string, env map[string]string, args ...string) (*Client, error) {
 	cmd := exec.CommandContext(ctx, command, args...)
 	// Copy env and add server-specific env vars
