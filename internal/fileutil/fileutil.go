@@ -406,25 +406,12 @@ func SkipHidden(path string) bool {
 
 	// 2. Iterate through path segments to catch ignored directories
 	// Example: "internal/node_modules/react/index.js"
-	start := 0
-	for {
-		end := strings.IndexByte(cleanPath[start:], '/')
-		var segment string
-
-		if end == -1 {
-			segment = cleanPath[start:]
-		} else {
-			segment = cleanPath[start : start+end]
-		}
-
+	// Only check the base name of each segment to avoid matching "tmp" in paths like "/tmp/xxx"
+	parts := strings.Split(cleanPath, "/")
+	for _, segment := range parts {
 		if segment != "" && IsIgnoredDir(segment) {
 			return true
 		}
-
-		if end == -1 {
-			break
-		}
-		start += end + 1
 	}
 
 	// 3. Final check for forbidden extensions (e.g., .exe, .dll)

@@ -202,7 +202,7 @@ func discoverProjectSkills(workingDir, worktreeRoot string) []Info {
 
 // discoverGlobalSkills scans global skill directories.
 func discoverGlobalSkills() []Info {
-	var skills []Info
+	skills := []Info{}
 
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
