@@ -1,8 +1,9 @@
 package models
+
 const (
 	ProviderMistral ModelProvider = "mistral"
 
-	MistralGPT4O    ModelID = "Mistral.gpt-4o"
+	MistralGPT4O ModelID = "Mistral.gpt-4o"
 )
 
 var MistralModels = map[ModelID]Model{

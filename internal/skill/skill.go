@@ -13,6 +13,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/fileutil"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
 )
 
@@ -243,10 +244,7 @@ func discoverCustomPaths(paths []string, workingDir string) []Info {
 		}
 
 		// Resolve relative paths
-		resolved := expanded
-		if !filepath.IsAbs(expanded) {
-			resolved = filepath.Join(workingDir, expanded)
-		}
+		resolved := fileutil.ResolvePath(expanded, workingDir)
 
 		// Check if directory exists
 		if info, err := os.Stat(resolved); err != nil || !info.IsDir() {

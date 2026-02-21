@@ -11,6 +11,7 @@ import (
 	agentregistry "github.com/MerrukTechnology/OpenCode-Native/internal/agent"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/diff"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/fileutil"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/history"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp"
@@ -102,11 +103,7 @@ func (p *patchTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 	// Identify all files needed for the patch and verify they've been read
 	filesToRead := diff.IdentifyFilesNeeded(params.PatchText)
 	for _, filePath := range filesToRead {
-		absPath := filePath
-		if !filepath.IsAbs(absPath) {
-			wd := config.WorkingDirectory()
-			absPath = filepath.Join(wd, absPath)
-		}
+		absPath := fileutil.ResolvePath(filePath, config.WorkingDirectory())
 
 		if getLastReadTime(absPath).IsZero() {
 			return NewTextErrorResponse(fmt.Sprintf("you must read the file %s before patching it. Use the FileRead tool first", filePath)), nil
@@ -137,11 +134,7 @@ func (p *patchTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 	// Check for new files to ensure they don't already exist
 	filesToAdd := diff.IdentifyFilesAdded(params.PatchText)
 	for _, filePath := range filesToAdd {
-		absPath := filePath
-		if !filepath.IsAbs(absPath) {
-			wd := config.WorkingDirectory()
-			absPath = filepath.Join(wd, absPath)
-		}
+		absPath := fileutil.ResolvePath(filePath, config.WorkingDirectory())
 
 		_, err := os.Stat(absPath)
 		if err == nil {
@@ -154,11 +147,7 @@ func (p *patchTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 	// Load all required files
 	currentFiles := make(map[string]string)
 	for _, filePath := range filesToRead {
-		absPath := filePath
-		if !filepath.IsAbs(absPath) {
-			wd := config.WorkingDirectory()
-			absPath = filepath.Join(wd, absPath)
-		}
+		absPath := fileutil.ResolvePath(filePath, config.WorkingDirectory())
 
 		content, err := os.ReadFile(absPath)
 		if err != nil {
@@ -270,11 +259,7 @@ func (p *patchTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 
 	// Apply the changes to the filesystem
 	err = diff.ApplyCommit(commit, func(path string, content string) error {
-		absPath := path
-		if !filepath.IsAbs(absPath) {
-			wd := config.WorkingDirectory()
-			absPath = filepath.Join(wd, absPath)
-		}
+		absPath := fileutil.ResolvePath(path, config.WorkingDirectory())
 
 		// Create parent directories if needed
 		dir := filepath.Dir(absPath)
@@ -284,11 +269,7 @@ func (p *patchTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 
 		return os.WriteFile(absPath, []byte(content), 0o644)
 	}, func(path string) error {
-		absPath := path
-		if !filepath.IsAbs(absPath) {
-			wd := config.WorkingDirectory()
-			absPath = filepath.Join(wd, absPath)
-		}
+		absPath := fileutil.ResolvePath(path, config.WorkingDirectory())
 		return os.Remove(absPath)
 	})
 	if err != nil {
@@ -301,11 +282,7 @@ func (p *patchTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 	totalRemovals := 0
 
 	for path, change := range commit.Changes {
-		absPath := path
-		if !filepath.IsAbs(absPath) {
-			wd := config.WorkingDirectory()
-			absPath = filepath.Join(wd, absPath)
-		}
+		absPath := fileutil.ResolvePath(path, config.WorkingDirectory())
 		changedFiles = append(changedFiles, absPath)
 
 		oldContent := ""

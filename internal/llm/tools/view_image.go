@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/fileutil"
 )
 
 type ViewImageParams struct {
@@ -94,9 +95,7 @@ func (v *viewImageTool) Run(ctx context.Context, call ToolCall) (ToolResponse, e
 
 	// Handle relative paths
 	filePath := params.FilePath
-	if !filepath.IsAbs(filePath) {
-		filePath = filepath.Join(config.WorkingDirectory(), filePath)
-	}
+	filePath = fileutil.ResolvePath(filePath, config.WorkingDirectory())
 
 	// Check if file exists
 	fileInfo, err := os.Stat(filePath)

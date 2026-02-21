@@ -12,6 +12,7 @@ import (
 	agentregistry "github.com/MerrukTechnology/OpenCode-Native/internal/agent"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/diff"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/fileutil"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/history"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp"
@@ -129,7 +130,7 @@ func (e *editTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error)
 
 	if !filepath.IsAbs(params.FilePath) {
 		wd := config.WorkingDirectory()
-		params.FilePath = filepath.Join(wd, params.FilePath)
+		params.FilePath = fileutil.ResolvePath(params.FilePath, wd)
 	}
 
 	var response ToolResponse
@@ -169,7 +170,7 @@ func (e *editTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error)
 }
 
 func (e *editTool) createNewFile(ctx context.Context, filePath, content string) (ToolResponse, error) {
-	fileInfo, err := os.Stat(filePath)
+	fileInfo, err := fileutil.GetFileInfo(filePath)
 	if err == nil {
 		if fileInfo.IsDir() {
 			return NewTextErrorResponse(fmt.Sprintf("path is a directory, not a file: %s", filePath)), nil
@@ -179,8 +180,7 @@ func (e *editTool) createNewFile(ctx context.Context, filePath, content string) 
 		return NewEmptyResponse(), fmt.Errorf("failed to access file: %w", err)
 	}
 
-	dir := filepath.Dir(filePath)
-	if err = os.MkdirAll(dir, 0o755); err != nil {
+	if err = fileutil.EnsureParentDir(filePath); err != nil {
 		return NewEmptyResponse(), fmt.Errorf("failed to create parent directories: %w", err)
 	}
 
@@ -258,7 +258,7 @@ func (e *editTool) createNewFile(ctx context.Context, filePath, content string) 
 }
 
 func (e *editTool) deleteContent(ctx context.Context, filePath, oldString string, replaceAll bool) (ToolResponse, error) {
-	fileInfo, err := os.Stat(filePath)
+	fileInfo, err := fileutil.GetFileInfo(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return NewTextErrorResponse(fmt.Sprintf("file not found: %s", filePath)), nil
@@ -283,7 +283,7 @@ func (e *editTool) deleteContent(ctx context.Context, filePath, oldString string
 			)), nil
 	}
 
-	content, err := os.ReadFile(filePath)
+	content, err := fileutil.ReadFile(filePath)
 	if err != nil {
 		return NewEmptyResponse(), fmt.Errorf("failed to read file: %w", err)
 	}
@@ -389,7 +389,7 @@ func (e *editTool) deleteContent(ctx context.Context, filePath, oldString string
 }
 
 func (e *editTool) replaceContent(ctx context.Context, filePath, oldString, newString string, replaceAll bool) (ToolResponse, error) {
-	fileInfo, err := os.Stat(filePath)
+	fileInfo, err := fileutil.GetFileInfo(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return NewTextErrorResponse(fmt.Sprintf("file not found: %s", filePath)), nil
@@ -414,7 +414,7 @@ func (e *editTool) replaceContent(ctx context.Context, filePath, oldString, newS
 			)), nil
 	}
 
-	content, err := os.ReadFile(filePath)
+	content, err := fileutil.ReadFile(filePath)
 	if err != nil {
 		return NewEmptyResponse(), fmt.Errorf("failed to read file: %w", err)
 	}
@@ -480,7 +480,7 @@ func (e *editTool) replaceContent(ctx context.Context, filePath, oldString, newS
 		}
 	}
 
-	err = os.WriteFile(filePath, []byte(newContent), 0o644)
+	err = fileutil.WriteFile(filePath, newContent)
 	if err != nil {
 		return NewEmptyResponse(), fmt.Errorf("failed to write file: %w", err)
 	}
