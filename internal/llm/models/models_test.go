@@ -93,115 +93,100 @@ func TestModelProvider_String(t *testing.T) {
 	}
 }
 
-func TestKiloCodeModels(t *testing.T) {
+// validateModelFields checks that a model has expected field values
+func validateModelFields(t *testing.T, model Model, wantName, wantAPI string, wantCtx, wantMaxTok int64, wantProvider ModelProvider) {
+	t.Helper()
+
+	if model.Name != wantName {
+		t.Errorf("Name = %q, want %q", model.Name, wantName)
+	}
+	if model.APIModel != wantAPI {
+		t.Errorf("APIModel = %q, want %q", model.APIModel, wantAPI)
+	}
+	if model.ContextWindow != wantCtx {
+		t.Errorf("ContextWindow = %d, want %d", model.ContextWindow, wantCtx)
+	}
+	if model.DefaultMaxTokens != wantMaxTok {
+		t.Errorf("DefaultMaxTokens = %d, want %d", model.DefaultMaxTokens, wantMaxTok)
+	}
+	if model.Provider != wantProvider {
+		t.Errorf("Provider = %q, want %q", model.Provider, wantProvider)
+	}
+}
+
+func TestModelDefinitions(t *testing.T) {
 	tests := []struct {
-		name       string
-		modelID    ModelID
-		wantName   string
-		wantAPI    string
-		wantCtx    int64
-		wantMaxTok int64
+		name         string
+		modelMap     map[ModelID]Model
+		modelID      ModelID
+		wantName     string
+		wantAPI      string
+		wantCtx      int64
+		wantMaxTok   int64
+		wantProvider ModelProvider
 	}{
 		{
-			name:       "KiloCode Auto model",
-			modelID:    KiloCodeAuto,
-			wantName:   "KiloCode Auto",
-			wantAPI:    "kilo/auto",
-			wantCtx:    128000,
-			wantMaxTok: 16384,
+			name:         "KiloCode Auto model",
+			modelMap:     KiloCodeModels,
+			modelID:      KiloCodeAuto,
+			wantName:     "KiloCode Auto",
+			wantAPI:      "kilo/auto",
+			wantCtx:      128000,
+			wantMaxTok:   16384,
+			wantProvider: ProviderKiloCode,
+		},
+		{
+			name:         "Mistral GPT-4o model",
+			modelMap:     MistralModels,
+			modelID:      MistralGPT4O,
+			wantName:     "GPT-4o (via Mistral)",
+			wantAPI:      "openai/gpt-4o",
+			wantCtx:      128000,
+			wantMaxTok:   16384,
+			wantProvider: ProviderMistral,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			model, exists := KiloCodeModels[tt.modelID]
+			model, exists := tt.modelMap[tt.modelID]
 			if !exists {
-				t.Fatalf("Model %q not found in KiloCodeModels", tt.modelID)
+				t.Fatalf("Model %q not found in model map", tt.modelID)
 			}
-
-			if model.Name != tt.wantName {
-				t.Errorf("Name = %q, want %q", model.Name, tt.wantName)
-			}
-			if model.APIModel != tt.wantAPI {
-				t.Errorf("APIModel = %q, want %q", model.APIModel, tt.wantAPI)
-			}
-			if model.ContextWindow != tt.wantCtx {
-				t.Errorf("ContextWindow = %d, want %d", model.ContextWindow, tt.wantCtx)
-			}
-			if model.DefaultMaxTokens != tt.wantMaxTok {
-				t.Errorf("DefaultMaxTokens = %d, want %d", model.DefaultMaxTokens, tt.wantMaxTok)
-			}
-			if model.Provider != ProviderKiloCode {
-				t.Errorf("Provider = %q, want %q", model.Provider, ProviderKiloCode)
-			}
+			validateModelFields(t, model, tt.wantName, tt.wantAPI, tt.wantCtx, tt.wantMaxTok, tt.wantProvider)
 		})
 	}
 }
 
-func TestMistralModels(t *testing.T) {
+func TestSupportedModels_Contains(t *testing.T) {
 	tests := []struct {
-		name       string
-		modelID    ModelID
-		wantName   string
-		wantAPI    string
-		wantCtx    int64
-		wantMaxTok int64
+		name         string
+		modelID      ModelID
+		wantProvider ModelProvider
 	}{
 		{
-			name:       "Mistral GPT-4o model",
-			modelID:    MistralGPT4O,
-			wantName:   "GPT-4o (via Mistral)",
-			wantAPI:    "openai/gpt-4o",
-			wantCtx:    128000,
-			wantMaxTok: 16384,
+			name:         "KiloCodeAuto",
+			modelID:      KiloCodeAuto,
+			wantProvider: ProviderKiloCode,
+		},
+		{
+			name:         "MistralGPT4O",
+			modelID:      MistralGPT4O,
+			wantProvider: ProviderMistral,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			model, exists := MistralModels[tt.modelID]
+			model, exists := SupportedModels[tt.modelID]
 			if !exists {
-				t.Fatalf("Model %q not found in MistralModels", tt.modelID)
+				t.Fatalf("%s not found in SupportedModels", tt.modelID)
 			}
 
-			if model.Name != tt.wantName {
-				t.Errorf("Name = %q, want %q", model.Name, tt.wantName)
-			}
-			if model.APIModel != tt.wantAPI {
-				t.Errorf("APIModel = %q, want %q", model.APIModel, tt.wantAPI)
-			}
-			if model.ContextWindow != tt.wantCtx {
-				t.Errorf("ContextWindow = %d, want %d", model.ContextWindow, tt.wantCtx)
-			}
-			if model.DefaultMaxTokens != tt.wantMaxTok {
-				t.Errorf("DefaultMaxTokens = %d, want %d", model.DefaultMaxTokens, tt.wantMaxTok)
-			}
-			if model.Provider != ProviderMistral {
-				t.Errorf("Provider = %q, want %q", model.Provider, ProviderMistral)
+			if model.Provider != tt.wantProvider {
+				t.Errorf("Provider = %q, want %q", model.Provider, tt.wantProvider)
 			}
 		})
-	}
-}
-
-func TestSupportedModels_ContainsKiloCode(t *testing.T) {
-	model, exists := SupportedModels[KiloCodeAuto]
-	if !exists {
-		t.Fatal("KiloCodeAuto not found in SupportedModels")
-	}
-
-	if model.Provider != ProviderKiloCode {
-		t.Errorf("Provider = %q, want %q", model.Provider, ProviderKiloCode)
-	}
-}
-
-func TestSupportedModels_ContainsMistral(t *testing.T) {
-	model, exists := SupportedModels[MistralGPT4O]
-	if !exists {
-		t.Fatal("MistralGPT4O not found in SupportedModels")
-	}
-
-	if model.Provider != ProviderMistral {
-		t.Errorf("Provider = %q, want %q", model.Provider, ProviderMistral)
 	}
 }
 
@@ -524,33 +509,55 @@ func TestTryResolveSource(t *testing.T) {
 }
 
 func TestLocalModelStruct(t *testing.T) {
-	model := localModel{
-		ID:                  "test-model",
-		Object:              "model",
-		Type:                "llm",
-		Publisher:           "test-publisher",
-		Arch:                "transformer",
-		CompatibilityType:   "full",
-		Quantization:        "q4_0",
-		State:               "loaded",
-		MaxContextLength:    8192,
-		LoadedContextLength: 4096,
+	tests := []struct {
+		name     string
+		model    localModel
+		checkID  string
+		checkObj string
+		checkTyp string
+		checkSt  string
+		checkCtx int64
+	}{
+		{
+			name: "Local model with all fields",
+			model: localModel{
+				ID:                  "test-model",
+				Object:              "model",
+				Type:                "llm",
+				Publisher:           "test-publisher",
+				Arch:                "transformer",
+				CompatibilityType:   "full",
+				Quantization:        "q4_0",
+				State:               "loaded",
+				MaxContextLength:    8192,
+				LoadedContextLength: 4096,
+			},
+			checkID:  "test-model",
+			checkObj: "model",
+			checkTyp: "llm",
+			checkSt:  "loaded",
+			checkCtx: 8192,
+		},
 	}
 
-	if model.ID != "test-model" {
-		t.Errorf("ID = %q, want %q", model.ID, "test-model")
-	}
-	if model.Object != "model" {
-		t.Errorf("Object = %q, want %q", model.Object, "model")
-	}
-	if model.Type != "llm" {
-		t.Errorf("Type = %q, want %q", model.Type, "llm")
-	}
-	if model.State != "loaded" {
-		t.Errorf("State = %q, want %q", model.State, "loaded")
-	}
-	if model.MaxContextLength != 8192 {
-		t.Errorf("MaxContextLength = %d, want %d", model.MaxContextLength, 8192)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.model.ID != tt.checkID {
+				t.Errorf("ID = %q, want %q", tt.model.ID, tt.checkID)
+			}
+			if tt.model.Object != tt.checkObj {
+				t.Errorf("Object = %q, want %q", tt.model.Object, tt.checkObj)
+			}
+			if tt.model.Type != tt.checkTyp {
+				t.Errorf("Type = %q, want %q", tt.model.Type, tt.checkTyp)
+			}
+			if tt.model.State != tt.checkSt {
+				t.Errorf("State = %q, want %q", tt.model.State, tt.checkSt)
+			}
+			if tt.model.MaxContextLength != tt.checkCtx {
+				t.Errorf("MaxContextLength = %d, want %d", tt.model.MaxContextLength, tt.checkCtx)
+			}
+		})
 	}
 }
 
@@ -571,7 +578,23 @@ func TestLocalModelListStruct(t *testing.T) {
 }
 
 func TestProviderLocal(t *testing.T) {
-	if string(ProviderLocal) != "local" {
-		t.Errorf("ProviderLocal = %q, want %q", ProviderLocal, "local")
+	tests := []struct {
+		name     string
+		provider ModelProvider
+		expected string
+	}{
+		{
+			name:     "ProviderLocal value",
+			provider: ProviderLocal,
+			expected: "local",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := string(tt.provider); got != tt.expected {
+				t.Errorf("ProviderLocal = %q, want %q", got, tt.expected)
+			}
+		})
 	}
 }

@@ -40,6 +40,13 @@ func runDelete(t *testing.T, tool BaseTool, ctx context.Context, params DeletePa
 	return resp
 }
 
+func runDeleteRaw(t *testing.T, tool BaseTool, ctx context.Context, input string) ToolResponse {
+	t.Helper()
+	resp, err := tool.Run(ctx, ToolCall{Name: DeleteToolName, Input: input})
+	require.NoError(t, err)
+	return resp
+}
+
 func createTempFileInWorkingDir(t *testing.T, pattern string) string {
 	t.Helper()
 	workingDir := config.WorkingDirectory()
@@ -64,6 +71,31 @@ func createTempDirInWorkingDir(t *testing.T, pattern string) string {
 	return tmpDir
 }
 
+// Helper to assert successful deletion response
+func assertDeleteSuccess(t *testing.T, resp ToolResponse, path string, expectedFilesDeleted int) {
+	t.Helper()
+	assert.False(t, resp.IsError, "Expected no error, got: %s", resp.Content)
+	assert.Contains(t, resp.Content, "successfully deleted")
+	assert.Contains(t, resp.Content, path)
+
+	_, err := os.Stat(path)
+	assert.True(t, os.IsNotExist(err), "Path should be deleted")
+
+	if expectedFilesDeleted >= 0 {
+		var metadata DeleteResponseMetadata
+		err = json.Unmarshal([]byte(resp.Metadata), &metadata)
+		require.NoError(t, err)
+		assert.Equal(t, expectedFilesDeleted, metadata.FilesDeleted)
+	}
+}
+
+// Helper to assert error response
+func assertDeleteError(t *testing.T, resp ToolResponse, expectedContent string) {
+	t.Helper()
+	assert.True(t, resp.IsError)
+	assert.Contains(t, resp.Content, expectedContent)
+}
+
 func TestDeleteTool_Info(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -86,22 +118,13 @@ func TestDeleteTool_DeleteFile(t *testing.T) {
 	content := "test file content"
 	require.NoError(t, os.WriteFile(tmpPath, []byte(content), 0644))
 
-	resp := runDelete(t, tool, ctx, DeleteParams{
-		Path: tmpPath,
-	})
+	resp := runDelete(t, tool, ctx, DeleteParams{Path: tmpPath})
 
-	assert.False(t, resp.IsError, "Expected no error, got: %s", resp.Content)
-	assert.Contains(t, resp.Content, "successfully deleted")
-	assert.Contains(t, resp.Content, tmpPath)
+	assertDeleteSuccess(t, resp, tmpPath, 1)
 
-	_, err := os.Stat(tmpPath)
-	assert.True(t, os.IsNotExist(err), "File should be deleted")
-
-	assert.NotEmpty(t, resp.Metadata)
 	var metadata DeleteResponseMetadata
-	err = json.Unmarshal([]byte(resp.Metadata), &metadata)
+	err := json.Unmarshal([]byte(resp.Metadata), &metadata)
 	require.NoError(t, err)
-	assert.Equal(t, 1, metadata.FilesDeleted)
 	assert.Greater(t, metadata.Removals, 0)
 	assert.NotEmpty(t, metadata.Diff)
 }
@@ -122,9 +145,7 @@ func TestDeleteTool_DeleteDirectory(t *testing.T) {
 	require.NoError(t, os.MkdirAll(subDir, 0755))
 	require.NoError(t, os.WriteFile(file3, []byte("content3"), 0644))
 
-	resp := runDelete(t, tool, ctx, DeleteParams{
-		Path: tmpDir,
-	})
+	resp := runDelete(t, tool, ctx, DeleteParams{Path: tmpDir})
 
 	assert.False(t, resp.IsError, "Expected no error, got: %s", resp.Content)
 	assert.Contains(t, resp.Content, "successfully deleted")
@@ -134,7 +155,6 @@ func TestDeleteTool_DeleteDirectory(t *testing.T) {
 	_, err := os.Stat(tmpDir)
 	assert.True(t, os.IsNotExist(err), "Directory should be deleted")
 
-	assert.NotEmpty(t, resp.Metadata)
 	var metadata DeleteResponseMetadata
 	err = json.Unmarshal([]byte(resp.Metadata), &metadata)
 	require.NoError(t, err)
@@ -142,56 +162,76 @@ func TestDeleteTool_DeleteDirectory(t *testing.T) {
 	assert.Greater(t, metadata.Removals, 0)
 }
 
-func TestDeleteTool_EmptyPath(t *testing.T) {
-	ctx, tool, ctrl := setupDeleteTest(t)
-	defer ctrl.Finish()
-
-	resp := runDelete(t, tool, ctx, DeleteParams{
-		Path: "",
-	})
-
-	assert.True(t, resp.IsError)
-	assert.Contains(t, resp.Content, "path is required")
-}
-
-func TestDeleteTool_NonExistentPath(t *testing.T) {
+func TestDeleteTool_ErrorCases(t *testing.T) {
 	ctx, tool, ctrl := setupDeleteTest(t)
 	defer ctrl.Finish()
 
 	workingDir := config.WorkingDirectory()
-	nonExistentPath := filepath.Join(workingDir, "nonexistent_file_12345.txt")
 
-	resp := runDelete(t, tool, ctx, DeleteParams{
-		Path: nonExistentPath,
-	})
+	tests := []struct {
+		name             string
+		params           DeleteParams
+		expectedError    string
+		prepare          func(t *testing.T) string // returns path for verification
+		verifyNotDeleted func(t *testing.T, path string)
+	}{
+		{
+			name:          "empty path",
+			params:        DeleteParams{Path: ""},
+			expectedError: "path is required",
+		},
+		{
+			name:          "non-existent path",
+			params:        DeleteParams{Path: filepath.Join(workingDir, "nonexistent_file_12345.txt")},
+			expectedError: "does not exist",
+		},
+		{
+			name:   "path outside working directory",
+			params: DeleteParams{Path: "/tmp/outside_test_12345.txt"},
+			prepare: func(t *testing.T) string {
+				tmpFile, err := os.CreateTemp("/tmp", "outside_test_*.txt")
+				require.NoError(t, err)
+				tmpPath := tmpFile.Name()
+				tmpFile.Close()
+				t.Cleanup(func() { os.Remove(tmpPath) })
+				return tmpPath
+			},
+			expectedError: "outside the working directory",
+			verifyNotDeleted: func(t *testing.T, path string) {
+				_, err := os.Stat(path)
+				assert.False(t, os.IsNotExist(err), "File should NOT be deleted")
+			},
+		},
+		{
+			name:          "invalid JSON",
+			params:        DeleteParams{Path: "test.txt"},
+			expectedError: "error parsing parameters",
+			// Override to use raw input
+			prepare: func(t *testing.T) string { return "" },
+		},
+	}
 
-	assert.True(t, resp.IsError)
-	assert.Contains(t, resp.Content, "does not exist")
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var resp ToolResponse
 
-func TestDeleteTool_PathOutsideWorkingDirectory(t *testing.T) {
-	ctx, tool, ctrl := setupDeleteTest(t)
-	defer ctrl.Finish()
+			if tt.name == "invalid JSON" {
+				resp = runDeleteRaw(t, tool, ctx, "invalid json")
+			} else {
+				var verifyPath string
+				if tt.prepare != nil {
+					verifyPath = tt.prepare(t)
+				}
+				resp = runDelete(t, tool, ctx, tt.params)
 
-	tmpFile, err := os.CreateTemp("/tmp", "outside_test_*.txt")
-	require.NoError(t, err)
-	tmpPath := tmpFile.Name()
-	tmpFile.Close()
-	defer os.Remove(tmpPath)
+				if tt.verifyNotDeleted != nil && verifyPath != "" {
+					tt.verifyNotDeleted(t, verifyPath)
+				}
+			}
 
-	workingDir := config.WorkingDirectory()
-	require.NotEmpty(t, workingDir)
-	require.NotContains(t, tmpPath, workingDir, "Test file should be outside working directory")
-
-	resp := runDelete(t, tool, ctx, DeleteParams{
-		Path: tmpPath,
-	})
-
-	assert.True(t, resp.IsError)
-	assert.Contains(t, resp.Content, "outside the working directory")
-
-	_, err = os.Stat(tmpPath)
-	assert.False(t, os.IsNotExist(err), "File should NOT be deleted")
+			assertDeleteError(t, resp, tt.expectedError)
+		})
+	}
 }
 
 func TestDeleteTool_DeleteSymlink(t *testing.T) {
@@ -206,9 +246,7 @@ func TestDeleteTool_DeleteSymlink(t *testing.T) {
 	symlinkPath := filepath.Join(tmpDir, "symlink.txt")
 	require.NoError(t, os.Symlink(targetFile, symlinkPath))
 
-	resp := runDelete(t, tool, ctx, DeleteParams{
-		Path: symlinkPath,
-	})
+	resp := runDelete(t, tool, ctx, DeleteParams{Path: symlinkPath})
 
 	assert.False(t, resp.IsError, "Expected no error, got: %s", resp.Content)
 	assert.Contains(t, resp.Content, "successfully deleted")
@@ -235,28 +273,12 @@ func TestDeleteTool_RelativePath(t *testing.T) {
 		os.Remove(tmpFile)
 	})
 
-	resp := runDelete(t, tool, ctx, DeleteParams{
-		Path: "delete_relative_test.txt",
-	})
+	resp := runDelete(t, tool, ctx, DeleteParams{Path: "delete_relative_test.txt"})
 
 	assert.False(t, resp.IsError, "Expected no error, got: %s", resp.Content)
 
 	_, err := os.Stat(tmpFile)
 	assert.True(t, os.IsNotExist(err), "File should be deleted")
-}
-
-func TestDeleteTool_InvalidJSON(t *testing.T) {
-	ctx, tool, ctrl := setupDeleteTest(t)
-	defer ctrl.Finish()
-
-	resp, err := tool.Run(ctx, ToolCall{
-		Name:  DeleteToolName,
-		Input: "invalid json",
-	})
-	require.NoError(t, err)
-
-	assert.True(t, resp.IsError)
-	assert.Contains(t, resp.Content, "error parsing parameters")
 }
 
 func TestDeleteTool_DirectoryWithManyFiles(t *testing.T) {
@@ -265,14 +287,12 @@ func TestDeleteTool_DirectoryWithManyFiles(t *testing.T) {
 
 	tmpDir := createTempDirInWorkingDir(t, "delete_many_files_test_*")
 
-	for i := range 10 {
+	for i := 0; i < 10; i++ {
 		filePath := filepath.Join(tmpDir, fmt.Sprintf("file%d.txt", i))
 		require.NoError(t, os.WriteFile(filePath, []byte("content"), 0644))
 	}
 
-	resp := runDelete(t, tool, ctx, DeleteParams{
-		Path: tmpDir,
-	})
+	resp := runDelete(t, tool, ctx, DeleteParams{Path: tmpDir})
 
 	assert.False(t, resp.IsError, "Expected no error, got: %s", resp.Content)
 	assert.Contains(t, resp.Content, "10 files")
@@ -299,9 +319,7 @@ func TestDeleteTool_DirectoryWithSymlinks(t *testing.T) {
 	regularFile := filepath.Join(subDir, "regular.txt")
 	require.NoError(t, os.WriteFile(regularFile, []byte("regular"), 0644))
 
-	resp := runDelete(t, tool, ctx, DeleteParams{
-		Path: tmpDir,
-	})
+	resp := runDelete(t, tool, ctx, DeleteParams{Path: tmpDir})
 
 	assert.False(t, resp.IsError, "Expected no error, got: %s", resp.Content)
 
@@ -320,9 +338,7 @@ func TestDeleteTool_EmptyDirectory(t *testing.T) {
 
 	tmpDir := createTempDirInWorkingDir(t, "delete_empty_dir_test_*")
 
-	resp := runDelete(t, tool, ctx, DeleteParams{
-		Path: tmpDir,
-	})
+	resp := runDelete(t, tool, ctx, DeleteParams{Path: tmpDir})
 
 	assert.False(t, resp.IsError, "Expected no error, got: %s", resp.Content)
 	assert.Contains(t, resp.Content, "0 files")

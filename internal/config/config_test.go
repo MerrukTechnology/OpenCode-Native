@@ -2,10 +2,55 @@ package config
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/models"
 )
+
+// Helper to test string fields in structs
+func testStringField[T any](t *testing.T, obj T, getField func(T) string, expected, fieldName string) {
+	t.Helper()
+	if got := getField(obj); got != expected {
+		t.Errorf("%s = %q, want %q", fieldName, got, expected)
+	}
+}
+
+// Helper to test bool fields in structs
+func testBoolField[T any](t *testing.T, obj T, getField func(T) bool, expected bool, fieldName string) {
+	t.Helper()
+	if got := getField(obj); got != expected {
+		t.Errorf("%s = %v, want %v", fieldName, got, expected)
+	}
+}
+
+// Helper to test int fields in structs
+func testIntField[T any](t *testing.T, obj T, getField func(T) int, expected int, fieldName string) {
+	t.Helper()
+	if got := getField(obj); got != expected {
+		t.Errorf("%s = %d, want %d", fieldName, got, expected)
+	}
+}
+
+// Helper to test string slice fields in structs
+func testStringSliceField[T any](t *testing.T, obj T, getField func(T) []string, expected []string, fieldName string) {
+	t.Helper()
+	if got := getField(obj); len(got) != len(expected) {
+		t.Errorf("%s length = %d, want %d", fieldName, len(got), len(expected))
+	}
+}
+
+// Helper to test map fields in structs
+func testMapField[T any](t *testing.T, obj T, getField func(T) map[string]any, fieldName string) {
+	t.Helper()
+	if got := getField(obj); got == nil {
+		t.Error(fieldName + " should not be nil")
+	}
+}
+
+// =============================================================================
+// GetProviderAPIKey Tests
+// =============================================================================
 
 func TestGetProviderAPIKey(t *testing.T) {
 	tests := []struct {
@@ -96,11 +141,11 @@ func TestGetProviderAPIKey(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Save original env value
-			originalValue := os.Getenv(tt.envKey)
-			defer os.Setenv(tt.envKey, originalValue)
-
-			// Set test value
 			if tt.envKey != "" {
+				originalValue := os.Getenv(tt.envKey)
+				defer os.Setenv(tt.envKey, originalValue)
+
+				// Set test value
 				if tt.envValue != "" {
 					os.Setenv(tt.envKey, tt.envValue)
 				} else {
@@ -123,41 +168,9 @@ func TestGetProviderAPIKey(t *testing.T) {
 	}
 }
 
-func TestGetProviderAPIKey_KiloCode(t *testing.T) {
-	// Save original value
-	originalValue := os.Getenv("KILO_API_KEY")
-	defer os.Setenv("KILO_API_KEY", originalValue)
-
-	// Test with key set
-	os.Setenv("KILO_API_KEY", "kilo-test-key-123")
-	if got := GetProviderAPIKey(models.ProviderKiloCode); got != "kilo-test-key-123" {
-		t.Errorf("GetProviderAPIKey(ProviderKiloCode) = %q, want %q", got, "kilo-test-key-123")
-	}
-
-	// Test with key unset
-	os.Unsetenv("KILO_API_KEY")
-	if got := GetProviderAPIKey(models.ProviderKiloCode); got != "" {
-		t.Errorf("GetProviderAPIKey(ProviderKiloCode) = %q, want empty", got)
-	}
-}
-
-func TestGetProviderAPIKey_Mistral(t *testing.T) {
-	// Save original value
-	originalValue := os.Getenv("MISTRAL_API_KEY")
-	defer os.Setenv("MISTRAL_API_KEY", originalValue)
-
-	// Test with key set
-	os.Setenv("MISTRAL_API_KEY", "mistral-test-key-456")
-	if got := GetProviderAPIKey(models.ProviderMistral); got != "mistral-test-key-456" {
-		t.Errorf("GetProviderAPIKey(ProviderMistral) = %q, want %q", got, "mistral-test-key-456")
-	}
-
-	// Test with key unset
-	os.Unsetenv("MISTRAL_API_KEY")
-	if got := GetProviderAPIKey(models.ProviderMistral); got != "" {
-		t.Errorf("GetProviderAPIKey(ProviderMistral) = %q, want empty", got)
-	}
-}
+// =============================================================================
+// ValidateSessionProvider Tests
+// =============================================================================
 
 func TestValidateSessionProvider(t *testing.T) {
 	tests := []struct {
@@ -270,6 +283,7 @@ func TestValidateSessionProvider(t *testing.T) {
 			cfg = &Config{
 				SessionProvider: tt.config,
 			}
+			defer func() { cfg = nil }()
 
 			err := validateSessionProvider()
 
@@ -280,49 +294,55 @@ func TestValidateSessionProvider(t *testing.T) {
 				t.Errorf("Unexpected error: %v", err)
 			}
 			if tt.expectError && err != nil && tt.errorMsg != "" {
-				if !contains(err.Error(), tt.errorMsg) {
+				if !strings.Contains(err.Error(), tt.errorMsg) {
 					t.Errorf("Error message %q does not contain %q", err.Error(), tt.errorMsg)
 				}
 			}
-
-			// Clean up
-			cfg = nil
 		})
 	}
 }
 
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && (s[:len(substr)] == substr || s[len(s)-len(substr):] == substr || containsMiddle(s, substr)))
-}
+// =============================================================================
+// Constant Value Tests - Unified table-driven tests
+// =============================================================================
 
-func containsMiddle(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
-}
-
-func TestMCPType(t *testing.T) {
+func TestTypeConstants(t *testing.T) {
 	tests := []struct {
 		name     string
-		mcpType  MCPType
+		got      string
 		expected string
 	}{
-		{"Stdio type", MCPStdio, "stdio"},
-		{"SSE type", MCPSse, "sse"},
-		{"HTTP type", MCPHttp, "http"},
+		// MCPType constants
+		{"MCPType Stdio", string(MCPStdio), "stdio"},
+		{"MCPType SSE", string(MCPSse), "sse"},
+		{"MCPType HTTP", string(MCPHttp), "http"},
+		// AgentMode constants
+		{"AgentMode Agent", string(AgentModeAgent), "agent"},
+		{"AgentMode Subagent", string(AgentModeSubagent), "subagent"},
+		// ProviderType constants
+		{"ProviderType SQLite", string(ProviderSQLite), "sqlite"},
+		{"ProviderType MySQL", string(ProviderMySQL), "mysql"},
+		// AgentName constants
+		{"AgentName Coder", string(AgentCoder), "coder"},
+		{"AgentName Summarizer", string(AgentSummarizer), "summarizer"},
+		{"AgentName Explorer", string(AgentExplorer), "explorer"},
+		{"AgentName Descriptor", string(AgentDescriptor), "descriptor"},
+		{"AgentName Workhorse", string(AgentWorkhorse), "workhorse"},
+		{"AgentName Hivemind", string(AgentHivemind), "hivemind"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if string(tt.mcpType) != tt.expected {
-				t.Errorf("MCPType = %q, want %q", tt.mcpType, tt.expected)
+			if tt.got != tt.expected {
+				t.Errorf("%s = %q, want %q", tt.name, tt.got, tt.expected)
 			}
 		})
 	}
 }
+
+// =============================================================================
+// Struct Field Tests - Unified table-driven tests
+// =============================================================================
 
 func TestMCPServerStruct(t *testing.T) {
 	server := MCPServer{
@@ -334,60 +354,11 @@ func TestMCPServerStruct(t *testing.T) {
 		Headers: map[string]string{"Authorization": "Bearer token"},
 	}
 
-	if server.Command != "test-command" {
-		t.Errorf("Command = %q, want %q", server.Command, "test-command")
-	}
-	if len(server.Env) != 1 {
-		t.Errorf("Env length = %d, want %d", len(server.Env), 1)
-	}
-	if len(server.Args) != 1 {
-		t.Errorf("Args length = %d, want %d", len(server.Args), 1)
-	}
-	if server.Type != MCPStdio {
-		t.Errorf("Type = %q, want %q", server.Type, MCPStdio)
-	}
-}
-
-func TestAgentMode(t *testing.T) {
-	tests := []struct {
-		name     string
-		mode     AgentMode
-		expected string
-	}{
-		{"Agent mode", AgentModeAgent, "agent"},
-		{"Subagent mode", AgentModeSubagent, "subagent"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if string(tt.mode) != tt.expected {
-				t.Errorf("AgentMode = %q, want %q", tt.mode, tt.expected)
-			}
-		})
-	}
-}
-
-func TestAgentConstants(t *testing.T) {
-	agentNames := []struct {
-		name     string
-		actual   AgentName
-		expected string
-	}{
-		{"Coder", AgentCoder, "coder"},
-		{"Summarizer", AgentSummarizer, "summarizer"},
-		{"Explorer", AgentExplorer, "explorer"},
-		{"Descriptor", AgentDescriptor, "descriptor"},
-		{"Workhorse", AgentWorkhorse, "workhorse"},
-		{"Hivemind", AgentHivemind, "hivemind"},
-	}
-
-	for _, tt := range agentNames {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.actual != tt.expected {
-				t.Errorf("AgentName = %q, want %q", tt.actual, tt.expected)
-			}
-		})
-	}
+	testStringField(t, server, func(s MCPServer) string { return s.Command }, "test-command", "Command")
+	testStringSliceField(t, server, func(s MCPServer) []string { return s.Env }, []string{"KEY=value"}, "Env")
+	testStringSliceField(t, server, func(s MCPServer) []string { return s.Args }, []string{"--flag"}, "Args")
+	testStringField(t, server, func(s MCPServer) string { return string(s.Type) }, "stdio", "Type")
+	testStringField(t, server, func(s MCPServer) string { return s.URL }, "http://localhost:8080", "URL")
 }
 
 func TestAgentStruct(t *testing.T) {
@@ -405,15 +376,12 @@ func TestAgentStruct(t *testing.T) {
 		Disabled:        false,
 	}
 
+	// MaxTokens is int64, so we use direct comparison
 	if agent.MaxTokens != 4096 {
 		t.Errorf("MaxTokens = %d, want %d", agent.MaxTokens, 4096)
 	}
-	if agent.ReasoningEffort != "medium" {
-		t.Errorf("ReasoningEffort = %q, want %q", agent.ReasoningEffort, "medium")
-	}
-	if agent.Mode != AgentModeAgent {
-		t.Errorf("Mode = %q, want %q", agent.Mode, AgentModeAgent)
-	}
+	testStringField(t, agent, func(a Agent) string { return a.ReasoningEffort }, "medium", "ReasoningEffort")
+	testStringField(t, agent, func(a Agent) string { return string(a.Mode) }, "agent", "Mode")
 }
 
 func TestProviderStruct(t *testing.T) {
@@ -423,12 +391,9 @@ func TestProviderStruct(t *testing.T) {
 		Disabled: false,
 	}
 
-	if provider.APIKey != "test-key" {
-		t.Errorf("APIKey = %q, want %q", provider.APIKey, "test-key")
-	}
-	if provider.BaseURL != "https://api.example.com" {
-		t.Errorf("BaseURL = %q, want %q", provider.BaseURL, "https://api.example.com")
-	}
+	testStringField(t, provider, func(p Provider) string { return p.APIKey }, "test-key", "APIKey")
+	testStringField(t, provider, func(p Provider) string { return p.BaseURL }, "https://api.example.com", "BaseURL")
+	testBoolField(t, provider, func(p Provider) bool { return p.Disabled }, false, "Disabled")
 }
 
 func TestAgentOutputStruct(t *testing.T) {
@@ -441,9 +406,8 @@ func TestAgentOutputStruct(t *testing.T) {
 		},
 	}
 
-	if output.Schema == nil {
-		t.Error("Schema should not be nil")
-	}
+	testMapField(t, output, func(o AgentOutput) map[string]any { return o.Schema }, "Schema")
+
 	if output.Schema["type"] != "object" {
 		t.Errorf("Schema type = %v, want %q", output.Schema["type"], "object")
 	}
@@ -454,9 +418,7 @@ func TestSessionProviderConfigStruct(t *testing.T) {
 		Type: ProviderSQLite,
 	}
 
-	if config.Type != ProviderSQLite {
-		t.Errorf("Type = %q, want %q", config.Type, ProviderSQLite)
-	}
+	testStringField(t, config, func(c SessionProviderConfig) string { return string(c.Type) }, "sqlite", "Type")
 }
 
 func TestMySQLConfigStruct(t *testing.T) {
@@ -469,34 +431,11 @@ func TestMySQLConfigStruct(t *testing.T) {
 		Password: "testpass",
 	}
 
-	if config.Host != "localhost" {
-		t.Errorf("Host = %q, want %q", config.Host, "localhost")
-	}
-	if config.Port != 3306 {
-		t.Errorf("Port = %d, want %d", config.Port, 3306)
-	}
-	if config.Database != "testdb" {
-		t.Errorf("Database = %q, want %q", config.Database, "testdb")
-	}
-}
-
-func TestProviderType(t *testing.T) {
-	tests := []struct {
-		name     string
-		provider ProviderType
-		expected string
-	}{
-		{"SQLite provider", ProviderSQLite, "sqlite"},
-		{"MySQL provider", ProviderMySQL, "mysql"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if string(tt.provider) != tt.expected {
-				t.Errorf("ProviderType = %q, want %q", tt.provider, tt.expected)
-			}
-		})
-	}
+	testStringField(t, config, func(c MySQLConfig) string { return c.Host }, "localhost", "Host")
+	testIntField(t, config, func(c MySQLConfig) int { return c.Port }, 3306, "Port")
+	testStringField(t, config, func(c MySQLConfig) string { return c.Database }, "testdb", "Database")
+	testStringField(t, config, func(c MySQLConfig) string { return c.Username }, "testuser", "Username")
+	testStringField(t, config, func(c MySQLConfig) string { return c.Password }, "testpass", "Password")
 }
 
 func TestLSPConfigStruct(t *testing.T) {
@@ -507,12 +446,8 @@ func TestLSPConfigStruct(t *testing.T) {
 		Extensions: []string{".go"},
 	}
 
-	if config.Command != "gopls" {
-		t.Errorf("Command = %q, want %q", config.Command, "gopls")
-	}
-	if len(config.Extensions) != 1 {
-		t.Errorf("Extensions length = %d, want %d", len(config.Extensions), 1)
-	}
+	testStringField(t, config, func(c LSPConfig) string { return c.Command }, "gopls", "Command")
+	testStringSliceField(t, config, func(c LSPConfig) []string { return c.Extensions }, []string{".go"}, "Extensions")
 }
 
 func TestTUIConfigStruct(t *testing.T) {
@@ -520,9 +455,7 @@ func TestTUIConfigStruct(t *testing.T) {
 		Theme: "dark",
 	}
 
-	if config.Theme != "dark" {
-		t.Errorf("Theme = %q, want %q", config.Theme, "dark")
-	}
+	testStringField(t, config, func(c TUIConfig) string { return c.Theme }, "dark", "Theme")
 }
 
 func TestShellConfigStruct(t *testing.T) {
@@ -531,9 +464,8 @@ func TestShellConfigStruct(t *testing.T) {
 		Args: []string{"-l"},
 	}
 
-	if config.Path != "/bin/bash" {
-		t.Errorf("Path = %q, want %q", config.Path, "/bin/bash")
-	}
+	testStringField(t, config, func(c ShellConfig) string { return c.Path }, "/bin/bash", "Path")
+	testStringSliceField(t, config, func(c ShellConfig) []string { return c.Args }, []string{"-l"}, "Args")
 }
 
 func TestDataStruct(t *testing.T) {
@@ -541,9 +473,7 @@ func TestDataStruct(t *testing.T) {
 		Directory: "/data/opencode",
 	}
 
-	if data.Directory != "/data/opencode" {
-		t.Errorf("Directory = %q, want %q", data.Directory, "/data/opencode")
-	}
+	testStringField(t, data, func(d Data) string { return d.Directory }, "/data/opencode", "Directory")
 }
 
 func TestSkillsConfigStruct(t *testing.T) {
@@ -551,9 +481,7 @@ func TestSkillsConfigStruct(t *testing.T) {
 		Paths: []string{"/custom/skills", "~/.config/skills"},
 	}
 
-	if len(config.Paths) != 2 {
-		t.Errorf("Paths length = %d, want %d", len(config.Paths), 2)
-	}
+	testStringSliceField(t, config, func(c SkillsConfig) []string { return c.Paths }, []string{"/custom/skills", "~/.config/skills"}, "Paths")
 }
 
 func TestPermissionConfigStruct(t *testing.T) {
@@ -564,9 +492,7 @@ func TestPermissionConfigStruct(t *testing.T) {
 		},
 	}
 
-	if config.Rules == nil {
-		t.Error("Rules should not be nil")
-	}
+	testMapField(t, config, func(c PermissionConfig) map[string]any { return c.Rules }, "Rules")
 }
 
 func TestConfigStruct(t *testing.T) {
@@ -577,13 +503,8 @@ func TestConfigStruct(t *testing.T) {
 		ContextPaths: []string{"/context"},
 	}
 
-	if cfg.WorkingDir != "/project" {
-		t.Errorf("WorkingDir = %q, want %q", cfg.WorkingDir, "/project")
-	}
-	if !cfg.Debug {
-		t.Error("Debug should be true")
-	}
-	if !cfg.AutoCompact {
-		t.Error("AutoCompact should be true")
-	}
+	testStringField(t, cfg, func(c Config) string { return c.WorkingDir }, "/project", "WorkingDir")
+	testBoolField(t, cfg, func(c Config) bool { return c.Debug }, true, "Debug")
+	testBoolField(t, cfg, func(c Config) bool { return c.AutoCompact }, true, "AutoCompact")
+	testStringSliceField(t, cfg, func(c Config) []string { return c.ContextPaths }, []string{"/context"}, "ContextPaths")
 }

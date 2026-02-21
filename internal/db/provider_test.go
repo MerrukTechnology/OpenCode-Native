@@ -6,31 +6,38 @@ import (
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 )
 
-func TestSQLiteProvider_Type(t *testing.T) {
-	provider := NewSQLiteProvider("/tmp/test")
-	if provider.Type() != config.ProviderSQLite {
-		t.Errorf("Type() = %v, want %v", provider.Type(), config.ProviderSQLite)
+func TestProvider_TypeAndDialect(t *testing.T) {
+	tests := []struct {
+		name            string
+		provider        Provider
+		expectedType    config.ProviderType
+		expectedDialect string
+	}{
+		{
+			name:            "SQLite provider",
+			provider:        NewSQLiteProvider("/tmp/test"),
+			expectedType:    config.ProviderSQLite,
+			expectedDialect: "sqlite3",
+		},
+		{
+			name:            "MySQL provider",
+			provider:        NewMySQLProvider(config.MySQLConfig{}),
+			expectedType:    config.ProviderMySQL,
+			expectedDialect: "mysql",
+		},
 	}
-}
 
-func TestSQLiteProvider_Dialect(t *testing.T) {
-	provider := NewSQLiteProvider("/tmp/test")
-	if provider.Dialect() != "sqlite3" {
-		t.Errorf("Dialect() = %v, want %v", provider.Dialect(), "sqlite3")
-	}
-}
-
-func TestMySQLProvider_Type(t *testing.T) {
-	provider := NewMySQLProvider(config.MySQLConfig{})
-	if provider.Type() != config.ProviderMySQL {
-		t.Errorf("Type() = %v, want %v", provider.Type(), config.ProviderMySQL)
-	}
-}
-
-func TestMySQLProvider_Dialect(t *testing.T) {
-	provider := NewMySQLProvider(config.MySQLConfig{})
-	if provider.Dialect() != "mysql" {
-		t.Errorf("Dialect() = %v, want %v", provider.Dialect(), "mysql")
+	for _, tt := range tests {
+		t.Run(tt.name+"_Type", func(t *testing.T) {
+			if tt.provider.Type() != tt.expectedType {
+				t.Errorf("Type() = %v, want %v", tt.provider.Type(), tt.expectedType)
+			}
+		})
+		t.Run(tt.name+"_Dialect", func(t *testing.T) {
+			if tt.provider.Dialect() != tt.expectedDialect {
+				t.Errorf("Dialect() = %v, want %v", tt.provider.Dialect(), tt.expectedDialect)
+			}
+		})
 	}
 }
 

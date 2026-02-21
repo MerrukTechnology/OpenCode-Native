@@ -8,91 +8,141 @@ import (
 	"time"
 )
 
-func TestResolvePath(t *testing.T) {
-	workingDir := "/home/user/project"
+// ============================================================================
+// Helper Functions
+// ============================================================================
 
-	tests := []struct {
-		name       string
-		path       string
-		workingDir string
-		expected   string
-	}{
-		{
-			name:       "absolute path stays absolute",
-			path:       "/absolute/path/file.go",
-			workingDir: workingDir,
-			expected:   "/absolute/path/file.go",
-		},
-		{
-			name:       "relative path is resolved",
-			path:       "src/file.go",
-			workingDir: workingDir,
-			expected:   "/home/user/project/src/file.go",
-		},
-		{
-			name:       "empty working dir",
-			path:       "file.go",
-			workingDir: "",
-			expected:   "file.go",
-		},
+// boolTestCase represents a test case for functions returning bool
+type boolTestCase struct {
+	name     string
+	got      bool
+	expected bool
+}
+
+// stringTestCase represents a test case for functions returning string
+type stringTestCase struct {
+	name     string
+	got      string
+	expected string
+}
+
+// runBoolTests helper runs table-driven tests for bool-returning functions
+func runBoolTests(t *testing.T, testName string, testCases []boolTestCase) {
+	t.Run(testName, func(t *testing.T) {
+		for _, tt := range testCases {
+			t.Run(tt.name, func(t *testing.T) {
+				if tt.got != tt.expected {
+					t.Errorf("%s(%s) = %v, want %v", testName, tt.name, tt.got, tt.expected)
+				}
+			})
+		}
+	})
+}
+
+// runStringTests helper runs table-driven tests for string-returning functions
+func runStringTests(t *testing.T, testName string, testCases []stringTestCase) {
+	t.Run(testName, func(t *testing.T) {
+		for _, tt := range testCases {
+			t.Run(tt.name, func(t *testing.T) {
+				if tt.got != tt.expected {
+					t.Errorf("%s(%s) = %q, want %q", testName, tt.name, tt.got, tt.expected)
+				}
+			})
+		}
+	})
+}
+
+// assertValidationResult checks validation result against expected values
+func assertValidationResult(t *testing.T, fnName, path, workingDir string, result *FileValidationResult, expectError, expectExists bool) {
+	if expectError && result.Error == nil {
+		t.Errorf("%s(%q, %q) expected error but got none", fnName, path, workingDir)
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := ResolvePath(tt.path, tt.workingDir)
-			if result != tt.expected {
-				t.Errorf("ResolvePath(%q, %q) = %q, want %q", tt.path, tt.workingDir, result, tt.expected)
-			}
-		})
+	if !expectError && result.Error != nil {
+		t.Errorf("%s(%q, %q) unexpected error: %v", fnName, path, workingDir, result.Error)
+	}
+	if result.Exists != expectExists {
+		t.Errorf("%s(%q, %q).Exists = %v, want %v", fnName, path, workingDir, result.Exists, expectExists)
 	}
 }
 
-func TestIsInWorkingDir(t *testing.T) {
-	workingDir := "/home/user/project"
+// ============================================================================
+// Path Resolution Tests
+// ============================================================================
 
-	tests := []struct {
-		name       string
-		path       string
-		workingDir string
-		expected   bool
-	}{
-		{
-			name:       "file in working dir",
-			path:       "/home/user/project/src/main.go",
-			workingDir: workingDir,
-			expected:   true,
-		},
-		{
-			name:       "file outside working dir",
-			path:       "/etc/passwd",
-			workingDir: workingDir,
-			expected:   false,
-		},
-		{
-			name:       "same as working dir",
-			path:       "/home/user/project",
-			workingDir: workingDir,
-			expected:   true,
-		},
-		{
-			name:       "sibling directory",
-			path:       "/home/user/other",
-			workingDir: workingDir,
-			expected:   false,
-		},
-	}
+func TestPathOperations(t *testing.T) {
+	t.Parallel()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := IsInWorkingDir(tt.path, tt.workingDir)
-			if result != tt.expected {
-				t.Errorf("IsInWorkingDir(%q, %q) = %v, want %v", tt.path, tt.workingDir, result, tt.expected)
-			}
-		})
-	}
+	t.Run("ResolvePath", func(t *testing.T) {
+		workingDir := "/home/user/project"
+		tests := []struct {
+			name       string
+			path       string
+			workingDir string
+			expected   string
+		}{
+			{name: "absolute path stays absolute", path: "/absolute/path/file.go", workingDir: workingDir, expected: "/absolute/path/file.go"},
+			{name: "relative path is resolved", path: "src/file.go", workingDir: workingDir, expected: "/home/user/project/src/file.go"},
+			{name: "empty working dir", path: "file.go", workingDir: "", expected: "file.go"},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				result := ResolvePath(tt.path, tt.workingDir)
+				if result != tt.expected {
+					t.Errorf("ResolvePath(%q, %q) = %q, want %q", tt.path, tt.workingDir, result, tt.expected)
+				}
+			})
+		}
+	})
+
+	t.Run("GetParentDir", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			path     string
+			expected string
+		}{
+			{name: "simple path", path: "/path/to/file.txt", expected: "/path/to"},
+			{name: "root file", path: "/file.txt", expected: "/"},
+			{name: "relative path", path: "src/main.go", expected: "src"},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				result := GetParentDir(tt.path)
+				if result != tt.expected {
+					t.Errorf("GetParentDir(%q) = %q, want %q", tt.path, result, tt.expected)
+				}
+			})
+		}
+	})
+
+	t.Run("NormalizePath", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			path     string
+			expected string
+		}{
+			{name: "remove double dots", path: "/path/to/../file.txt", expected: "/path/file.txt"},
+			{name: "remove single dots", path: "/path/./to/file.txt", expected: "/path/to/file.txt"},
+			{name: "collapse separators", path: "/path//to///file.txt", expected: "/path/to/file.txt"},
+			{name: "trailing separator", path: "/path/to/", expected: "/path/to"},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				result := NormalizePath(tt.path)
+				if result != tt.expected {
+					t.Errorf("NormalizePath(%q) = %q, want %q", tt.path, result, tt.expected)
+				}
+			})
+		}
+	})
 }
 
-func TestFileExists(t *testing.T) {
+// ============================================================================
+// Directory/File Existence Tests
+// ============================================================================
+
+func TestFileAndDirExists(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "test.txt")
 
@@ -100,338 +150,258 @@ func TestFileExists(t *testing.T) {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
 
-	tests := []struct {
-		name     string
-		path     string
-		expected bool
-	}{
-		{
-			name:     "existing file",
-			path:     tmpFile,
-			expected: true,
-		},
-		{
-			name:     "non-existing file",
-			path:     filepath.Join(tmpDir, "nonexistent.txt"),
-			expected: false,
-		},
-		{
-			name:     "directory path",
-			path:     tmpDir,
-			expected: false,
-		},
-	}
+	t.Run("FileExists", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			path     string
+			expected bool
+		}{
+			{name: "existing file", path: tmpFile, expected: true},
+			{name: "non-existing file", path: filepath.Join(tmpDir, "nonexistent.txt"), expected: false},
+			{name: "directory path", path: tmpDir, expected: false},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				result := FileExists(tt.path)
+				if result != tt.expected {
+					t.Errorf("FileExists(%q) = %v, want %v", tt.path, result, tt.expected)
+				}
+			})
+		}
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := FileExists(tt.path)
-			if result != tt.expected {
-				t.Errorf("FileExists(%q) = %v, want %v", tt.path, result, tt.expected)
-			}
-		})
-	}
+	t.Run("DirExists", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			path     string
+			expected bool
+		}{
+			{name: "existing directory", path: tmpDir, expected: true},
+			{name: "non-existing directory", path: filepath.Join(tmpDir, "nonexistent"), expected: false},
+			{name: "file path", path: tmpFile, expected: false},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				result := DirExists(tt.path)
+				if result != tt.expected {
+					t.Errorf("DirExists(%q) = %v, want %v", tt.path, result, tt.expected)
+				}
+			})
+		}
+	})
 }
 
-func TestDirExists(t *testing.T) {
-	tmpDir := t.TempDir()
-	tmpFile := filepath.Join(tmpDir, "test.txt")
+// ============================================================================
+// Path Classification Tests
+// ============================================================================
 
-	if err := os.WriteFile(tmpFile, []byte("test"), 0644); err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
-	}
+func TestPathClassification(t *testing.T) {
+	t.Parallel()
 
-	tests := []struct {
-		name     string
-		path     string
-		expected bool
-	}{
-		{
-			name:     "existing directory",
-			path:     tmpDir,
-			expected: true,
-		},
-		{
-			name:     "non-existing directory",
-			path:     filepath.Join(tmpDir, "nonexistent"),
-			expected: false,
-		},
-		{
-			name:     "file path",
-			path:     tmpFile,
-			expected: false,
-		},
-	}
+	t.Run("IsInWorkingDir", func(t *testing.T) {
+		workingDir := "/home/user/project"
+		tests := []struct {
+			name       string
+			path       string
+			workingDir string
+			expected   bool
+		}{
+			{name: "file in working dir", path: "/home/user/project/src/main.go", workingDir: workingDir, expected: true},
+			{name: "file outside working dir", path: "/etc/passwd", workingDir: workingDir, expected: false},
+			{name: "same as working dir", path: "/home/user/project", workingDir: workingDir, expected: true},
+			{name: "sibling directory", path: "/home/user/other", workingDir: workingDir, expected: false},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				result := IsInWorkingDir(tt.path, tt.workingDir)
+				if result != tt.expected {
+					t.Errorf("IsInWorkingDir(%q, %q) = %v, want %v", tt.path, tt.workingDir, result, tt.expected)
+				}
+			})
+		}
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := DirExists(tt.path)
-			if result != tt.expected {
-				t.Errorf("DirExists(%q) = %v, want %v", tt.path, result, tt.expected)
-			}
-		})
-	}
+	t.Run("IsHiddenFile", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			path     string
+			expected bool
+		}{
+			{name: "hidden file", path: "/path/to/.gitignore", expected: true},
+			{name: "visible file", path: "/path/to/main.go", expected: false},
+			{name: "dot as filename", path: "/path/to/.", expected: false},
+			{name: "double dot file", path: "/path/to/..gitkeep", expected: true},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				result := IsHiddenFile(tt.path)
+				if result != tt.expected {
+					t.Errorf("IsHiddenFile(%q) = %v, want %v", tt.path, result, tt.expected)
+				}
+			})
+		}
+	})
+
+	t.Run("IsIgnoredDir", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			path     string
+			expected bool
+		}{
+			{name: "node_modules", path: "node_modules", expected: true},
+			{name: "git directory", path: ".git", expected: true},
+			{name: "pycache", path: "__pycache__", expected: true},
+			{name: "regular dir", path: "src", expected: false},
+			{name: "full path", path: "/path/to/node_modules", expected: true},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				result := IsIgnoredDir(tt.path)
+				if result != tt.expected {
+					t.Errorf("IsIgnoredDir(%q) = %v, want %v", tt.path, result, tt.expected)
+				}
+			})
+		}
+	})
+
+	t.Run("IsIgnoredExtension", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			path     string
+			expected bool
+		}{
+			{name: "pyc file", path: "test.pyc", expected: true},
+			{name: "so file", path: "test.so", expected: true},
+			{name: "go file", path: "main.go", expected: false},
+			{name: "js file", path: "app.js", expected: false},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				result := IsIgnoredExtension(tt.path)
+				if result != tt.expected {
+					t.Errorf("IsIgnoredExtension(%q) = %v, want %v", tt.path, result, tt.expected)
+				}
+			})
+		}
+	})
+
+	t.Run("SkipHidden", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			path     string
+			expected bool
+		}{
+			{name: "hidden file", path: "/path/.hidden", expected: true},
+			{name: "visible file", path: "/path/to/file.txt", expected: false},
+			{name: "node_modules in path", path: "/path/node_modules/package", expected: true},
+			{name: "git directory in path", path: "/project/.git/config", expected: true},
+			{name: "pycache in path", path: "/project/src/__pycache__/module.pyc", expected: true},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				result := SkipHidden(tt.path)
+				if result != tt.expected {
+					t.Errorf("SkipHidden(%q) = %v, want %v", tt.path, result, tt.expected)
+				}
+			})
+		}
+	})
+
+	t.Run("ShouldSkipPath", func(t *testing.T) {
+		tests := []struct {
+			name           string
+			path           string
+			ignorePatterns []string
+			expected       bool
+		}{
+			{name: "hidden file", path: "/path/.hidden", ignorePatterns: []string{}, expected: true},
+			{name: "ignored directory", path: "/path/node_modules", ignorePatterns: []string{}, expected: true},
+			{name: "custom pattern match", path: "/path/test_temp.txt", ignorePatterns: []string{"**/*_temp.txt"}, expected: true},
+			{name: "visible file no patterns", path: "/path/to/file.txt", ignorePatterns: []string{}, expected: false},
+			{name: "custom pattern no match", path: "/path/to/real.txt", ignorePatterns: []string{"*_temp.txt"}, expected: false},
+			{name: "ignored extension", path: "/path/to/test.pyc", ignorePatterns: []string{}, expected: true},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				result := ShouldSkipPath(tt.path, tt.ignorePatterns)
+				if result != tt.expected {
+					t.Errorf("ShouldSkipPath(%q, %v) = %v, want %v", tt.path, tt.ignorePatterns, result, tt.expected)
+				}
+			})
+		}
+	})
 }
 
-func TestIsHiddenFile(t *testing.T) {
-	tests := []struct {
-		name     string
-		path     string
-		expected bool
-	}{
-		{
-			name:     "hidden file",
-			path:     "/path/to/.gitignore",
-			expected: true,
-		},
-		{
-			name:     "visible file",
-			path:     "/path/to/main.go",
-			expected: false,
-		},
-		{
-			name:     "dot as filename",
-			path:     "/path/to/.",
-			expected: false,
-		},
-		{
-			name:     "double dot file",
-			path:     "/path/to/..gitkeep",
-			expected: true,
-		},
-	}
+// ============================================================================
+// Regex Pattern Tests
+// ============================================================================
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := IsHiddenFile(tt.path)
-			if result != tt.expected {
-				t.Errorf("IsHiddenFile(%q) = %v, want %v", tt.path, result, tt.expected)
-			}
-		})
-	}
+func TestRegexPatterns(t *testing.T) {
+	t.Parallel()
+
+	t.Run("GlobToRegex", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			glob     string
+			expected string
+		}{
+			{name: "simple glob", glob: "*.go", expected: ".*\\.go"},
+			{name: "question mark", glob: "file?.txt", expected: "file.\\.txt"},
+			{name: "character class", glob: "file[123].txt", expected: "file[123]\\.txt"},
+			{name: "multiple extensions", glob: "*.{js,ts,tsx}", expected: ".*\\.(js|ts|tsx)"},
+			{name: "literal dot", glob: "file.name.go", expected: "file\\.name\\.go"},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				result := GlobToRegex(tt.glob)
+				if result != tt.expected {
+					t.Errorf("GlobToRegex(%q) = %q, want %q", tt.glob, result, tt.expected)
+				}
+			})
+		}
+	})
+
+	t.Run("EscapeRegexPattern", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			pattern  string
+			expected string
+		}{
+			{name: "simple text", pattern: "hello", expected: "hello"},
+			{name: "special chars", pattern: "test.file+", expected: "test\\.file\\+"},
+			{name: "brackets", pattern: "test[1]", expected: "test\\[1\\]"},
+			{name: "all special", pattern: "\\.+*?()[]{}|^$", expected: "\\\\\\.\\+\\*\\?\\(\\)\\[\\]\\{\\}\\|\\^\\$"},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				result := EscapeRegexPattern(tt.pattern)
+				if result != tt.expected {
+					t.Errorf("EscapeRegexPattern(%q) = %q, want %q", tt.pattern, result, tt.expected)
+				}
+			})
+		}
+	})
 }
 
-func TestIsIgnoredDir(t *testing.T) {
-	tests := []struct {
-		name     string
-		path     string
-		expected bool
-	}{
-		{
-			name:     "node_modules",
-			path:     "node_modules",
-			expected: true,
-		},
-		{
-			name:     "git directory",
-			path:     ".git",
-			expected: true,
-		},
-		{
-			name:     "pycache",
-			path:     "__pycache__",
-			expected: true,
-		},
-		{
-			name:     "regular dir",
-			path:     "src",
-			expected: false,
-		},
-		{
-			name:     "full path",
-			path:     "/path/to/node_modules",
-			expected: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := IsIgnoredDir(tt.path)
-			if result != tt.expected {
-				t.Errorf("IsIgnoredDir(%q) = %v, want %v", tt.path, result, tt.expected)
-			}
-		})
-	}
-}
-
-func TestIsIgnoredExtension(t *testing.T) {
-	tests := []struct {
-		name     string
-		path     string
-		expected bool
-	}{
-		{
-			name:     "pyc file",
-			path:     "test.pyc",
-			expected: true,
-		},
-		{
-			name:     "so file",
-			path:     "test.so",
-			expected: true,
-		},
-		{
-			name:     "go file",
-			path:     "main.go",
-			expected: false,
-		},
-		{
-			name:     "js file",
-			path:     "app.js",
-			expected: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := IsIgnoredExtension(tt.path)
-			if result != tt.expected {
-				t.Errorf("IsIgnoredExtension(%q) = %v, want %v", tt.path, result, tt.expected)
-			}
-		})
-	}
-}
-
-func TestSkipHidden(t *testing.T) {
-	tests := []struct {
-		name     string
-		path     string
-		expected bool
-	}{
-		{
-			name:     "hidden file",
-			path:     "/path/.hidden",
-			expected: true,
-		},
-		{
-			name:     "visible file",
-			path:     "/path/to/file.txt",
-			expected: false,
-		},
-		{
-			name:     "node_modules in path",
-			path:     "/path/node_modules/package",
-			expected: true,
-		},
-		{
-			name:     "git directory in path",
-			path:     "/project/.git/config",
-			expected: true,
-		},
-		{
-			name:     "pycache in path",
-			path:     "/project/src/__pycache__/module.pyc",
-			expected: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := SkipHidden(tt.path)
-			if result != tt.expected {
-				t.Errorf("SkipHidden(%q) = %v, want %v", tt.path, result, tt.expected)
-			}
-		})
-	}
-}
-
-func TestShouldSkipPath(t *testing.T) {
-	tests := []struct {
-		name           string
-		path           string
-		ignorePatterns []string
-		expected       bool
-	}{
-		{
-			name:           "hidden file",
-			path:           "/path/.hidden",
-			ignorePatterns: []string{},
-			expected:       true,
-		},
-		{
-			name:           "ignored directory",
-			path:           "/path/node_modules",
-			ignorePatterns: []string{},
-			expected:       true,
-		},
-		{
-			name:           "custom pattern match",
-			path:           "/path/test_temp.txt",
-			ignorePatterns: []string{"**/*_temp.txt"},
-			expected:       true,
-		},
-		{
-			name:           "visible file no patterns",
-			path:           "/path/to/file.txt",
-			ignorePatterns: []string{},
-			expected:       false,
-		},
-		{
-			name:           "custom pattern no match",
-			path:           "/path/to/real.txt",
-			ignorePatterns: []string{"*_temp.txt"},
-			expected:       false,
-		},
-		{
-			name:           "ignored extension",
-			path:           "/path/to/test.pyc",
-			ignorePatterns: []string{},
-			expected:       true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := ShouldSkipPath(tt.path, tt.ignorePatterns)
-			if result != tt.expected {
-				t.Errorf("ShouldSkipPath(%q, %v) = %v, want %v", tt.path, tt.ignorePatterns, result, tt.expected)
-			}
-		})
-	}
-}
+// ============================================================================
+// Image File Tests
+// ============================================================================
 
 func TestIsImageFile(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name         string
 		path         string
 		expectedOK   bool
 		expectedType string
 	}{
-		{
-			name:         "jpg file",
-			path:         "photo.jpg",
-			expectedOK:   true,
-			expectedType: "JPEG",
-		},
-		{
-			name:         "png file",
-			path:         "image.PNG",
-			expectedOK:   true,
-			expectedType: "PNG",
-		},
-		{
-			name:         "gif file",
-			path:         "anim.gif",
-			expectedOK:   true,
-			expectedType: "GIF",
-		},
-		{
-			name:         "svg file",
-			path:         "vector.svg",
-			expectedOK:   true,
-			expectedType: "SVG",
-		},
-		{
-			name:         "go file",
-			path:         "main.go",
-			expectedOK:   false,
-			expectedType: "",
-		},
-		{
-			name:         "txt file",
-			path:         "readme.txt",
-			expectedOK:   false,
-			expectedType: "",
-		},
+		{name: "jpg file", path: "photo.jpg", expectedOK: true, expectedType: "JPEG"},
+		{name: "png file", path: "image.PNG", expectedOK: true, expectedType: "PNG"},
+		{name: "gif file", path: "anim.gif", expectedOK: true, expectedType: "GIF"},
+		{name: "svg file", path: "vector.svg", expectedOK: true, expectedType: "SVG"},
+		{name: "go file", path: "main.go", expectedOK: false, expectedType: ""},
+		{name: "txt file", path: "readme.txt", expectedOK: false, expectedType: ""},
 	}
 
 	for _, tt := range tests {
@@ -447,88 +417,13 @@ func TestIsImageFile(t *testing.T) {
 	}
 }
 
-func TestGlobToRegex(t *testing.T) {
-	tests := []struct {
-		name     string
-		glob     string
-		expected string
-	}{
-		{
-			name:     "simple glob",
-			glob:     "*.go",
-			expected: ".*\\.go",
-		},
-		{
-			name:     "question mark",
-			glob:     "file?.txt",
-			expected: "file.\\.txt",
-		},
-		{
-			name:     "character class",
-			glob:     "file[123].txt",
-			expected: "file[123]\\.txt",
-		},
-		{
-			name:     "multiple extensions",
-			glob:     "*.{js,ts,tsx}",
-			expected: ".*\\.(js|ts|tsx)",
-		},
-		{
-			name:     "literal dot",
-			glob:     "file.name.go",
-			expected: "file\\.name\\.go",
-		},
-	}
+// ============================================================================
+// File Validation Tests (Consolidated)
+// ============================================================================
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := GlobToRegex(tt.glob)
-			if result != tt.expected {
-				t.Errorf("GlobToRegex(%q) = %q, want %q", tt.glob, result, tt.expected)
-			}
-		})
-	}
-}
+func TestFileValidation(t *testing.T) {
+	t.Parallel()
 
-func TestEscapeRegexPattern(t *testing.T) {
-	tests := []struct {
-		name     string
-		pattern  string
-		expected string
-	}{
-		{
-			name:     "simple text",
-			pattern:  "hello",
-			expected: "hello",
-		},
-		{
-			name:     "special chars",
-			pattern:  "test.file+",
-			expected: "test\\.file\\+",
-		},
-		{
-			name:     "brackets",
-			pattern:  "test[1]",
-			expected: "test\\[1\\]",
-		},
-		{
-			name:     "all special",
-			pattern:  "\\.+*?()[]{}|^$",
-			expected: "\\\\\\.\\+\\*\\?\\(\\)\\[\\]\\{\\}\\|\\^\\$",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := EscapeRegexPattern(tt.pattern)
-			if result != tt.expected {
-				t.Errorf("EscapeRegexPattern(%q) = %q, want %q", tt.pattern, result, tt.expected)
-			}
-		})
-	}
-}
-
-func TestValidateFileForRead(t *testing.T) {
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "test.txt")
 
@@ -542,289 +437,95 @@ func TestValidateFileForRead(t *testing.T) {
 	}
 	initialModTime := info.ModTime()
 
-	tests := []struct {
-		name           string
-		path           string
-		workingDir     string
-		lastReadTime   time.Time
-		expectError    bool
-		expectExists   bool
-		expectModified bool
-	}{
-		{
-			name:         "valid file with zero last read time",
-			path:         tmpFile,
-			workingDir:   tmpDir,
-			lastReadTime: time.Time{},
-			expectError:  false,
-			expectExists: true,
-		},
-		{
-			name:         "valid file with recent last read time",
-			path:         tmpFile,
-			workingDir:   tmpDir,
-			lastReadTime: time.Now(),
-			expectError:  false,
-			expectExists: true,
-		},
-		{
-			name:         "file outside working directory",
-			path:         "/etc/passwd",
-			workingDir:   tmpDir,
-			lastReadTime: time.Time{},
-			expectError:  true,
-			expectExists: false,
-		},
-		{
-			name:         "non-existent file",
-			path:         filepath.Join(tmpDir, "nonexistent.txt"),
-			workingDir:   tmpDir,
-			lastReadTime: time.Time{},
-			expectError:  true,
-			expectExists: false,
-		},
-		{
-			name:         "directory instead of file",
-			path:         tmpDir,
-			workingDir:   tmpDir,
-			lastReadTime: time.Time{},
-			expectError:  true,
-			expectExists: true,
-		},
-	}
+	t.Run("ValidateFileForRead", func(t *testing.T) {
+		tests := []struct {
+			name           string
+			path           string
+			workingDir     string
+			lastReadTime   time.Time
+			expectError    bool
+			expectExists   bool
+			expectModified bool
+		}{
+			{name: "valid file with zero last read time", path: tmpFile, workingDir: tmpDir, lastReadTime: time.Time{}, expectError: false, expectExists: true},
+			{name: "valid file with recent last read time", path: tmpFile, workingDir: tmpDir, lastReadTime: time.Now(), expectError: false, expectExists: true},
+			{name: "file outside working directory", path: "/etc/passwd", workingDir: tmpDir, lastReadTime: time.Time{}, expectError: true, expectExists: false},
+			{name: "non-existent file", path: filepath.Join(tmpDir, "nonexistent.txt"), workingDir: tmpDir, lastReadTime: time.Time{}, expectError: true, expectExists: false},
+			{name: "directory instead of file", path: tmpDir, workingDir: tmpDir, lastReadTime: time.Time{}, expectError: true, expectExists: true},
+		}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := ValidateFileForRead(tt.path, tt.workingDir, tt.lastReadTime)
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				result := ValidateFileForRead(tt.path, tt.workingDir, tt.lastReadTime)
+				assertValidationResult(t, "ValidateFileForRead", tt.path, tt.workingDir, result, tt.expectError, tt.expectExists)
+			})
+		}
 
-			if tt.expectError && result.Error == nil {
-				t.Errorf("ValidateFileForRead(%q, %q) expected error but got none", tt.path, tt.workingDir)
+		t.Run("file modified since last read", func(t *testing.T) {
+			time.Sleep(10 * time.Millisecond)
+			if err := os.WriteFile(tmpFile, []byte("modified content"), 0644); err != nil {
+				t.Fatalf("failed to modify temp file: %v", err)
 			}
-			if !tt.expectError && result.Error != nil {
-				t.Errorf("ValidateFileForRead(%q, %q) unexpected error: %v", tt.path, tt.workingDir, result.Error)
+
+			result := ValidateFileForRead(tmpFile, tmpDir, initialModTime)
+			if !result.IsModified {
+				t.Errorf("Expected file to be marked as modified")
 			}
-			if result.Exists != tt.expectExists {
-				t.Errorf("ValidateFileForRead(%q, %q).Exists = %v, want %v", tt.path, tt.workingDir, result.Exists, tt.expectExists)
+			if result.Error == nil {
+				t.Errorf("Expected error for modified file")
 			}
 		})
-	}
+	})
 
-	t.Run("file modified since last read", func(t *testing.T) {
-		time.Sleep(10 * time.Millisecond)
-
-		if err := os.WriteFile(tmpFile, []byte("modified content"), 0644); err != nil {
-			t.Fatalf("failed to modify temp file: %v", err)
+	t.Run("ValidateFileForWrite", func(t *testing.T) {
+		tests := []struct {
+			name         string
+			path         string
+			workingDir   string
+			lastReadTime time.Time
+			expectError  bool
+			expectExists bool
+		}{
+			{name: "valid file with zero last read time", path: tmpFile, workingDir: tmpDir, lastReadTime: time.Time{}, expectError: false, expectExists: true},
+			{name: "new file", path: filepath.Join(tmpDir, "newfile.txt"), workingDir: tmpDir, lastReadTime: time.Time{}, expectError: false, expectExists: false},
+			{name: "directory instead of file", path: tmpDir, workingDir: tmpDir, lastReadTime: time.Time{}, expectError: true, expectExists: true},
+			{name: "file outside working directory", path: "/etc/passwd", workingDir: tmpDir, lastReadTime: time.Time{}, expectError: true, expectExists: false},
 		}
 
-		result := ValidateFileForRead(tmpFile, tmpDir, initialModTime)
-		if !result.IsModified {
-			t.Errorf("Expected file to be marked as modified")
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				result := ValidateFileForWrite(tt.path, tt.workingDir, tt.lastReadTime)
+				assertValidationResult(t, "ValidateFileForWrite", tt.path, tt.workingDir, result, tt.expectError, tt.expectExists)
+			})
 		}
-		if result.Error == nil {
-			t.Errorf("Expected error for modified file")
+	})
+
+	t.Run("ValidateFileForDelete", func(t *testing.T) {
+		tests := []struct {
+			name         string
+			path         string
+			workingDir   string
+			expectError  bool
+			expectExists bool
+		}{
+			{name: "existing file", path: tmpFile, workingDir: tmpDir, expectError: false, expectExists: true},
+			{name: "existing directory", path: tmpDir, workingDir: tmpDir, expectError: false, expectExists: true},
+			{name: "non-existent path", path: filepath.Join(tmpDir, "nonexistent.txt"), workingDir: tmpDir, expectError: true, expectExists: false},
+			{name: "file outside working directory", path: "/etc/passwd", workingDir: tmpDir, expectError: true, expectExists: false},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				result := ValidateFileForDelete(tt.path, tt.workingDir)
+				assertValidationResult(t, "ValidateFileForDelete", tt.path, tt.workingDir, result, tt.expectError, tt.expectExists)
+			})
 		}
 	})
 }
 
-func TestValidateFileForWrite(t *testing.T) {
-	tmpDir := t.TempDir()
-	tmpFile := filepath.Join(tmpDir, "test.txt")
-
-	if err := os.WriteFile(tmpFile, []byte("test content"), 0644); err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
-	}
-
-	tests := []struct {
-		name         string
-		path         string
-		workingDir   string
-		lastReadTime time.Time
-		expectError  bool
-		expectExists bool
-	}{
-		{
-			name:         "valid file with zero last read time",
-			path:         tmpFile,
-			workingDir:   tmpDir,
-			lastReadTime: time.Time{},
-			expectError:  false,
-			expectExists: true,
-		},
-		{
-			name:         "new file",
-			path:         filepath.Join(tmpDir, "newfile.txt"),
-			workingDir:   tmpDir,
-			lastReadTime: time.Time{},
-			expectError:  false,
-			expectExists: false,
-		},
-		{
-			name:         "directory instead of file",
-			path:         tmpDir,
-			workingDir:   tmpDir,
-			lastReadTime: time.Time{},
-			expectError:  true,
-			expectExists: true,
-		},
-		{
-			name:         "file outside working directory",
-			path:         "/etc/passwd",
-			workingDir:   tmpDir,
-			lastReadTime: time.Time{},
-			expectError:  true,
-			expectExists: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := ValidateFileForWrite(tt.path, tt.workingDir, tt.lastReadTime)
-
-			if tt.expectError && result.Error == nil {
-				t.Errorf("ValidateFileForWrite(%q, %q) expected error but got none", tt.path, tt.workingDir)
-			}
-			if !tt.expectError && result.Error != nil {
-				t.Errorf("ValidateFileForWrite(%q, %q) unexpected error: %v", tt.path, tt.workingDir, result.Error)
-			}
-			if result.Exists != tt.expectExists {
-				t.Errorf("ValidateFileForWrite(%q, %q).Exists = %v, want %v", tt.path, tt.workingDir, result.Exists, tt.expectExists)
-			}
-		})
-	}
-}
-
-func TestValidateFileForDelete(t *testing.T) {
-	tmpDir := t.TempDir()
-	tmpFile := filepath.Join(tmpDir, "test.txt")
-
-	if err := os.WriteFile(tmpFile, []byte("test content"), 0644); err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
-	}
-
-	tests := []struct {
-		name         string
-		path         string
-		workingDir   string
-		expectError  bool
-		expectExists bool
-	}{
-		{
-			name:         "existing file",
-			path:         tmpFile,
-			workingDir:   tmpDir,
-			expectError:  false,
-			expectExists: true,
-		},
-		{
-			name:         "existing directory",
-			path:         tmpDir,
-			workingDir:   tmpDir,
-			expectError:  false,
-			expectExists: true,
-		},
-		{
-			name:         "non-existent path",
-			path:         filepath.Join(tmpDir, "nonexistent.txt"),
-			workingDir:   tmpDir,
-			expectError:  true,
-			expectExists: false,
-		},
-		{
-			name:         "file outside working directory",
-			path:         "/etc/passwd",
-			workingDir:   tmpDir,
-			expectError:  true,
-			expectExists: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := ValidateFileForDelete(tt.path, tt.workingDir)
-
-			if tt.expectError && result.Error == nil {
-				t.Errorf("ValidateFileForDelete(%q, %q) expected error but got none", tt.path, tt.workingDir)
-			}
-			if !tt.expectError && result.Error != nil {
-				t.Errorf("ValidateFileForDelete(%q, %q) unexpected error: %v", tt.path, tt.workingDir, result.Error)
-			}
-			if result.Exists != tt.expectExists {
-				t.Errorf("ValidateFileForDelete(%q, %q).Exists = %v, want %v", tt.path, tt.workingDir, result.Exists, tt.expectExists)
-			}
-		})
-	}
-}
-
-func TestGetParentDir(t *testing.T) {
-	tests := []struct {
-		name     string
-		path     string
-		expected string
-	}{
-		{
-			name:     "simple path",
-			path:     "/path/to/file.txt",
-			expected: "/path/to",
-		},
-		{
-			name:     "root file",
-			path:     "/file.txt",
-			expected: "/",
-		},
-		{
-			name:     "relative path",
-			path:     "src/main.go",
-			expected: "src",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := GetParentDir(tt.path)
-			if result != tt.expected {
-				t.Errorf("GetParentDir(%q) = %q, want %q", tt.path, result, tt.expected)
-			}
-		})
-	}
-}
-
-func TestNormalizePath(t *testing.T) {
-	tests := []struct {
-		name     string
-		path     string
-		expected string
-	}{
-		{
-			name:     "remove double dots",
-			path:     "/path/to/../file.txt",
-			expected: "/path/file.txt",
-		},
-		{
-			name:     "remove single dots",
-			path:     "/path/./to/file.txt",
-			expected: "/path/to/file.txt",
-		},
-		{
-			name:     "collapse separators",
-			path:     "/path//to///file.txt",
-			expected: "/path/to/file.txt",
-		},
-		{
-			name:     "trailing separator",
-			path:     "/path/to/",
-			expected: "/path/to",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := NormalizePath(tt.path)
-			if result != tt.expected {
-				t.Errorf("NormalizePath(%q) = %q, want %q", tt.path, result, tt.expected)
-			}
-		})
-	}
-}
+// ============================================================================
+// Directory Listing Tests
+// ============================================================================
 
 func TestListDirectory(t *testing.T) {
 	tmpDir := t.TempDir()
@@ -873,6 +574,10 @@ func TestListDirectory(t *testing.T) {
 		}
 	}
 }
+
+// ============================================================================
+// File I/O Tests
+// ============================================================================
 
 func TestReadWriteFile(t *testing.T) {
 	tmpDir := t.TempDir()
@@ -944,6 +649,10 @@ func TestDeleteFile(t *testing.T) {
 	}
 }
 
+// ============================================================================
+// Glob Tests
+// ============================================================================
+
 func TestGlobWithDoublestar(t *testing.T) {
 	tmpDir := t.TempDir()
 
@@ -983,6 +692,10 @@ func TestGlobWithDoublestar(t *testing.T) {
 	}
 }
 
+// ============================================================================
+// File Info Tests
+// ============================================================================
+
 func TestGetFileInfo(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
@@ -1009,124 +722,103 @@ func TestGetFileInfo(t *testing.T) {
 	}
 }
 
+// ============================================================================
+// SafeReadFile Tests (Consolidated)
+// ============================================================================
+
 func TestSafeReadFile(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	tests := []struct {
-		name        string
-		content     []byte
-		fileName    string
-		expectError bool
-		errorMatch  string
-	}{
-		{
-			name:        "small text file",
-			content:     []byte("hello world"),
-			fileName:    "test.txt",
-			expectError: false,
-		},
-		{
-			name:        "empty file",
-			content:     []byte{},
-			fileName:    "empty.txt",
-			expectError: false,
-		},
-		{
-			name:        "text file exactly 512 bytes",
-			content:     make([]byte, 512),
-			fileName:    "exact512.txt",
-			expectError: false,
-		},
-		{
-			name:        "text file larger than 512 bytes",
-			content:     append(make([]byte, 512), []byte("additional content")...),
-			fileName:    "large.txt",
-			expectError: false,
-		},
-		{
-			name:        "binary file - PNG header",
-			content:     []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D},
-			fileName:    "image.png",
-			expectError: true,
-			errorMatch:  "binary",
-		},
-	}
+	t.Run("various file types and sizes", func(t *testing.T) {
+		tests := []struct {
+			name        string
+			content     []byte
+			fileName    string
+			expectError bool
+			errorMatch  string
+		}{
+			{name: "small text file", content: []byte("hello world"), fileName: "test.txt", expectError: false},
+			{name: "empty file", content: []byte{}, fileName: "empty.txt", expectError: false},
+			{name: "text file exactly 512 bytes", content: make([]byte, 512), fileName: "exact512.txt", expectError: false},
+			{name: "text file larger than 512 bytes", content: append(make([]byte, 512), []byte("additional content")...), fileName: "large.txt", expectError: false},
+			{name: "binary file - PNG header", content: []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D}, fileName: "image.png", expectError: true, errorMatch: "binary"},
+		}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Fill text content with printable characters for text files
-			if !tt.expectError && len(tt.content) > 0 && !strings.Contains(tt.name, "binary") && !strings.Contains(tt.name, "PNG") {
-				for i := range tt.content {
-					tt.content[i] = 'a'
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				// Fill text content with printable characters for text files
+				if !tt.expectError && len(tt.content) > 0 && !strings.Contains(tt.name, "binary") && !strings.Contains(tt.name, "PNG") {
+					for i := range tt.content {
+						tt.content[i] = 'a'
+					}
 				}
-			}
 
-			testFile := filepath.Join(tmpDir, tt.fileName)
-			if err := os.WriteFile(testFile, tt.content, 0644); err != nil {
-				t.Fatalf("failed to create temp file: %v", err)
-			}
+				testFile := filepath.Join(tmpDir, tt.fileName)
+				if err := os.WriteFile(testFile, tt.content, 0644); err != nil {
+					t.Fatalf("failed to create temp file: %v", err)
+				}
 
-			result, err := SafeReadFile(testFile, tmpDir)
+				result, err := SafeReadFile(testFile, tmpDir)
 
-			if tt.expectError {
-				if err == nil {
-					t.Errorf("SafeReadFile(%q) expected error but got none", testFile)
-				} else if tt.errorMatch != "" && !strings.Contains(err.Error(), tt.errorMatch) {
-					t.Errorf("SafeReadFile(%q) error = %v, want error containing %q", testFile, err, tt.errorMatch)
+				if tt.expectError {
+					if err == nil {
+						t.Errorf("SafeReadFile(%q) expected error but got none", testFile)
+					} else if tt.errorMatch != "" && !strings.Contains(err.Error(), tt.errorMatch) {
+						t.Errorf("SafeReadFile(%q) error = %v, want error containing %q", testFile, err, tt.errorMatch)
+					}
+				} else {
+					if err != nil {
+						t.Errorf("SafeReadFile(%q) unexpected error: %v", testFile, err)
+					}
+					if string(tt.content) != result {
+						t.Errorf("SafeReadFile(%q) = %q, want %q", testFile, result, string(tt.content))
+					}
 				}
-			} else {
-				if err != nil {
-					t.Errorf("SafeReadFile(%q) unexpected error: %v", testFile, err)
-				}
-				if string(tt.content) != result {
-					t.Errorf("SafeReadFile(%q) = %q, want %q", testFile, result, string(tt.content))
-				}
-			}
-		})
-	}
+			})
+		}
+	})
+
+	t.Run("file too large", func(t *testing.T) {
+		testFile := filepath.Join(tmpDir, "large.txt")
+
+		// Create a file larger than MaxReadSize
+		largeContent := make([]byte, MaxReadSize+1)
+		for i := range largeContent {
+			largeContent[i] = 'a'
+		}
+
+		if err := os.WriteFile(testFile, largeContent, 0644); err != nil {
+			t.Fatalf("failed to create temp file: %v", err)
+		}
+
+		_, err := SafeReadFile(testFile, tmpDir)
+		if err == nil {
+			t.Errorf("SafeReadFile(%q) expected error for large file", testFile)
+		}
+		if !strings.Contains(err.Error(), "too large") {
+			t.Errorf("SafeReadFile(%q) error = %v, want error containing 'too large'", testFile, err)
+		}
+	})
+
+	t.Run("path traversal attempt", func(t *testing.T) {
+		// Try to read a file outside the working directory
+		_, err := SafeReadFile("/etc/passwd", tmpDir)
+		if err == nil {
+			t.Errorf("SafeReadFile('/etc/passwd') expected error for path traversal")
+		}
+	})
+
+	t.Run("non-existent file", func(t *testing.T) {
+		_, err := SafeReadFile(filepath.Join(tmpDir, "nonexistent.txt"), tmpDir)
+		if err == nil {
+			t.Errorf("SafeReadFile(nonexistent) expected error")
+		}
+	})
 }
 
-func TestSafeReadFile_TooLarge(t *testing.T) {
-	tmpDir := t.TempDir()
-	testFile := filepath.Join(tmpDir, "large.txt")
-
-	// Create a file larger than MaxReadSize
-	largeContent := make([]byte, MaxReadSize+1)
-	for i := range largeContent {
-		largeContent[i] = 'a'
-	}
-
-	if err := os.WriteFile(testFile, largeContent, 0644); err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
-	}
-
-	_, err := SafeReadFile(testFile, tmpDir)
-	if err == nil {
-		t.Errorf("SafeReadFile(%q) expected error for large file", testFile)
-	}
-	if !strings.Contains(err.Error(), "too large") {
-		t.Errorf("SafeReadFile(%q) error = %v, want error containing 'too large'", testFile, err)
-	}
-}
-
-func TestSafeReadFile_PathTraversal(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Try to read a file outside the working directory
-	_, err := SafeReadFile("/etc/passwd", tmpDir)
-	if err == nil {
-		t.Errorf("SafeReadFile('/etc/passwd') expected error for path traversal")
-	}
-}
-
-func TestSafeReadFile_NonExistent(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	_, err := SafeReadFile(filepath.Join(tmpDir, "nonexistent.txt"), tmpDir)
-	if err == nil {
-		t.Errorf("SafeReadFile(nonexistent) expected error")
-	}
-}
+// ============================================================================
+// IsTextFile Tests
+// ============================================================================
 
 func TestIsTextFile(t *testing.T) {
 	tmpDir := t.TempDir()
@@ -1138,30 +830,10 @@ func TestIsTextFile(t *testing.T) {
 		expectText  bool
 		expectError bool
 	}{
-		{
-			name:       "text file",
-			content:    []byte("hello world"),
-			fileName:   "test.txt",
-			expectText: true,
-		},
-		{
-			name:       "empty file",
-			content:    []byte{},
-			fileName:   "empty.txt",
-			expectText: true, // Empty files are considered text (application/octet-stream)
-		},
-		{
-			name:       "binary file - PNG header",
-			content:    []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D},
-			fileName:   "image.png",
-			expectText: false,
-		},
-		{
-			name:       "go source file",
-			content:    []byte("package main\n\nfunc main() {}"),
-			fileName:   "main.go",
-			expectText: true,
-		},
+		{name: "text file", content: []byte("hello world"), fileName: "test.txt", expectText: true},
+		{name: "empty file", content: []byte{}, fileName: "empty.txt", expectText: true},
+		{name: "binary file - PNG header", content: []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D}, fileName: "image.png", expectText: false},
+		{name: "go source file", content: []byte("package main\n\nfunc main() {}"), fileName: "main.go", expectText: true},
 	}
 
 	for _, tt := range tests {
