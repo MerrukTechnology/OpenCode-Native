@@ -226,8 +226,6 @@ func (m MultiArgumentsDialogCmp) View() string {
 		inputFields[i] = lipgloss.JoinVertical(lipgloss.Left, label, field)
 	}
 
-	maxWidth = min(maxWidth, m.width-10)
-
 	// Join all elements vertically
 	elements := []string{title, explanation}
 	elements = append(elements, inputFields...)
