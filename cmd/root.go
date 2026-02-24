@@ -95,7 +95,7 @@ Key Features:
 			return fmt.Errorf("--args-file requires --flow/-F to be specified")
 		}
 		if len(flowArgs) > 0 && argsFile != "" {
-		    return fmt.Errorf("--arg/-A and --args-file are mutually exclusive; use only one")
+			return fmt.Errorf("--arg/-A and --args-file are mutually exclusive; use only one")
 		}
 
 		// Parse format option (may include schema)

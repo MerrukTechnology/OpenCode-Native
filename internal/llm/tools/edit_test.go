@@ -302,7 +302,7 @@ func TestMultiEditTool_Info(t *testing.T) {
 }
 
 func TestMultiEditTool_SequentialEdits(t *testing.T) {
-	ctx, tmpPath, tool := setupEditTest(t)
+	ctx, tmpPath, tool := setupMultiEditTest(t)
 	writeAndTrack(t, tmpPath, "aaa bbb ccc")
 
 	resp := runMultiEdit(t, tool, ctx, MultiEditParams{
@@ -356,7 +356,7 @@ func TestMultiEditTool_AtomicFailure(t *testing.T) {
 }
 
 func TestMultiEditTool_ReplaceAll(t *testing.T) {
-	ctx, tmpPath, tool := setupEditTest(t)
+	ctx, tmpPath, tool := setupMultiEditTest(t)
 	writeAndTrack(t, tmpPath, "var x = 1;\nvar y = x + x;")
 
 	resp := runMultiEdit(t, tool, ctx, MultiEditParams{
