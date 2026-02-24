@@ -167,7 +167,7 @@ func (e *editTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error)
 	// On timeout or infrastructure error, skip to avoid stale pre-edit diagnostics.
 	text := fmt.Sprintf("<result>\n%s\n</result>\n", response.Content)
 	if err := e.lsp.WaitForDiagnostics(ctx, params.FilePath); err != nil {
-		if !errors.Is(err, context.DeadlineExceeded) {
+		if !errors.Is(err, context.DeadlineExceeded) && !errors.Is(err, context.Canceled) {
 			text += e.lsp.FormatDiagnostics(params.FilePath)
 		}
 	}

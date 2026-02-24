@@ -692,10 +692,19 @@ func renderToolMessage(
 		toolNameText = badge
 	}
 
-	styleOverhead := 2 // BorderLeft(1) + PaddingLeft(1), not present in nested path
+	var styleOverhead int
 	if nested {
-		styleOverhead = 0
+		if !toolCall.Finished {
+			// style is still applied for the in-progress branch
+			styleOverhead = 2 // BorderLeft(1) + PaddingLeft(1)
+		} else {
+			// style is skipped, but " └ " prefix (3 cols) is prepended
+			styleOverhead = 3
+		}
+	} else {
+		styleOverhead = 2 // BorderLeft(1) + PaddingLeft(1)
 	}
+
 	paramWidth := width - styleOverhead - lipgloss.Width(toolNameText)
 	if paramWidth < 0 {
 		paramWidth = 0
