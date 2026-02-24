@@ -88,6 +88,9 @@ Key Features:
 			return fmt.Errorf("--delete requires --session/-s to be specified")
 		}
 
+		if flowID == "" && (len(flowArgs) > 0 || argsFile != "") {
+			return fmt.Errorf("--arg and --args-file require --flow/-F to be specified")
+		}
 		// Parse format option (may include schema)
 		parsedOutputFormat, cliSchema, fmtErr := format.ParseWithSchema(outputFormat)
 		if fmtErr != nil {

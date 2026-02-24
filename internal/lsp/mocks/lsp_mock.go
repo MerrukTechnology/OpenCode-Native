@@ -110,9 +110,11 @@ func (mr *MockLspServiceMockRecorder) FormatDiagnostics(filePath any) *gomock.Ca
 }
 
 // Init mocks base method.
-func (m *MockLspService) Init(ctx context.Context) {
+func (m *MockLspService) Init(ctx context.Context) error {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Init", ctx)
+	ret := m.ctrl.Call(m, "Init", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // Init indicates an expected call of Init.
@@ -134,9 +136,11 @@ func (mr *MockLspServiceMockRecorder) NotifyOpenFile(ctx, filePath any) *gomock.
 }
 
 // Shutdown mocks base method.
-func (m *MockLspService) Shutdown(ctx context.Context) {
+func (m *MockLspService) Shutdown(ctx context.Context) error {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Shutdown", ctx)
+	ret := m.ctrl.Call(m, "Shutdown", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // Shutdown indicates an expected call of Shutdown.
@@ -146,9 +150,11 @@ func (mr *MockLspServiceMockRecorder) Shutdown(ctx any) *gomock.Call {
 }
 
 // WaitForDiagnostics mocks base method.
-func (m *MockLspService) WaitForDiagnostics(ctx context.Context, filePath string) {
+func (m *MockLspService) WaitForDiagnostics(ctx context.Context, filePath string) error {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "WaitForDiagnostics", ctx, filePath)
+	ret := m.ctrl.Call(m, "WaitForDiagnostics", ctx, filePath)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // WaitForDiagnostics indicates an expected call of WaitForDiagnostics.

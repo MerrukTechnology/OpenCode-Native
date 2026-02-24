@@ -171,7 +171,8 @@ const updateFlowState = `-- name: UpdateFlowState :execresult
 UPDATE flow_states
 SET status = ?,
     output = ?,
-    is_struct_output = ?
+    is_struct_output = ?,
+    updated_at = UNIX_TIMESTAMP()
 WHERE session_id = ?
 `
 

@@ -31,8 +31,8 @@ INSERT INTO flow_states (
     ?,
     ?,
     ?,
-    strftime('%s', 'now'),
-    strftime('%s', 'now')
+    unixepoch('now'),
+    unixepoch('now')
 ) RETURNING session_id, root_session_id, flow_id, step_id, status, args, output, is_struct_output, created_at, updated_at
 `
 
@@ -186,7 +186,7 @@ UPDATE flow_states
 SET status = ?,
     output = ?,
     is_struct_output = ?,
-    updated_at = strftime('%s', 'now')
+    updated_at = unixepoch('now')
 WHERE session_id = ?
 RETURNING session_id, root_session_id, flow_id, step_id, status, args, output, is_struct_output, created_at, updated_at
 `

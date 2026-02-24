@@ -65,9 +65,11 @@ func Invalidate() {
 }
 
 func state() map[string]Flow {
+	flowCacheLock.Lock()
 	flowCacheOnce.Do(func() {
 		flowCache = discoverFlows()
 	})
+	flowCacheLock.Unlock()
 	flowCacheLock.RLock()
 	defer flowCacheLock.RUnlock()
 	return flowCache

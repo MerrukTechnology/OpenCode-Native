@@ -78,7 +78,11 @@ func (f *agentFactory) NewAgent(ctx context.Context, agentID string, outputSchem
 
 	infoCopy := info
 	if outputSchema != nil {
-		infoCopy.Output = &agentregistry.Output{Schema: outputSchema}
+		schemaCopy := make(map[string]any, len(outputSchema))
+		for k, v := range outputSchema {
+			schemaCopy[k] = v
+		}
+		infoCopy.Output = &agentregistry.Output{Schema: schemaCopy}
 	}
 
 	svc, err := newAgent(ctx, &infoCopy, f.sessions, f.messages, f.permissions, f.history, f.lspService, f.registry, f.mcpRegistry, f)
@@ -113,7 +117,7 @@ func (f *agentFactory) InitPrimaryAgents(ctx context.Context, outputSchema map[s
 		res = append(res, primaryAgent)
 	}
 	if len(res) == 0 {
-		return res, errors.New("no primary agents has been created")
+		return res, errors.New("no primary agents could be created")
 	}
 	return res, nil
 }

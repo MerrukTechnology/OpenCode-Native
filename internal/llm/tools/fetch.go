@@ -115,6 +115,7 @@ func (t *fetchTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 	if format != "text" && format != "markdown" && format != "html" {
 		return NewTextErrorResponse("Format must be one of: text, markdown, html"), nil
 	}
+	params.Format = format
 
 	if !strings.HasPrefix(params.URL, "http://") && !strings.HasPrefix(params.URL, "https://") {
 		return NewTextErrorResponse("URL must start with http:// or https://"), nil

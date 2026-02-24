@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -157,6 +158,17 @@ func collectFiles(dir string, limit int) []string {
 	return files
 }
 
+// toFileURI converts an OS-native absolute path to a valid file:// URI.
+func toFileURI(path string) string {
+	path = filepath.ToSlash(path)
+	// Windows drive-letter paths need a leading slash: C:/foo -> /C:/foo
+	if len(path) >= 2 && path[1] == ':' {
+		path = "/" + path
+	}
+	u := url.URL{Scheme: "file", Path: path}
+	return u.String()
+}
+
 // checkPermission checks if the skill can be loaded based on permissions.
 func (s *skillTool) checkPermission(sessionID string, agentName string, skillName, description string) bool {
 	action := s.registry.EvaluatePermission(agentName, SkillToolName, skillName)
@@ -211,7 +223,7 @@ func (s *skillTool) buildSkillDescription() string {
 		fmt.Fprintf(&sb, "  <skill>\n")
 		fmt.Fprintf(&sb, "    <name>%s</name>\n", sk.Name)
 		fmt.Fprintf(&sb, "    <description>%s</description>\n", sk.Description)
-		fmt.Fprintf(&sb, "    <location>file://%s</location>\n", baseDir)
+		fmt.Fprintf(&sb, "    <location>%s</location>\n", toFileURI(baseDir))
 		fmt.Fprintf(&sb, "  </skill>\n")
 	}
 

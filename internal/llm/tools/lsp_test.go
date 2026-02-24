@@ -147,12 +147,12 @@ func writeTestFile(path, content string) error {
 // noopLspService is a minimal LspService for testing
 type noopLspService struct{}
 
-func (s *noopLspService) Init(_ context.Context)                         {}
-func (s *noopLspService) Shutdown(_ context.Context)                     {}
-func (s *noopLspService) ForceShutdown()                                 {}
-func (s *noopLspService) Clients() map[string]*lsp.Client                { return nil }
-func (s *noopLspService) ClientsCh() <-chan *lsp.Client                  { return nil }
-func (s *noopLspService) ClientsForFile(_ string) []*lsp.Client          { return nil }
-func (s *noopLspService) NotifyOpenFile(_ context.Context, _ string)     {}
-func (s *noopLspService) WaitForDiagnostics(_ context.Context, _ string) {}
-func (s *noopLspService) FormatDiagnostics(_ string) string              { return "" }
+func (s *noopLspService) Init(_ context.Context) error                         { return nil }
+func (s *noopLspService) Shutdown(_ context.Context) error                     { return nil }
+func (s *noopLspService) ForceShutdown()                                       {}
+func (s *noopLspService) Clients() map[string]*lsp.Client                      { return nil }
+func (s *noopLspService) ClientsCh() <-chan *lsp.Client                        { return nil }
+func (s *noopLspService) ClientsForFile(_ string) []*lsp.Client                { return nil }
+func (s *noopLspService) NotifyOpenFile(_ context.Context, _ string)           {}
+func (s *noopLspService) WaitForDiagnostics(_ context.Context, _ string) error { return nil }
+func (s *noopLspService) FormatDiagnostics(_ string) string                    { return "" }

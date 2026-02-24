@@ -212,6 +212,7 @@ func (p *patchTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 	// Request permission for all changes
 	var combinedDiff string
 	needsPermission := false
+	permissionFiles := make([]string, 0)
 	for filePath, change := range commit.Changes {
 		fileAction := p.registry.EvaluatePermission(string(GetAgentID(ctx)), PatchToolName, filePath)
 		if fileAction == permission.ActionDeny {
@@ -221,6 +222,7 @@ func (p *patchTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 			continue
 		}
 		needsPermission = true
+		permissionFiles = append(permissionFiles, filePath)
 
 		oldContent := ""
 		if change.OldContent != nil {
@@ -235,10 +237,6 @@ func (p *patchTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 	}
 
 	if needsPermission {
-		filePaths := make([]string, 0, len(commit.Changes))
-		for filePath := range commit.Changes {
-			filePaths = append(filePaths, filePath)
-		}
 		rootDir := config.WorkingDirectory()
 		permissionPath := rootDir
 
@@ -248,9 +246,9 @@ func (p *patchTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 				Path:        permissionPath,
 				ToolName:    PatchToolName,
 				Action:      "write",
-				Description: fmt.Sprintf("Apply patch to %d files: %s", len(filePaths), strings.Join(filePaths, ", ")),
+				Description: fmt.Sprintf("Apply patch to %d files: %s", len(permissionFiles), strings.Join(permissionFiles, ", ")),
 				Params: EditPermissionsParams{
-					FilePath: strings.Join(filePaths, ", "),
+					FilePath: strings.Join(permissionFiles, ", "),
 					Diff:     combinedDiff,
 				},
 			},

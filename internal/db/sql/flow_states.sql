@@ -19,8 +19,8 @@ INSERT INTO flow_states (
     ?,
     ?,
     ?,
-    strftime('%s', 'now'),
-    strftime('%s', 'now')
+    unixepoch('now'),
+    unixepoch('now')
 ) RETURNING *;
 
 -- name: GetFlowState :one
@@ -37,7 +37,7 @@ UPDATE flow_states
 SET status = ?,
     output = ?,
     is_struct_output = ?,
-    updated_at = strftime('%s', 'now')
+    updated_at = unixepoch('now')
 WHERE session_id = ?
 RETURNING *;
 

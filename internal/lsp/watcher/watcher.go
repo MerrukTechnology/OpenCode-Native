@@ -641,12 +641,8 @@ func (w *WorkspaceWatcher) debounceHandleFileEvent(ctx context.Context, uri stri
 
 	// Cancel existing timer if any
 	if timer, exists := w.debounceMap[key]; exists {
-		if timer.Stop() {
-			delete(w.debounceMap, key)
-		} else {
-			// Timer already fired; let its callback finish, skip creating a new one
-			return
-		}
+		timer.Stop()
+		delete(w.debounceMap, key)
 	}
 
 	// Create new timer

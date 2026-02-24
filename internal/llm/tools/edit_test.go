@@ -100,7 +100,7 @@ func (s *stubHistoryService) Delete(context.Context, string) error { return nil 
 
 func (s *stubHistoryService) DeleteSessionFiles(context.Context, string) error { return nil }
 
-func setupToolTest(t *testing.T, toolName string) (context.Context, string, BaseTool) {
+func setupEditTest(t *testing.T) (context.Context, string, BaseTool) {
 	t.Helper()
 	ctrl := gomock.NewController(t)
 
@@ -131,11 +131,11 @@ func writeAndTrack(t *testing.T, path, content string) {
 	recordFileRead(path)
 }
 
-func runTool(t *testing.T, tool BaseTool, ctx context.Context, toolName string, params any) ToolResponse {
+func runEdit(t *testing.T, tool BaseTool, ctx context.Context, params EditParams) ToolResponse {
 	t.Helper()
 	paramsJSON, err := json.Marshal(params)
 	require.NoError(t, err)
-	resp, err := tool.Run(ctx, ToolCall{Name: toolName, Input: string(paramsJSON)})
+	resp, err := tool.Run(ctx, ToolCall{Name: EditToolName, Input: string(paramsJSON)})
 	require.NoError(t, err)
 	return resp
 }
@@ -156,19 +156,6 @@ func TestEditTool_Info(t *testing.T) {
 	assert.Contains(t, info.Parameters, "old_string")
 	assert.Contains(t, info.Parameters, "new_string")
 	assert.Contains(t, info.Parameters, "replace_all")
-}
-
-func TestMultiEditTool_Info(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockPerms := mock_permission.NewMockService(ctrl)
-	tool := NewMultiEditTool(nil, mockPerms, &stubHistoryService{}, &stubRegistry{})
-	info := tool.Info()
-
-	assert.Equal(t, MultiEditToolName, info.Name)
-	assert.Contains(t, info.Parameters, "file_path")
-	assert.Contains(t, info.Parameters, "edits")
 }
 
 // --- Edit Tool Tests ---
@@ -214,11 +201,11 @@ func TestEditTool_Replace(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx, tmpPath, tool := setupToolTest(t, EditToolName)
+			ctx, tmpPath, tool := setupEditTest(t)
 			tt.params.FilePath = tmpPath
 			writeAndTrack(t, tmpPath, tt.content)
 
-			resp := runTool(t, tool, ctx, EditToolName, tt.params)
+			resp := runEdit(t, tool, ctx, tt.params)
 
 			if tt.wantError {
 				assert.True(t, resp.IsError)
@@ -235,12 +222,12 @@ func TestEditTool_Replace(t *testing.T) {
 }
 
 func TestEditTool_CreateFile(t *testing.T) {
-	ctx, _, tool := setupToolTest(t, EditToolName)
+	ctx, _, tool := setupEditTest(t)
 
 	newFile := filepath.Join(os.TempDir(), fmt.Sprintf("edit_create_%d.txt", os.Getpid()))
 	t.Cleanup(func() { os.Remove(newFile) })
 
-	resp := runTool(t, tool, ctx, EditToolName, EditParams{
+	resp := runEdit(t, tool, ctx, EditParams{
 		FilePath:  newFile,
 		OldString: "",
 		NewString: "new file content",
@@ -253,10 +240,10 @@ func TestEditTool_CreateFile(t *testing.T) {
 }
 
 func TestEditTool_FileNotRead(t *testing.T) {
-	ctx, tmpPath, tool := setupToolTest(t, EditToolName)
+	ctx, tmpPath, tool := setupEditTest(t)
 	require.NoError(t, os.WriteFile(tmpPath, []byte("content"), 0o644))
 
-	resp := runTool(t, tool, ctx, EditToolName, EditParams{
+	resp := runEdit(t, tool, ctx, EditParams{
 		FilePath:  tmpPath,
 		OldString: "content",
 		NewString: "new",
@@ -315,10 +302,10 @@ func TestMultiEditTool_Info(t *testing.T) {
 }
 
 func TestMultiEditTool_SequentialEdits(t *testing.T) {
-	ctx, tmpPath, tool := setupToolTest(t, MultiEditToolName)
+	ctx, tmpPath, tool := setupEditTest(t)
 	writeAndTrack(t, tmpPath, "aaa bbb ccc")
 
-	resp := runTool(t, tool, ctx, MultiEditToolName, MultiEditParams{
+	resp := runMultiEdit(t, tool, ctx, MultiEditParams{
 		FilePath: tmpPath,
 		Edits: []MultiEditItem{
 			{OldString: "aaa", NewString: "xxx"},
@@ -333,10 +320,10 @@ func TestMultiEditTool_SequentialEdits(t *testing.T) {
 }
 
 func TestMultiEditTool_EditDependsOnPrevious(t *testing.T) {
-	ctx, tmpPath, tool := setupToolTest(t, MultiEditToolName)
+	ctx, tmpPath, tool := setupMultiEditTest(t)
 	writeAndTrack(t, tmpPath, "foo bar")
 
-	resp := runTool(t, tool, ctx, MultiEditToolName, MultiEditParams{
+	resp := runMultiEdit(t, tool, ctx, MultiEditParams{
 		FilePath: tmpPath,
 		Edits: []MultiEditItem{
 			{OldString: "foo", NewString: "baz"},
@@ -350,11 +337,11 @@ func TestMultiEditTool_EditDependsOnPrevious(t *testing.T) {
 }
 
 func TestMultiEditTool_AtomicFailure(t *testing.T) {
-	ctx, tmpPath, tool := setupToolTest(t, MultiEditToolName)
+	ctx, tmpPath, tool := setupMultiEditTest(t)
 	original := "hello world"
 	writeAndTrack(t, tmpPath, original)
 
-	resp := runTool(t, tool, ctx, MultiEditToolName, MultiEditParams{
+	resp := runMultiEdit(t, tool, ctx, MultiEditParams{
 		FilePath: tmpPath,
 		Edits: []MultiEditItem{
 			{OldString: "hello", NewString: "hi"},
@@ -369,10 +356,10 @@ func TestMultiEditTool_AtomicFailure(t *testing.T) {
 }
 
 func TestMultiEditTool_ReplaceAll(t *testing.T) {
-	ctx, tmpPath, tool := setupToolTest(t, MultiEditToolName)
+	ctx, tmpPath, tool := setupEditTest(t)
 	writeAndTrack(t, tmpPath, "var x = 1;\nvar y = x + x;")
 
-	resp := runTool(t, tool, ctx, MultiEditToolName, MultiEditParams{
+	resp := runMultiEdit(t, tool, ctx, MultiEditParams{
 		FilePath: tmpPath,
 		Edits: []MultiEditItem{
 			{OldString: "x", NewString: "z", ReplaceAll: true},
@@ -424,7 +411,7 @@ func TestMultiEditTool_Validation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx, tmpPath, tool := setupToolTest(t, MultiEditToolName)
+			ctx, tmpPath, tool := setupMultiEditTest(t)
 			tt.params.FilePath = tmpPath
 
 			// Only write file if not testing "file not read" case
@@ -434,7 +421,7 @@ func TestMultiEditTool_Validation(t *testing.T) {
 				require.NoError(t, os.WriteFile(tmpPath, []byte(tt.content), 0o644))
 			}
 
-			resp := runTool(t, tool, ctx, MultiEditToolName, tt.params)
+			resp := runMultiEdit(t, tool, ctx, tt.params)
 
 			if tt.wantError {
 				assert.True(t, resp.IsError)

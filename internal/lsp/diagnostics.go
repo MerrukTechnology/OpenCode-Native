@@ -10,6 +10,9 @@ import (
 )
 
 func HasDiagnosticsChanged(current, original map[protocol.DocumentUri][]protocol.Diagnostic) bool {
+	if len(current) != len(original) {
+		return true
+	}
 	for uri, diags := range current {
 		origDiags, exists := original[uri]
 		if !exists || len(diags) != len(origDiags) {
@@ -64,10 +67,14 @@ func FormatDiagnostics(filePath string, clients map[string]*Client) string {
 			}
 		}
 
-		return fmt.Sprintf("%s: %s [%s]%s%s %s",
+		sourceStr := ""
+		if sourceInfo != "" {
+			sourceStr = fmt.Sprintf(" [%s]", sourceInfo)
+		}
+		return fmt.Sprintf("%s: %s%s%s%s %s",
 			severity,
 			location,
-			sourceInfo,
+			sourceStr,
 			codeInfo,
 			tagsInfo,
 			diagnostic.Message)

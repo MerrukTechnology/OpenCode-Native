@@ -226,11 +226,15 @@ func (w *writeTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 
 	recordFileWrite(filePath)
 	recordFileRead(filePath)
-	w.lsp.WaitForDiagnostics(ctx, filePath)
+	if w.lsp != nil {
+		w.lsp.WaitForDiagnostics(ctx, filePath)
+	}
 
 	result := fmt.Sprintf("File successfully written: %s", filePath)
 	result = fmt.Sprintf("<result>\n%s\n</result>", result)
-	result += w.lsp.FormatDiagnostics(filePath)
+	if w.lsp != nil {
+		result += w.lsp.FormatDiagnostics(filePath)
+	}
 	return WithResponseMetadata(NewTextResponse(result),
 		WriteResponseMetadata{
 			Diff:      diff,

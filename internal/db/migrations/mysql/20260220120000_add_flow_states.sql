@@ -9,8 +9,8 @@ CREATE TABLE flow_states (
     args LONGTEXT,
     output LONGTEXT,
     is_struct_output TINYINT(1) NOT NULL DEFAULT 0,
-    created_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP()),
-    updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP()),
+    created_at BIGINT NOT NULL DEFAULT 0,
+    updated_at BIGINT NOT NULL DEFAULT 0,
     CONSTRAINT fk_flow_states_session FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

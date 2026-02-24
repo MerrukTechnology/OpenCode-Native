@@ -36,7 +36,8 @@ SELECT * FROM flow_states WHERE flow_id = ? ORDER BY created_at ASC;
 UPDATE flow_states
 SET status = ?,
     output = ?,
-    is_struct_output = ?
+    is_struct_output = ?,
+    updated_at = UNIX_TIMESTAMP()
 WHERE session_id = ?;
 
 -- name: DeleteFlowStatesByRootSession :exec

@@ -182,7 +182,10 @@ func (v *viewTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error)
 	output += addLineNumbers(content, params.Offset+1)
 
 	// Add a note if the content was truncated
-	linesRead := len(strings.Split(content, "\n"))
+	linesRead := 0
+	if content != "" {
+		linesRead = len(strings.Split(content, "\n"))
+	}
 	startLine := params.Offset + 1
 	endLine := params.Offset + linesRead
 	if lineCount > endLine {

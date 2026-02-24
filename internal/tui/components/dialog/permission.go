@@ -341,7 +341,10 @@ func (p *permissionDialogCmp) renderMultiEditContent() string {
 					formatted = fmt.Sprintf("Error formatting diff: %v", err)
 				}
 
-				sections = append(sections, separator, sectionHeader, "", formatted)
+				if i > 0 {
+					sections = append(sections, separator)
+				}
+				sections = append(sections, sectionHeader, "", formatted)
 			}
 			return strings.Join(sections, "\n"), nil
 		})

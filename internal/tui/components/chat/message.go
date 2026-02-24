@@ -315,12 +315,10 @@ func renderParams(paramsWidth int, params ...string) string {
 		return ""
 	}
 	mainParam := params[0]
-	if len(mainParam) > paramsWidth {
-		if paramsWidth <= 3 {
-			mainParam = mainParam[:paramsWidth]
-		} else {
-			mainParam = mainParam[:paramsWidth-3] + "..."
-		}
+	if paramsWidth <= 3 {
+		mainParam = ansi.Truncate(mainParam, paramsWidth, "")
+	} else {
+		mainParam = ansi.Truncate(mainParam, paramsWidth, "...")
 	}
 
 	if len(params) == 1 {
@@ -694,11 +692,16 @@ func renderToolMessage(
 		toolNameText = badge
 	}
 
+	paramWidth := width - 2 - lipgloss.Width(toolNameText)
+	if paramWidth < 0 {
+		paramWidth = 0
+	}
+
 	if !toolCall.Finished {
 		// Get a brief description of what the tool is doing
 		toolAction := getToolAction(toolCall.Name)
 
-		progressWidth := width - 2 - lipgloss.Width(toolNameText)
+		progressWidth := paramWidth
 		if progressWidth < 0 {
 			progressWidth = 0
 		}
@@ -717,10 +720,6 @@ func renderToolMessage(
 		return toolMsg
 	}
 
-	paramWidth := width - 2 - lipgloss.Width(toolNameText)
-	if paramWidth < 0 {
-		paramWidth = 0
-	}
 	params := renderToolParams(paramWidth, toolCall)
 	responseContent := ""
 	if response != nil {
@@ -743,7 +742,7 @@ func renderToolMessage(
 	parts := []string{}
 	if !nested {
 		formattedParams := baseStyle.
-			Width(width - 2 - lipgloss.Width(toolNameText)).
+			Width(paramWidth).
 			Foreground(t.TextMuted()).
 			Render(params)
 
@@ -753,7 +752,7 @@ func renderToolMessage(
 			Foreground(t.TextMuted()).
 			Render(" └ ")
 		formattedParams := baseStyle.
-			Width(width - 2 - lipgloss.Width(toolNameText)).
+			Width(paramWidth).
 			Foreground(t.TextMuted()).
 			Render(params)
 		parts = append(parts, lipgloss.JoinHorizontal(lipgloss.Left, prefix, toolNameText, formattedParams))
