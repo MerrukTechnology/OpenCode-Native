@@ -89,12 +89,12 @@ func (s *skillTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 	fmt.Fprintf(&sb, "# Skill: %s\n\n", skillInfo.Name)
 	sb.WriteString(strings.TrimSpace(skillInfo.Content))
 	sb.WriteString("\n\n")
-	fmt.Fprintf(&sb, "Base directory for this skill: %s\n", baseDir)
+	fmt.Fprintf(&sb, "Base directory for this skill: %s\n", toFileURI(baseDir))
 	sb.WriteString("Relative paths in this skill (e.g., scripts/, reference/) are relative to this base directory.\n")
 	sb.WriteString("Note: file list is sampled.\n\n")
 	sb.WriteString("<skill_files>\n")
 	for _, f := range files {
-		fmt.Fprintf(&sb, "<file>%s</file>\n", f)
+		fmt.Fprintf(&sb, "<file>%s</file>\n", toFileURI(f))
 	}
 	sb.WriteString("</skill_files>\n")
 	sb.WriteString("</skill_content>")

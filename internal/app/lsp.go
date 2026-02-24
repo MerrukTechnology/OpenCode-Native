@@ -162,12 +162,9 @@ func (s *lspService) WaitForDiagnostics(ctx context.Context, filePath string) er
 	diagChan := make(chan struct{}, 1)
 
 	for _, client := range clients {
-		originalDiags := make(map[protocol.DocumentUri][]protocol.Diagnostic)
 		newDiags := client.GetDiagnostics()
-
-		for k, v := range newDiags {
-			originalDiags[k] = v
-		}
+		originalDiags := make(map[protocol.DocumentUri][]protocol.Diagnostic, len(newDiags))
+		maps.Copy(originalDiags, newDiags)
 
 		handler := func(params json.RawMessage) {
 			lsp.HandleDiagnostics(client, params)

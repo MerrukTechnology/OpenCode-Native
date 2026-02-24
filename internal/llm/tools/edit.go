@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -162,10 +163,13 @@ func (e *editTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error)
 		return response, nil
 	}
 
-	// Wait for diagnostics and append them to the response
+	// Wait for LSP diagnostics; only surface them if the LSP signals issues.
+	// On timeout or infrastructure error, skip to avoid stale pre-edit diagnostics.
 	text := fmt.Sprintf("<result>\n%s\n</result>\n", response.Content)
 	if err := e.lsp.WaitForDiagnostics(ctx, params.FilePath); err != nil {
-		text += e.lsp.FormatDiagnostics(params.FilePath)
+		if !errors.Is(err, context.DeadlineExceeded) {
+			text += e.lsp.FormatDiagnostics(params.FilePath)
+		}
 	}
 	response.Content = text
 	return response, nil

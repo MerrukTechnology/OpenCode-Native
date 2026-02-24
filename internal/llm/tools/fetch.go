@@ -21,11 +21,7 @@ type FetchParams struct {
 	Timeout int    `json:"timeout,omitempty"`
 }
 
-type FetchPermissionsParams struct {
-	URL     string `json:"url"`
-	Format  string `json:"format"`
-	Timeout int    `json:"timeout,omitempty"`
-}
+type FetchPermissionsParams = FetchParams
 
 type fetchTool struct {
 	client      *http.Client
@@ -147,9 +143,9 @@ func (t *fetchTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 		if params.Timeout > maxTimeout {
 			params.Timeout = maxTimeout
 		}
-		client = &http.Client{
-			Timeout: time.Duration(params.Timeout) * time.Second,
-		}
+		clientCopy := *t.client
+		clientCopy.Timeout = time.Duration(params.Timeout) * time.Second
+		client = &clientCopy
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", params.URL, nil)

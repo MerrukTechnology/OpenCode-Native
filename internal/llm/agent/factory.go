@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -78,9 +79,13 @@ func (f *agentFactory) NewAgent(ctx context.Context, agentID string, outputSchem
 
 	infoCopy := info
 	if outputSchema != nil {
-		schemaCopy := make(map[string]any, len(outputSchema))
-		for k, v := range outputSchema {
-			schemaCopy[k] = v
+		b, err := json.Marshal(outputSchema)
+		if err != nil {
+			return nil, fmt.Errorf("copying output schema: %w", err)
+		}
+		var schemaCopy map[string]any
+		if err := json.Unmarshal(b, &schemaCopy); err != nil {
+			return nil, fmt.Errorf("copying output schema: %w", err)
 		}
 		infoCopy.Output = &agentregistry.Output{Schema: schemaCopy}
 	}

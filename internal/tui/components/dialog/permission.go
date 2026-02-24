@@ -331,17 +331,16 @@ func (p *permissionDialogCmp) renderMultiEditContent() string {
 					Width(p.contentViewPort.Width).
 					Render(fmt.Sprintf("Change %d/%d · Line %d", i+1, len(pr.Edits), edit.LineNumber))
 
-				separator := baseStyle.
-					Foreground(t.BorderDim()).
-					Width(p.contentViewPort.Width).
-					Render(strings.Repeat("─", p.contentViewPort.Width))
-
 				formatted, err := diff.FormatDiff(edit.Diff, diff.WithTotalWidth(p.contentViewPort.Width))
 				if err != nil {
 					formatted = fmt.Sprintf("Error formatting diff: %v", err)
 				}
 
 				if i > 0 {
+					separator := baseStyle.
+						Foreground(t.TextMuted()).
+						Width(p.contentViewPort.Width).
+						Render(strings.Repeat("─", p.contentViewPort.Width))
 					sections = append(sections, separator)
 				}
 				sections = append(sections, sectionHeader, "", formatted)

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -237,6 +238,7 @@ func (p *patchTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 	}
 
 	if needsPermission {
+		sort.Strings(permissionFiles)
 		rootDir := config.WorkingDirectory()
 		permissionPath := rootDir
 

@@ -48,7 +48,7 @@ func FormatDiagnostics(filePath string, clients map[string]*Client) string {
 
 		codeInfo := ""
 		if diagnostic.Code != nil {
-			codeInfo = fmt.Sprintf("[%v]", diagnostic.Code)
+			codeInfo = fmt.Sprintf(" [%v]", diagnostic.Code)
 		}
 
 		tagsInfo := ""

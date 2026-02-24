@@ -171,7 +171,7 @@ func (v *viewTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error)
 	}
 
 	// Read the file content
-	content, lineCount, err := readTextFile(filePath, params.Offset, params.Limit)
+	content, linesRead, lineCount, err := readTextFile(filePath, params.Offset, params.Limit)
 	if err != nil {
 		return NewEmptyResponse(), fmt.Errorf("error reading file: %w", err)
 	}
@@ -182,10 +182,6 @@ func (v *viewTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error)
 	output += addLineNumbers(content, params.Offset+1)
 
 	// Add a note if the content was truncated
-	linesRead := 0
-	if content != "" {
-		linesRead = len(strings.Split(content, "\n"))
-	}
 	startLine := params.Offset + 1
 	endLine := params.Offset + linesRead
 	if lineCount > endLine {
@@ -229,10 +225,10 @@ func addLineNumbers(content string, startLine int) string {
 	return strings.Join(result, "\n")
 }
 
-func readTextFile(filePath string, offset, limit int) (string, int, error) {
+func readTextFile(filePath string, offset, limit int) (string, int, int, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
-		return "", 0, err
+		return "", 0, 0, err
 	}
 	defer file.Close()
 
@@ -244,14 +240,14 @@ func readTextFile(filePath string, offset, limit int) (string, int, error) {
 			lineCount++
 		}
 		if err = scanner.Err(); err != nil {
-			return "", 0, err
+			return "", 0, 0, err
 		}
 	}
 
 	if offset == 0 {
 		_, err = file.Seek(0, io.SeekStart)
 		if err != nil {
-			return "", 0, err
+			return "", 0, 0, err
 		}
 	}
 
@@ -273,10 +269,10 @@ func readTextFile(filePath string, offset, limit int) (string, int, error) {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return "", 0, err
+		return "", 0, 0, err
 	}
 
-	return strings.Join(lines, "\n"), lineCount, nil
+	return strings.Join(lines, "\n"), len(lines), lineCount, nil
 }
 
 func isImageFile(filePath string) (bool, string) {

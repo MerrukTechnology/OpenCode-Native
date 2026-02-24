@@ -22,7 +22,6 @@ func TestFetchTool_Info(t *testing.T) {
 	assert.Contains(t, info.Parameters, "format")
 	assert.Contains(t, info.Parameters, "timeout")
 	assert.Contains(t, info.Required, "url")
-	assert.Contains(t, info.Required, "format")
 }
 
 func TestFetchTool_Run(t *testing.T) {

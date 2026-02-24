@@ -692,7 +692,11 @@ func renderToolMessage(
 		toolNameText = badge
 	}
 
-	paramWidth := width - 2 - lipgloss.Width(toolNameText)
+	styleOverhead := 2 // BorderLeft(1) + PaddingLeft(1), not present in nested path
+	if nested {
+		styleOverhead = 0
+	}
+	paramWidth := width - styleOverhead - lipgloss.Width(toolNameText)
 	if paramWidth < 0 {
 		paramWidth = 0
 	}
@@ -701,12 +705,8 @@ func renderToolMessage(
 		// Get a brief description of what the tool is doing
 		toolAction := getToolAction(toolCall.Name)
 
-		progressWidth := paramWidth
-		if progressWidth < 0 {
-			progressWidth = 0
-		}
 		progressText := baseStyle.
-			Width(progressWidth).
+			Width(paramWidth).
 			Foreground(t.TextMuted()).
 			Render(fmt.Sprintf(" %s", toolAction))
 
