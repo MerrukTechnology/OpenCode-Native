@@ -80,6 +80,9 @@ Key Features:
 		agentID, _ := cmd.Flags().GetString("agent")
 		sessionID, _ := cmd.Flags().GetString("session")
 		deleteSession, _ := cmd.Flags().GetBool("delete")
+		flowID, _ := cmd.Flags().GetString("flow")
+		flowArgs, _ := cmd.Flags().GetStringArray("arg")
+		argsFile, _ := cmd.Flags().GetString("args-file")
 
 		if deleteSession && sessionID == "" {
 			return fmt.Errorf("--delete requires --session/-s to be specified")
@@ -152,7 +155,8 @@ Key Features:
 		}
 
 		// Look up session if specified, or store ID for on-demand creation
-		if sessionID != "" {
+		// Skip for flow mode — flows manage sessions internally
+		if sessionID != "" && flowID == "" {
 			sess, _err := app.Sessions.Get(ctx, sessionID)
 			if _err != nil {
 				logging.Info("Session not found, will create with provided ID", "session_id", sessionID)
@@ -174,9 +178,16 @@ Key Features:
 			spinner.Stop()
 		}
 
+		// Non-interactive flow mode
+		if flowID != "" {
+			_err := runFlowNonInteractive(ctx, app, flowID, prompt, sessionID, deleteSession, flowArgs, argsFile, quiet)
+			app.ForceShutdown()
+			return _err
+		}
+
 		// Non-interactive mode
 		if prompt != "" {
-			_err := app.RunNonInteractive(ctx, prompt, parsedOutputFormat, quiet)
+			_err := runNonInteractive(ctx, app, prompt, parsedOutputFormat, quiet)
 			app.ForceShutdown()
 			return _err
 		}
@@ -309,7 +320,9 @@ func setupSubscriptions(app *app.App, parentCtx context.Context) (chan tea.Msg, 
 	setupSubscriber(ctx, &wg, "sessions", app.Sessions.Subscribe, ch)
 	setupSubscriber(ctx, &wg, "messages", app.Messages.Subscribe, ch)
 	setupSubscriber(ctx, &wg, "permissions", app.Permissions.Subscribe, ch)
-	setupSubscriber(ctx, &wg, "coderAgent", app.ActiveAgent().Subscribe, ch)
+	for name, primaryAgent := range app.PrimaryAgents {
+		setupSubscriber(ctx, &wg, fmt.Sprintf("agent-%s", name), primaryAgent.Subscribe, ch)
+	}
 
 	cleanupFunc := func() {
 		logging.Info("Cancelling all subscriptions")
@@ -357,6 +370,11 @@ func init() {
 
 	// Add quiet flag to hide spinner in non-interactive mode
 	rootCmd.Flags().BoolP("quiet", "q", false, "Hide spinner in non-interactive mode")
+
+	// Add flow execution flags
+	rootCmd.Flags().StringP("flow", "F", "", "Flow ID to execute (non-interactive only)")
+	rootCmd.Flags().StringArrayP("arg", "A", nil, "Flow argument as key=value (repeatable, used with --flow)")
+	rootCmd.Flags().String("args-file", "", "JSON file with flow arguments (used with --flow)")
 
 	// Register custom validation for the format flag
 	rootCmd.RegisterFlagCompletionFunc("output-format", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {

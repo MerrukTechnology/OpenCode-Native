@@ -3,20 +3,16 @@ package app
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
-	"maps"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
-	"sync"
-	"time"
 
 	agentregistry "github.com/MerrukTechnology/OpenCode-Native/internal/agent"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/db"
-	"github.com/MerrukTechnology/OpenCode-Native/internal/format"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/flow"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/history"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/agent"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
@@ -28,12 +24,15 @@ import (
 )
 
 type App struct {
-	Sessions    session.Service
-	Messages    message.Service
-	History     history.Service
-	Permissions permission.Service
-	Registry    agentregistry.Registry
-	MCPRegistry agent.MCPRegistry
+	Sessions     session.Service
+	Messages     message.Service
+	History      history.Service
+	Permissions  permission.Service
+	Registry     agentregistry.Registry
+	MCPRegistry  agent.MCPRegistry
+	Flows        flow.Service
+	AgentFactory agent.AgentFactory
+	LspService   lsp.LspService
 
 	activeAgent agent.Service
 
@@ -45,13 +44,6 @@ type App struct {
 	InitialSessionID string
 
 	cliOutputSchema map[string]any
-
-	LSPClients            map[string]*lsp.Client
-	LSPClientsCh          chan *lsp.Client
-	lspClientsMutex       sync.RWMutex
-	lspWatcherCancelFuncs []context.CancelFunc
-	lspCancelFuncsMutex   sync.Mutex
-	lspWatcherWG          sync.WaitGroup
 }
 
 func (app *App) ActiveAgent() agent.Service {
@@ -97,6 +89,10 @@ func New(ctx context.Context, conn *sql.DB, cliSchema map[string]any) (*App, err
 	files := history.NewService(q, conn)
 	reg := agentregistry.GetRegistry()
 	perm := permission.NewPermissionService()
+	lspSvc := NewLspService()
+	mcpRegistry := agent.NewMCPRegistry(perm, reg)
+	factory := agent.NewAgentFactory(sessions, messages, perm, files, lspSvc, reg, mcpRegistry)
+	flows := flow.NewService(sessions, q, perm, factory)
 
 	app := &App{
 		Sessions:      sessions,
@@ -104,55 +100,28 @@ func New(ctx context.Context, conn *sql.DB, cliSchema map[string]any) (*App, err
 		History:       files,
 		Permissions:   perm,
 		Registry:      reg,
-		LSPClients:    make(map[string]*lsp.Client),
-		LSPClientsCh:  make(chan *lsp.Client, 50),
+		LspService:    lspSvc,
 		PrimaryAgents: make(map[config.AgentName]agent.Service),
-		MCPRegistry:   agent.NewMCPRegistry(perm, reg),
+		MCPRegistry:   mcpRegistry,
+		AgentFactory:  factory,
+		Flows:         flows,
 	}
 
-	// Initialize theme based on configuration
 	app.initTheme()
+	// start lsp in background
+	go lspSvc.Init(ctx)
 
-	// Initialize LSP clients in the background
-	go app.initLSPClients(ctx)
-
-	// Create all primary agents from registry
-	primaryAgents := reg.ListByMode(config.AgentModeAgent)
-	if len(primaryAgents) == 0 {
-		return nil, errors.New("no primary agents found in registry")
+	primaryAgents, err := factory.InitPrimaryAgents(ctx, cliSchema)
+	if err != nil {
+		return nil, err
 	}
-
-	for _, agentInfo := range primaryAgents {
-		agentInfoCopy := agentInfo
-		if cliSchema != nil {
-			agentInfoCopy.Output = &agentregistry.Output{Schema: cliSchema}
-		}
-		primaryAgent, err := agent.NewAgent(
-			ctx,
-			&agentInfoCopy,
-			app.Sessions,
-			app.Messages,
-			app.Permissions,
-			app.History,
-			app.LSPClients,
-			app.Registry,
-			app.MCPRegistry,
-		)
-		if err != nil {
-			logging.Error("Failed to create agent", "agent", agentInfo.ID, "error", err)
-			continue
-		}
-		app.PrimaryAgents[agentInfo.ID] = primaryAgent
-		app.PrimaryAgentKeys = append(app.PrimaryAgentKeys, agentInfo.ID)
+	for _, primaryAgent := range primaryAgents {
+		app.PrimaryAgents[primaryAgent.AgentID()] = primaryAgent
+		app.PrimaryAgentKeys = append(app.PrimaryAgentKeys, primaryAgent.AgentID())
 		if app.activeAgent == nil {
 			app.activeAgent = primaryAgent
 		}
 	}
-
-	if app.activeAgent == nil {
-		return nil, errors.New("failed to create any primary agents")
-	}
-
 	return app, nil
 }
 
@@ -160,10 +129,9 @@ func New(ctx context.Context, conn *sql.DB, cliSchema map[string]any) (*App, err
 func (app *App) initTheme() {
 	cfg := config.Get()
 	if cfg == nil || cfg.TUI.Theme == "" {
-		return // Use default theme
+		return
 	}
 
-	// Try to set the theme from config
 	err := theme.SetTheme(cfg.TUI.Theme)
 	if err != nil {
 		logging.Warn("Failed to set theme from config, using default theme", "theme", cfg.TUI.Theme, "error", err)
@@ -172,148 +140,16 @@ func (app *App) initTheme() {
 	}
 }
 
-// RunNonInteractive handles the execution flow when a prompt is provided via CLI flag.
-func (app *App) RunNonInteractive(ctx context.Context, prompt string, outputFormat format.OutputFormat, quiet bool) error {
-	logging.Info("Running in non-interactive mode")
-
-	// Start spinner if not in quiet mode
-	var spinner *format.Spinner
-	if !quiet {
-		spinner = format.NewSpinner("Thinking...")
-		spinner.Start()
-		defer spinner.Stop()
-	}
-
-	const maxPromptLengthForTitle = 100
-	titlePrefix := "Non-interactive: "
-	var titleSuffix string
-
-	if len(prompt) > maxPromptLengthForTitle {
-		titleSuffix = prompt[:maxPromptLengthForTitle] + "..."
-	} else {
-		titleSuffix = prompt
-	}
-	title := titlePrefix + titleSuffix
-
-	var sess session.Session
-	if app.InitialSession != nil {
-		sess = *app.InitialSession
-		logging.Info("Resuming existing session for non-interactive run", "session_id", sess.ID)
-	} else if app.InitialSessionID != "" {
-		var createErr error
-		sess, createErr = app.Sessions.CreateWithID(ctx, app.InitialSessionID, title)
-		if createErr != nil {
-			return fmt.Errorf("failed to create session for non-interactive mode: %w", createErr)
-		}
-		logging.Info("Created session with provided ID for non-interactive run", "session_id", sess.ID)
-	} else {
-		var createErr error
-		sess, createErr = app.Sessions.Create(ctx, title)
-		if createErr != nil {
-			return fmt.Errorf("failed to create session for non-interactive mode: %w", createErr)
-		}
-		logging.Info("Created session for non-interactive run", "session_id", sess.ID)
-	}
-
-	// Automatically approve all permission requests for this non-interactive session
-	app.Permissions.AutoApproveSession(sess.ID)
-
-	done, err := app.ActiveAgent().Run(ctx, sess.ID, prompt)
-	if err != nil {
-		return fmt.Errorf("failed to start agent processing stream for session %s: %w", sess.ID, err)
-	}
-
-	result := <-done
-	if result.Error != nil {
-		if errors.Is(result.Error, context.Canceled) || errors.Is(result.Error, agent.ErrRequestCancelled) {
-			logging.Warn("Agent processing cancelled", "session_id", sess.ID)
-			return nil
-		}
-		return fmt.Errorf("agent processing failed for session %s: %w", sess.ID, result.Error)
-	}
-
-	// Stop spinner before printing output
-	if !quiet && spinner != nil {
-		spinner.Stop()
-	}
-
-	// Get the text content from the response
-	content := "No content available"
-
-	// For json_schema format, try to extract the struct_output tool result
-	if outputFormat == format.JSONSchema {
-		if result.StructOutput != nil {
-			content = result.StructOutput.Content
-		} else {
-			logging.Error("Failed to get structured output response for a provided schema", "error", content)
-			content = `{"error": "no structured output result foind"}`
-		}
-	} else if result.Message.Content().String() != "" {
-		content = result.Message.Content().String()
-	}
-
-	fmt.Println(format.FormatOutput(content, outputFormat))
-
-	logging.Info("Non-interactive run completed", "session_id", sess.ID)
-	return nil
-}
-
 // Shutdown performs a clean shutdown of the application
 func (app *App) Shutdown() {
-	// Cancel all watcher goroutines
-	app.lspCancelFuncsMutex.Lock()
-	for _, cancel := range app.lspWatcherCancelFuncs {
-		cancel()
-	}
-	app.lspCancelFuncsMutex.Unlock()
-	app.lspWatcherWG.Wait()
-
-	// Perform additional cleanup for LSP clients
-	app.lspClientsMutex.RLock()
-	clients := make(map[string]*lsp.Client, len(app.LSPClients))
-	maps.Copy(clients, app.LSPClients)
-	app.lspClientsMutex.RUnlock()
-
-	for name, client := range clients {
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		if err := client.Shutdown(shutdownCtx); err != nil {
-			logging.Error("Failed to shutdown LSP client", "name", name, "error", err)
-		}
-		cancel()
-	}
+	app.LspService.Shutdown(context.Background())
 }
 
 // ForceShutdown performs an aggressive shutdown for non-interactive mode
 func (app *App) ForceShutdown() {
 	logging.Info("Starting force shutdown")
-
-	// Cancel all watcher goroutines immediately
-	app.lspCancelFuncsMutex.Lock()
-	for _, cancel := range app.lspWatcherCancelFuncs {
-		cancel()
-	}
-	app.lspCancelFuncsMutex.Unlock()
-
-	// Don't wait for watchers in force shutdown - kill LSP clients directly
-	app.lspClientsMutex.RLock()
-	clients := make(map[string]*lsp.Client, len(app.LSPClients))
-	maps.Copy(clients, app.LSPClients)
-	app.lspClientsMutex.RUnlock()
-
-	for name, client := range clients {
-		// Use a very short timeout for force shutdown
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
-		if err := client.Shutdown(shutdownCtx); err != nil {
-			logging.Debug("Failed to gracefully shutdown LSP client, forcing close", "name", name, "error", err)
-			// Force close if graceful shutdown fails
-			client.Close()
-		}
-		cancel()
-	}
-
-	// Force kill any remaining child processes
+	app.LspService.ForceShutdown()
 	app.forceKillAllChildProcesses()
-
 	logging.Info("Force shutdown completed")
 }
 
@@ -321,15 +157,12 @@ func (app *App) ForceShutdown() {
 func (app *App) forceKillAllChildProcesses() {
 	currentPID := os.Getpid()
 
-	// Find all child processes using pgrep
 	cmd := exec.Command("pgrep", "-P", strconv.Itoa(currentPID))
 	output, err := cmd.Output()
 	if err != nil {
-		// No child processes found or pgrep failed
 		return
 	}
 
-	// Parse PIDs and kill them
 	pidStrings := strings.FieldsSeq(string(output))
 	for pidStr := range pidStrings {
 		if pid, err := strconv.Atoi(pidStr); err == nil {

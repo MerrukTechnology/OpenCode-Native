@@ -244,6 +244,21 @@ func (p *permissionDialogCmp) renderHeader() string {
 			),
 			baseStyle.Render(strings.Repeat(" ", p.width)),
 		)
+	case tools.MultiEditToolName:
+		params := p.permission.Params.(tools.MultiEditPermissionsParams)
+		fileKey := baseStyle.Foreground(t.TextMuted()).Bold(true).Render("File")
+		filePath := baseStyle.
+			Foreground(t.Text()).
+			Width(p.width - lipgloss.Width(fileKey)).
+			Render(fmt.Sprintf(": %s", params.FilePath))
+		headerParts = append(headerParts,
+			lipgloss.JoinHorizontal(
+				lipgloss.Left,
+				fileKey,
+				filePath,
+			),
+			baseStyle.Render(strings.Repeat(" ", p.width)),
+		)
 
 	case tools.WriteToolName:
 		params := p.permission.Params.(tools.WritePermissionsParams)
@@ -302,6 +317,41 @@ func (p *permissionDialogCmp) renderEditContent() string {
 	return ""
 }
 
+func (p *permissionDialogCmp) renderMultiEditContent() string {
+	if pr, ok := p.permission.Params.(tools.MultiEditPermissionsParams); ok {
+		t := theme.CurrentTheme()
+		baseStyle := styles.BaseStyle()
+
+		content := p.GetOrSetDiff(p.permission.ID, func() (string, error) {
+			var sections []string
+			for i, edit := range pr.Edits {
+				sectionHeader := baseStyle.
+					Bold(true).
+					Foreground(t.Primary()).
+					Width(p.contentViewPort.Width).
+					Render(fmt.Sprintf("Change %d/%d · Line %d", i+1, len(pr.Edits), edit.LineNumber))
+
+				separator := baseStyle.
+					Foreground(t.BorderDim()).
+					Width(p.contentViewPort.Width).
+					Render(strings.Repeat("─", p.contentViewPort.Width))
+
+				formatted, err := diff.FormatDiff(edit.Diff, diff.WithTotalWidth(p.contentViewPort.Width))
+				if err != nil {
+					formatted = fmt.Sprintf("Error formatting diff: %v", err)
+				}
+
+				sections = append(sections, separator, sectionHeader, "", formatted)
+			}
+			return strings.Join(sections, "\n"), nil
+		})
+
+		p.contentViewPort.SetContent(content)
+		return p.styleViewport()
+	}
+	return ""
+}
+
 func (p *permissionDialogCmp) renderPatchContent() string {
 	if pr, ok := p.permission.Params.(tools.EditPermissionsParams); ok {
 		diff := p.GetOrSetDiff(p.permission.ID, func() (string, error) {
@@ -332,18 +382,10 @@ func (p *permissionDialogCmp) renderFetchContent() string {
 	baseStyle := styles.BaseStyle()
 
 	if pr, ok := p.permission.Params.(tools.FetchPermissionsParams); ok {
-		content := fmt.Sprintf("```bash\n%s\n```", pr.URL)
-
-		// Use the cache for markdown rendering
-		renderedContent := p.GetOrSetMarkdown(p.permission.ID, func() (string, error) {
-			r := styles.GetMarkdownRenderer(p.width - 10)
-			s, err := r.Render(content)
-			return styles.ForceReplaceBackgroundWithLipgloss(s, t.Background()), err
-		})
-
 		finalContent := baseStyle.
+			Foreground(t.Text()).
 			Width(p.contentViewPort.Width).
-			Render(renderedContent)
+			Render(pr.URL)
 		p.contentViewPort.SetContent(finalContent)
 		return p.styleViewport()
 	}
@@ -375,12 +417,56 @@ func (p *permissionDialogCmp) renderDefaultContent() string {
 	return p.styleViewport()
 }
 
+func (p *permissionDialogCmp) renderScrollbar() string {
+	t := theme.CurrentTheme()
+	height := p.contentViewPort.Height
+	totalLines := p.contentViewPort.TotalLineCount()
+
+	if totalLines <= height || height <= 0 {
+		return ""
+	}
+
+	thumbSize := max(1, height*height/totalLines)
+	scrollableLines := totalLines - height
+	trackSpace := height - thumbSize
+
+	var thumbPos int
+	if scrollableLines > 0 && trackSpace > 0 {
+		thumbPos = p.contentViewPort.YOffset * trackSpace / scrollableLines
+	}
+
+	thumbStyle := lipgloss.NewStyle().
+		Foreground(t.TextMuted()).
+		Background(t.Background())
+	trackStyle := lipgloss.NewStyle().
+		Foreground(t.BorderDim()).
+		Background(t.Background())
+
+	lines := make([]string, height)
+	for i := range height {
+		if i >= thumbPos && i < thumbPos+thumbSize {
+			lines[i] = thumbStyle.Render("▐")
+		} else {
+			lines[i] = trackStyle.Render("│")
+		}
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left, lines...)
+}
+
 func (p *permissionDialogCmp) styleViewport() string {
 	t := theme.CurrentTheme()
 	contentStyle := lipgloss.NewStyle().
 		Background(t.Background())
 
-	return contentStyle.Render(p.contentViewPort.View())
+	view := p.contentViewPort.View()
+
+	scrollbar := p.renderScrollbar()
+	if scrollbar != "" {
+		view = lipgloss.JoinHorizontal(lipgloss.Top, view, scrollbar)
+	}
+
+	return contentStyle.Render(view)
 }
 
 func (p *permissionDialogCmp) render() string {
@@ -399,7 +485,7 @@ func (p *permissionDialogCmp) render() string {
 
 	// Calculate content height dynamically based on window size
 	p.contentViewPort.Height = p.height - lipgloss.Height(headerContent) - lipgloss.Height(buttons) - 2 - lipgloss.Height(title)
-	p.contentViewPort.Width = p.width - 4
+	p.contentViewPort.Width = p.width - 5
 
 	// Render content based on tool type
 	var contentFinal string
@@ -408,6 +494,8 @@ func (p *permissionDialogCmp) render() string {
 		contentFinal = p.renderBashContent()
 	case tools.EditToolName:
 		contentFinal = p.renderEditContent()
+	case tools.MultiEditToolName:
+		contentFinal = p.renderMultiEditContent()
 	case tools.PatchToolName:
 		contentFinal = p.renderPatchContent()
 	case tools.WriteToolName:
@@ -456,7 +544,7 @@ func (p *permissionDialogCmp) SetSize() tea.Cmd {
 	case tools.BashToolName:
 		p.width = int(float64(p.windowSize.Width) * 0.4)
 		p.height = int(float64(p.windowSize.Height) * 0.3)
-	case tools.EditToolName:
+	case tools.EditToolName, tools.MultiEditToolName:
 		p.width = int(float64(p.windowSize.Width) * 0.8)
 		p.height = int(float64(p.windowSize.Height) * 0.8)
 	case tools.WriteToolName:

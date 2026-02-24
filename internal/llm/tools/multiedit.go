@@ -30,6 +30,16 @@ type MultiEditParams struct {
 	Edits    []MultiEditItem `json:"edits"`
 }
 
+type MultiEditPermissionEdit struct {
+	Diff       string `json:"diff"`
+	LineNumber int    `json:"line_number"`
+}
+
+type MultiEditPermissionsParams struct {
+	FilePath string                    `json:"file_path"`
+	Edits    []MultiEditPermissionEdit `json:"edits"`
+}
+
 type MultiEditResponseMetadata struct {
 	Diff      string `json:"diff"`
 	Additions int    `json:"additions"`
@@ -37,7 +47,7 @@ type MultiEditResponseMetadata struct {
 }
 
 type multiEditTool struct {
-	lspClients  map[string]*lsp.Client
+	lsp         lsp.LspService
 	permissions permission.Service
 	files       history.Service
 	registry    agentregistry.Registry
@@ -82,9 +92,9 @@ When making edits:
 - Use replace_all for replacing and renaming strings across the file. This parameter is useful if you want to rename a variable for instance.`
 )
 
-func NewMultiEditTool(lspClients map[string]*lsp.Client, permissions permission.Service, files history.Service, reg agentregistry.Registry) BaseTool {
+func NewMultiEditTool(lspService lsp.LspService, permissions permission.Service, files history.Service, reg agentregistry.Registry) BaseTool {
 	return &multiEditTool{
-		lspClients:  lspClients,
+		lsp:         lspService,
 		permissions: permissions,
 		files:       files,
 		registry:    reg,
@@ -175,6 +185,7 @@ func (m *multiEditTool) Run(ctx context.Context, call ToolCall) (ToolResponse, e
 
 	oldContent := string(content)
 	currentContent := oldContent
+	perEditDiffs := make([]MultiEditPermissionEdit, 0, len(params.Edits))
 
 	for i, edit := range params.Edits {
 		if edit.OldString == "" {
@@ -190,6 +201,9 @@ func (m *multiEditTool) Run(ctx context.Context, call ToolCall) (ToolResponse, e
 			return NewTextErrorResponse(fmt.Sprintf("edit %d: old_string not found in file. Make sure it matches exactly, including whitespace and line breaks", i+1)), nil
 		}
 
+		lineNumber := strings.Count(currentContent[:index], "\n") + 1
+		beforeEdit := currentContent
+
 		if edit.ReplaceAll {
 			currentContent = strings.ReplaceAll(currentContent, edit.OldString, edit.NewString)
 		} else {
@@ -199,6 +213,12 @@ func (m *multiEditTool) Run(ctx context.Context, call ToolCall) (ToolResponse, e
 			}
 			currentContent = currentContent[:index] + edit.NewString + currentContent[index+len(edit.OldString):]
 		}
+
+		editDiff, _, _ := diff.GenerateDiff(beforeEdit, currentContent, params.FilePath)
+		perEditDiffs = append(perEditDiffs, MultiEditPermissionEdit{
+			Diff:       editDiff,
+			LineNumber: lineNumber,
+		})
 	}
 
 	if oldContent == currentContent {
@@ -235,9 +255,9 @@ func (m *multiEditTool) Run(ctx context.Context, call ToolCall) (ToolResponse, e
 				ToolName:    MultiEditToolName,
 				Action:      "write",
 				Description: fmt.Sprintf("Apply %d edits to file %s", len(params.Edits), params.FilePath),
-				Params: EditPermissionsParams{
+				Params: MultiEditPermissionsParams{
 					FilePath: params.FilePath,
-					Diff:     combinedDiff,
+					Edits:    perEditDiffs,
 				},
 			},
 		)
@@ -281,9 +301,9 @@ func (m *multiEditTool) Run(ctx context.Context, call ToolCall) (ToolResponse, e
 		},
 	)
 
-	waitForLspDiagnostics(ctx, params.FilePath, m.lspClients)
+	m.lsp.WaitForDiagnostics(ctx, params.FilePath)
 	text := fmt.Sprintf("<result>\n%s\n</result>\n", response.Content)
-	text += getDiagnostics(params.FilePath, m.lspClients)
+	text += m.lsp.FormatDiagnostics(params.FilePath)
 	response.Content = text
 	return response, nil
 }

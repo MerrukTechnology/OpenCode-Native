@@ -57,6 +57,9 @@ type AgentEvent struct {
 	SessionID string
 	Progress  string
 	Done      bool
+
+	// FlowStepID is set when event originates from a Flow step
+	FlowStepID string
 }
 
 type Service interface {
@@ -88,18 +91,19 @@ type agent struct {
 	activeRequests sync.Map
 }
 
-func NewAgent(
+func newAgent(
 	ctx context.Context,
 	agentInfo *agentregistry.AgentInfo,
 	sessions session.Service,
 	messages message.Service,
 	permissions permission.Service,
 	historyService history.Service,
-	lspClients map[string]*lsp.Client,
+	lspService lsp.LspService,
 	reg agentregistry.Registry,
 	mcpReg MCPRegistry,
+	factory AgentFactory,
 ) (Service, error) {
-	agentTools := NewToolSet(ctx, agentInfo, reg, permissions, historyService, lspClients, sessions, messages, mcpReg)
+	agentTools := NewToolSet(ctx, agentInfo, reg, permissions, historyService, lspService, sessions, messages, mcpReg, factory)
 
 	agentProvider, err := createAgentProvider(agentInfo.ID)
 	if err != nil {

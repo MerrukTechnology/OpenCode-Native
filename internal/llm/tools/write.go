@@ -29,7 +29,7 @@ type WritePermissionsParams struct {
 }
 
 type writeTool struct {
-	lspClients  map[string]*lsp.Client
+	lsp         lsp.LspService
 	permissions permission.Service
 	files       history.Service
 	registry    agentregistry.Registry
@@ -67,15 +67,18 @@ LIMITATIONS:
 
 
 TIPS:
+- ALWAYS prefer editing existing files in the codebase over writing entirely new content
+- NEVER proactively create documentation files (*.md) or README files unless explicitly requested
+- Only use emojis if the user explicitly requests it
 - Use the View tool first to examine existing files before modifying them
 - Use the LS tool to verify the correct location when creating new files
 - Combine with Glob and Grep tools to find and modify multiple files
 - Always include descriptive comments when making changes to existing code`
 )
 
-func NewWriteTool(lspClients map[string]*lsp.Client, permissions permission.Service, files history.Service, reg agentregistry.Registry) BaseTool {
+func NewWriteTool(lspService lsp.LspService, permissions permission.Service, files history.Service, reg agentregistry.Registry) BaseTool {
 	return &writeTool{
-		lspClients:  lspClients,
+		lsp:         lspService,
 		permissions: permissions,
 		files:       files,
 		registry:    reg,
@@ -223,11 +226,11 @@ func (w *writeTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 
 	recordFileWrite(filePath)
 	recordFileRead(filePath)
-	waitForLspDiagnostics(ctx, filePath, w.lspClients)
+	w.lsp.WaitForDiagnostics(ctx, filePath)
 
 	result := fmt.Sprintf("File successfully written: %s", filePath)
 	result = fmt.Sprintf("<result>\n%s\n</result>", result)
-	result += getDiagnostics(filePath, w.lspClients)
+	result += w.lsp.FormatDiagnostics(filePath)
 	return WithResponseMetadata(NewTextResponse(result),
 		WriteResponseMetadata{
 			Diff:      diff,

@@ -18,6 +18,7 @@ Designed for developers who prefer command-line workflows, OpenCode offers deep 
 - **Tool integration**: file operations, shell commands, code search, LSP code intelligence
 - **MCP support**: extend capabilities via Model Context Protocol servers
 - **Agent skills**: reusable instruction sets loaded on-demand ([guide](docs/skills.md))
+- **Flows**: deterministic multi-step agent workflows defined in YAML ([guide](docs/flows.md))
 - **Custom commands**: predefined prompts with named arguments ([guide](docs/custom-commands.md))
 - **Session management** with SQLite or MySQL storage ([guide](docs/session-providers.md))
 - **LSP integration** with auto-install for 30+ language servers ([guide](docs/lsp.md))
@@ -477,6 +478,7 @@ For a complete list of supported models and their configurations, see the [Provi
 | Topic | Link |
 |-------|------|
 | Skills | [docs/skills.md](docs/skills.md) |
+| Flows | [docs/flows.md](docs/flows.md) |
 | Custom Commands | [docs/custom-commands.md](docs/custom-commands.md) |
 | Session Providers | [docs/session-providers.md](docs/session-providers.md) |
 | LSP Servers | [docs/lsp.md](docs/lsp.md) |

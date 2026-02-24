@@ -38,11 +38,6 @@ type EditorKeyMaps struct {
 	OpenEditor key.Binding
 }
 
-type bluredEditorKeyMaps struct {
-	Send       key.Binding
-	Focus      key.Binding
-	OpenEditor key.Binding
-}
 type DeleteAttachmentKeyMaps struct {
 	AttachmentDeleteMode key.Binding
 	Escape               key.Binding
@@ -150,6 +145,9 @@ func (m *editorCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		modifiedValue := strings.Replace(existingValue, msg.SearchString, msg.CompletionValue, 1)
 
 		m.textarea.SetValue(modifiedValue)
+		return m, nil
+	case SessionClearedMsg:
+		m.session = session.Session{}
 		return m, nil
 	case SessionSelectedMsg:
 		if msg.ID != m.session.ID {

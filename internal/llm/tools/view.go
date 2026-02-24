@@ -20,7 +20,7 @@ type ViewParams struct {
 }
 
 type viewTool struct {
-	lspClients map[string]*lsp.Client
+	lsp lsp.LspService
 }
 
 type ViewResponseMetadata struct {
@@ -62,12 +62,13 @@ LIMITATIONS:
 TIPS:
 - Use with Glob tool to first find files you want to view
 - For code exploration, first use Grep to find relevant files, then View to examine them
-- When viewing large files, use the offset parameter to read specific sections`
+- When viewing large files, use the offset parameter to read specific sections
+- Avoid tiny repeated slices (e.g. 30-line chunks). If you need more context, read a larger window in a single call`
 )
 
-func NewViewTool(lspClients map[string]*lsp.Client) BaseTool {
+func NewViewTool(lspService lsp.LspService) BaseTool {
 	return &viewTool{
-		lspClients,
+		lsp: lspService,
 	}
 }
 
@@ -175,18 +176,21 @@ func (v *viewTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error)
 		return NewEmptyResponse(), fmt.Errorf("error reading file: %w", err)
 	}
 
-	notifyLspOpenFile(ctx, filePath, v.lspClients)
+	v.lsp.NotifyOpenFile(ctx, filePath)
 	output := "<file>\n"
 	// Format the output with line numbers
 	output += addLineNumbers(content, params.Offset+1)
 
 	// Add a note if the content was truncated
-	if lineCount > params.Offset+len(strings.Split(content, "\n")) {
-		output += fmt.Sprintf("\n\n(File has more lines. Use 'offset' parameter to read beyond line %d)",
-			params.Offset+len(strings.Split(content, "\n")))
+	linesRead := len(strings.Split(content, "\n"))
+	startLine := params.Offset + 1
+	endLine := params.Offset + linesRead
+	if lineCount > endLine {
+		output += fmt.Sprintf("\n\n(Showing lines %d-%d of %d total. Use offset=%d to continue reading.)",
+			startLine, endLine, lineCount, endLine)
 	}
 	output += "\n</file>\n"
-	output += getDiagnostics(filePath, v.lspClients)
+	output += v.lsp.FormatDiagnostics(filePath)
 	recordFileRead(filePath)
 	return WithResponseMetadata(
 		NewTextResponse(output),

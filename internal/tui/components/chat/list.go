@@ -3,7 +3,6 @@ package chat
 import (
 	"context"
 	"fmt"
-	"math"
 
 	"github.com/MerrukTechnology/OpenCode-Native/internal/app"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/message"
@@ -74,19 +73,16 @@ func (m *messagesCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case dialog.ThemeChangedMsg:
 		m.rerender()
-		return m, nil
 	case SessionSelectedMsg:
 		if msg.ID != m.session.ID {
 			cmd := m.SetSession(msg)
-			return m, cmd
+			cmds = append(cmds, cmd)
 		}
-		return m, nil
 	case SessionClearedMsg:
 		m.session = session.Session{}
 		m.messages = make([]message.Message, 0)
 		m.currentMsgID = ""
 		m.rendering = false
-		return m, nil
 
 	case tea.KeyMsg:
 		if key.Matches(msg, messageKeys.PageUp) || key.Matches(msg, messageKeys.PageDown) ||
@@ -170,18 +166,6 @@ func (m *messagesCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *messagesCmp) IsAgentWorking() bool {
 	return m.app.ActiveAgent().IsSessionBusy(m.session.ID)
-}
-
-func formatTimeDifference(unixTime1, unixTime2 int64) string {
-	diffSeconds := float64(math.Abs(float64(unixTime2 - unixTime1)))
-
-	if diffSeconds < 60 {
-		return fmt.Sprintf("%.1fs", diffSeconds)
-	}
-
-	minutes := int(diffSeconds / 60)
-	seconds := int(diffSeconds) % 60
-	return fmt.Sprintf("%dm%ds", minutes, seconds)
 }
 
 func (m *messagesCmp) renderView() {
@@ -351,14 +335,14 @@ func (m *messagesCmp) working() string {
 		t := theme.CurrentTheme()
 		baseStyle := styles.BaseStyle()
 
-		task := "Thinking..."
+		task := "Thinking"
 		lastMessage := m.messages[len(m.messages)-1]
 		if hasToolsWithoutResponse(m.messages) {
-			task = "Waiting for tool response..."
+			task = "Waiting for tool"
 		} else if hasUnfinishedToolCalls(m.messages) {
-			task = "Building tool call..."
+			task = "Building tool call"
 		} else if !lastMessage.IsFinished() {
-			task = "Generating..."
+			task = "Generating"
 		}
 		if task != "" {
 			text += baseStyle.
@@ -470,7 +454,7 @@ func (m *messagesCmp) BindingKeys() []key.Binding {
 
 func NewMessagesCmp(app *app.App) tea.Model {
 	s := spinner.New()
-	s.Spinner = spinner.Pulse
+	s.Spinner = spinner.Points
 	vp := viewport.New(0, 0)
 	attachmets := viewport.New(0, 0)
 	vp.KeyMap.PageUp = messageKeys.PageUp

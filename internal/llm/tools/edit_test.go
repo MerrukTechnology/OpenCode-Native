@@ -108,15 +108,7 @@ func setupToolTest(t *testing.T, toolName string) (context.Context, string, Base
 	mockPerms.EXPECT().Request(gomock.Any()).Return(true).AnyTimes()
 
 	files := &stubHistoryService{}
-	var tool BaseTool
-	switch toolName {
-	case EditToolName:
-		tool = NewEditTool(nil, mockPerms, files, &stubRegistry{})
-	case MultiEditToolName:
-		tool = NewMultiEditTool(nil, mockPerms, files, &stubRegistry{})
-	default:
-		t.Fatalf("unknown tool: %s", toolName)
-	}
+	tool := NewEditTool(&noopLspService{}, mockPerms, files, &stubRegistry{})
 
 	tmpFile, err := os.CreateTemp("", "tool_test_*.txt")
 	require.NoError(t, err)
@@ -155,7 +147,7 @@ func TestEditTool_Info(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockPerms := mock_permission.NewMockService(ctrl)
-	tool := NewEditTool(nil, mockPerms, &stubHistoryService{}, &stubRegistry{})
+	tool := NewEditTool(&noopLspService{}, mockPerms, &stubHistoryService{}, &stubRegistry{})
 	info := tool.Info()
 
 	assert.Equal(t, EditToolName, info.Name)
@@ -273,7 +265,54 @@ func TestEditTool_FileNotRead(t *testing.T) {
 	assert.Contains(t, resp.Content, "must read the file")
 }
 
-// --- MultiEdit Tool Tests ---
+// --- MultiEdit Tests ---
+
+func setupMultiEditTest(t *testing.T) (context.Context, string, BaseTool) {
+	t.Helper()
+	ctrl := gomock.NewController(t)
+
+	mockPerms := mock_permission.NewMockService(ctrl)
+	mockPerms.EXPECT().Request(gomock.Any()).Return(true).AnyTimes()
+
+	files := &stubHistoryService{}
+	tool := NewMultiEditTool(&noopLspService{}, mockPerms, files, &stubRegistry{})
+
+	tmpFile, err := os.CreateTemp("", "multiedit_test_*.txt")
+	require.NoError(t, err)
+	tmpPath := tmpFile.Name()
+	tmpFile.Close()
+	t.Cleanup(func() {
+		os.Remove(tmpPath)
+		ctrl.Finish()
+	})
+
+	ctx := context.WithValue(context.Background(), SessionIDContextKey, "test-session")
+	ctx = context.WithValue(ctx, MessageIDContextKey, "test-message")
+
+	return ctx, tmpPath, tool
+}
+
+func runMultiEdit(t *testing.T, tool BaseTool, ctx context.Context, params MultiEditParams) ToolResponse {
+	t.Helper()
+	paramsJSON, err := json.Marshal(params)
+	require.NoError(t, err)
+	resp, err := tool.Run(ctx, ToolCall{Name: MultiEditToolName, Input: string(paramsJSON)})
+	require.NoError(t, err)
+	return resp
+}
+
+func TestMultiEditTool_Info(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockPerms := mock_permission.NewMockService(ctrl)
+	tool := NewMultiEditTool(&noopLspService{}, mockPerms, &stubHistoryService{}, &stubRegistry{})
+	info := tool.Info()
+
+	assert.Equal(t, MultiEditToolName, info.Name)
+	assert.Contains(t, info.Parameters, "file_path")
+	assert.Contains(t, info.Parameters, "edits")
+}
 
 func TestMultiEditTool_SequentialEdits(t *testing.T) {
 	ctx, tmpPath, tool := setupToolTest(t, MultiEditToolName)

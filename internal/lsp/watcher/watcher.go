@@ -121,10 +121,10 @@ func (w *WorkspaceWatcher) AddRegistrations(ctx context.Context, id string, watc
 			maxFilesToOpen := 50 // Default conservative limit
 
 			switch serverName {
-			case "typescript", "typescript-language-server", "tsserver", "vtsls":
+			case "typescript", "typescript-language-server", "tsserver", "vtsls", "gopls":
 				// TypeScript servers benefit from seeing more files
 				maxFilesToOpen = 100
-			case "java", "jdtls":
+			case "java", "jdtls", "kotlin":
 				// Java servers need to see many files for project model
 				maxFilesToOpen = 200
 			}
@@ -275,6 +275,7 @@ func (w *WorkspaceWatcher) openHighPriorityFiles(ctx context.Context, serverName
 
 	// For each pattern, find and open matching files
 	for _, pattern := range patterns {
+		patternFilesOpened := 0
 		// Use doublestar.Glob to find files matching the pattern (supports ** patterns)
 		matches, err := doublestar.Glob(os.DirFS(w.workspacePath), pattern)
 		if err != nil {
@@ -301,6 +302,7 @@ func (w *WorkspaceWatcher) openHighPriorityFiles(ctx context.Context, serverName
 				}
 			} else {
 				filesOpened++
+				patternFilesOpened++
 				if cnf.DebugLSP {
 					logging.Debug("Opened high-priority file", "path", fullPath)
 				}
@@ -310,7 +312,7 @@ func (w *WorkspaceWatcher) openHighPriorityFiles(ctx context.Context, serverName
 			time.Sleep(20 * time.Millisecond)
 
 			// Limit the number of files opened per pattern
-			if filesOpened >= 5 && (serverName != "java" && serverName != "jdtls") {
+			if patternFilesOpened >= 5 && (serverName != "java" && serverName != "jdtls") {
 				break
 			}
 		}
@@ -433,7 +435,7 @@ func (w *WorkspaceWatcher) WatchWorkspace(ctx context.Context, workspacePath str
 					info, err := os.Stat(event.Name)
 					if err != nil {
 						logging.Error("Error getting file info", "path", event.Name, "error", err)
-						return
+						continue
 					}
 					if !info.IsDir() && watchKind&protocol.WatchCreate != 0 {
 						w.debounceHandleFileEvent(ctx, uri, protocol.FileChangeType(protocol.Created))
@@ -639,7 +641,12 @@ func (w *WorkspaceWatcher) debounceHandleFileEvent(ctx context.Context, uri stri
 
 	// Cancel existing timer if any
 	if timer, exists := w.debounceMap[key]; exists {
-		timer.Stop()
+		if timer.Stop() {
+			delete(w.debounceMap, key)
+		} else {
+			// Timer already fired; let its callback finish, skip creating a new one
+			return
+		}
 	}
 
 	// Create new timer
@@ -662,14 +669,14 @@ func (w *WorkspaceWatcher) handleFileEvent(ctx context.Context, uri string, chan
 	} else if changeType == protocol.FileChangeType(protocol.Changed) && w.client.IsFileOpen(filePath) {
 		err := w.client.NotifyChange(ctx, filePath)
 		if err != nil {
-			logging.Error("Error notifying change", "error", err)
+			logging.Error("Error notifying change", "error", err, "uri", uri, "cmd", w.client.Cmd.Path)
 		}
 		return
 	}
 
 	// Notify LSP server about the file event using didChangeWatchedFiles
 	if err := w.notifyFileEvent(ctx, uri, changeType); err != nil {
-		logging.Error("Error notifying LSP server about file event", "error", err)
+		logging.Error("Error notifying LSP server about file event", "error", err, "uri", uri, "cmd", w.client.Cmd.Path)
 	}
 }
 
@@ -698,9 +705,6 @@ func (w *WorkspaceWatcher) notifyFileEvent(ctx context.Context, uri string, chan
 // getServerNameFromContext extracts the server name from the context
 // This is a best-effort function that tries to identify which LSP server we're dealing with
 func getServerNameFromContext(ctx context.Context) (serverName string) {
-	defer func() {
-	}()
-
 	// First check if the server name is directly stored in the context
 	if serverName, ok := ctx.Value(ServerNameContextKey).(string); ok && serverName != "" {
 		return strings.ToLower(serverName)
@@ -746,6 +750,8 @@ func shouldPreloadFiles(serverName string) bool {
 		return true
 	case "java", "jdtls":
 		// Java servers often need to see source files to build the project model
+		return true
+	case "gopls":
 		return true
 	default:
 		// For most servers, we'll use lazy loading by default

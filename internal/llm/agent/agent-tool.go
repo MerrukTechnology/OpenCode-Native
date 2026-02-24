@@ -8,10 +8,8 @@ import (
 
 	agentregistry "github.com/MerrukTechnology/OpenCode-Native/internal/agent"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
-	"github.com/MerrukTechnology/OpenCode-Native/internal/history"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/tools"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
-	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/message"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/permission"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/session"
@@ -19,12 +17,9 @@ import (
 
 type agentTool struct {
 	sessions    session.Service
-	messages    message.Service
-	lspClients  map[string]*lsp.Client
 	permissions permission.Service
-	history     history.Service
 	registry    agentregistry.Registry
-	mcpRegistry MCPRegistry
+	factory     AgentFactory
 }
 
 const (
@@ -131,7 +126,7 @@ func (b *agentTool) Run(ctx context.Context, call tools.ToolCall) (tools.ToolRes
 		return tools.NewTextErrorResponse(fmt.Sprintf("unknown subagent type %q. Available: %s", subagentType, strings.Join(names, ", "))), nil
 	}
 
-	a, err := NewAgent(ctx, &subagentInfo, b.sessions, b.messages, b.permissions, b.history, b.lspClients, b.registry, b.mcpRegistry)
+	a, err := b.factory.NewAgent(ctx, subagentType, nil, "")
 	if err != nil {
 		return tools.ToolResponse{}, fmt.Errorf("error creating agent: %s", err)
 	}
@@ -210,20 +205,14 @@ func (b *agentTool) Run(ctx context.Context, call tools.ToolCall) (tools.ToolRes
 
 func NewAgentTool(
 	sessions session.Service,
-	messages message.Service,
-	lspClients map[string]*lsp.Client,
 	permissions permission.Service,
-	history history.Service,
 	reg agentregistry.Registry,
-	mcpReg MCPRegistry,
+	factory AgentFactory,
 ) tools.BaseTool {
 	return &agentTool{
 		sessions:    sessions,
-		messages:    messages,
-		lspClients:  lspClients,
 		permissions: permissions,
-		history:     history,
 		registry:    reg,
-		mcpRegistry: mcpReg,
+		factory:     factory,
 	}
 }

@@ -55,10 +55,11 @@ func NewToolSet(
 	reg agentregistry.Registry,
 	permissions permission.Service,
 	historyService history.Service,
-	lspClients map[string]*lsp.Client,
+	lspService lsp.LspService,
 	sessions session.Service,
 	messages message.Service,
 	mcpRegistry MCPRegistry,
+	factory AgentFactory,
 ) <-chan tools.BaseTool {
 	agentID := info.ID
 	result := make(chan tools.BaseTool, 100)
@@ -72,7 +73,7 @@ func NewToolSet(
 		case tools.GrepToolName:
 			return tools.NewGrepTool()
 		case tools.ViewToolName:
-			return tools.NewViewTool(lspClients)
+			return tools.NewViewTool(lspService)
 		case tools.ViewImageToolName:
 			return tools.NewViewImageTool()
 		case tools.FetchToolName:
@@ -82,19 +83,19 @@ func NewToolSet(
 		case tools.SourcegraphToolName:
 			return tools.NewSourcegraphTool()
 		case tools.WriteToolName:
-			return tools.NewWriteTool(lspClients, permissions, historyService, reg)
+			return tools.NewWriteTool(lspService, permissions, historyService, reg)
 		case tools.EditToolName:
-			return tools.NewEditTool(lspClients, permissions, historyService, reg)
+			return tools.NewEditTool(lspService, permissions, historyService, reg)
 		case tools.MultiEditToolName:
-			return tools.NewMultiEditTool(lspClients, permissions, historyService, reg)
+			return tools.NewMultiEditTool(lspService, permissions, historyService, reg)
 		case tools.DeleteToolName:
 			return tools.NewDeleteTool(permissions, historyService, reg)
 		case tools.PatchToolName:
-			return tools.NewPatchTool(lspClients, permissions, historyService, reg)
+			return tools.NewPatchTool(lspService, permissions, historyService, reg)
 		case tools.BashToolName:
 			return tools.NewBashTool(permissions, reg)
 		case TaskToolName:
-			return NewAgentTool(sessions, messages, lspClients, permissions, historyService, reg, mcpRegistry)
+			return NewAgentTool(sessions, permissions, reg, factory)
 		case tools.PlanTaskToolName:
 			return tools.NewPlanTaskTool(task.NewInMemoryTaskService())
 		case tools.UpdateStepToolName:
@@ -136,7 +137,6 @@ func NewToolSet(
 	if info.Output != nil && info.Output.Schema != nil {
 		if reg.IsToolEnabled(agentID, tools.StructOutputToolName) {
 			schema := info.Output.Schema
-			// Resolve $ref if present, using agent's markdown location for relative paths
 			baseDir := ""
 			if info.Location != "" {
 				baseDir = filepath.Dir(info.Location)
@@ -172,7 +172,7 @@ func NewToolSet(
 		defer wg.Done()
 		cfg := config.Get()
 		if len(install.ResolveServers(cfg)) > 0 && reg.IsToolEnabled(agentID, tools.LSPToolName) {
-			result <- tools.NewLspTool(lspClients)
+			result <- tools.NewLspTool(lspService)
 		}
 	}()
 
