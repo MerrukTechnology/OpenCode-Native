@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE TRIGGER IF NOT EXISTS update_sessions_updated_at
 AFTER UPDATE ON sessions
 BEGIN
-UPDATE sessions SET updated_at = strftime('%s', 'now')
+UPDATE sessions SET updated_at = unixepoch('now')
 WHERE id = new.id;
 END;
 
@@ -39,7 +39,7 @@ CREATE INDEX IF NOT EXISTS idx_files_path ON files (path);
 CREATE TRIGGER IF NOT EXISTS update_files_updated_at
 AFTER UPDATE ON files
 BEGIN
-UPDATE files SET updated_at = strftime('%s', 'now')
+UPDATE files SET updated_at = unixepoch('now')
 WHERE id = new.id;
 END;
 
@@ -61,7 +61,7 @@ CREATE INDEX IF NOT EXISTS idx_messages_session_id ON messages (session_id);
 CREATE TRIGGER IF NOT EXISTS update_messages_updated_at
 AFTER UPDATE ON messages
 BEGIN
-UPDATE messages SET updated_at = strftime('%s', 'now')
+UPDATE messages SET updated_at = unixepoch('now')
 WHERE id = new.id;
 END;
 

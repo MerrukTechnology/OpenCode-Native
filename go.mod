@@ -25,7 +25,7 @@ require (
 	github.com/muesli/reflow v0.3.0
 	github.com/muesli/termenv v0.16.0
 	github.com/ncruces/go-sqlite3 v0.30.5
-	github.com/openai/openai-go v1.12.0
+	github.com/openai/openai-go/v3 v3.24.0
 	github.com/pressly/goose/v3 v3.26.0
 	github.com/sergi/go-diff v1.4.0
 	github.com/spf13/cobra v1.10.2

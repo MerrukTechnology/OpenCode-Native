@@ -23,8 +23,8 @@ INSERT INTO sessions (
     ?,
     ?,
     null,
-    strftime('%s', 'now'),
-    strftime('%s', 'now')
+    unixepoch('now'),
+    unixepoch('now')
 ) RETURNING *;
 
 -- name: GetSessionByID :one

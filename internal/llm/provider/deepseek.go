@@ -14,8 +14,8 @@ import (
 	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/tools"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/message"
-	"github.com/openai/openai-go"
-	"github.com/openai/openai-go/option"
+	"github.com/openai/openai-go/v3"
+	"github.com/openai/openai-go/v3/option"
 )
 
 type deepSeekOptions struct {
@@ -92,15 +92,18 @@ func (d *deepSeekClient) convertMessages(messages []message.Message) (deepSeekMe
 			}
 
 			if len(msg.ToolCalls()) > 0 {
-				assistantMsg.ToolCalls = make([]openai.ChatCompletionMessageToolCallParam, len(msg.ToolCalls()))
+				assistantMsg.ToolCalls = make([]openai.ChatCompletionMessageToolCallUnionParam, len(msg.ToolCalls()))
 				for i, call := range msg.ToolCalls() {
-					assistantMsg.ToolCalls[i] = openai.ChatCompletionMessageToolCallParam{
+					toolCall := openai.ChatCompletionMessageFunctionToolCallParam{
 						ID:   call.ID,
 						Type: "function",
-						Function: openai.ChatCompletionMessageToolCallFunctionParam{
+						Function: openai.ChatCompletionMessageFunctionToolCallFunctionParam{
 							Name:      call.Name,
 							Arguments: call.Input,
 						},
+					}
+					assistantMsg.ToolCalls[i] = openai.ChatCompletionMessageToolCallUnionParam{
+						OfFunction: &toolCall,
 					}
 				}
 			}
@@ -122,19 +125,18 @@ func (d *deepSeekClient) convertMessages(messages []message.Message) (deepSeekMe
 }
 
 // DeepSeek-specific tool conversion that handles empty tools properly
-func (d *deepSeekClient) convertTools(tools []tools.BaseTool) []openai.ChatCompletionToolParam {
+func (d *deepSeekClient) convertTools(tools []tools.BaseTool) []openai.ChatCompletionToolUnionParam {
 	// DeepSeek API doesn't accept empty tools array - return nil instead
 	if len(tools) == 0 {
 		return nil
 	}
 
-	deepSeekTools := make([]openai.ChatCompletionToolParam, len(tools))
+	deepSeekTools := make([]openai.ChatCompletionToolUnionParam, len(tools))
 
 	for i, tool := range tools {
 		info := tool.Info()
-		deepSeekTools[i] = openai.ChatCompletionToolParam{
-			Type: "function",
-			Function: openai.FunctionDefinitionParam{
+		deepSeekTools[i] = openai.ChatCompletionFunctionTool(
+			openai.FunctionDefinitionParam{
 				Name:        info.Name,
 				Description: openai.String(info.Description),
 				Parameters: openai.FunctionParameters{
@@ -143,7 +145,7 @@ func (d *deepSeekClient) convertTools(tools []tools.BaseTool) []openai.ChatCompl
 					"required":   info.Required,
 				},
 			},
-		}
+		)
 	}
 
 	return deepSeekTools
@@ -162,7 +164,7 @@ func (d *deepSeekClient) finishReason(reason string) message.FinishReason {
 	}
 }
 
-func (d *deepSeekClient) preparedParams(messages []openai.ChatCompletionMessageParamUnion, tools []openai.ChatCompletionToolParam) openai.ChatCompletionNewParams {
+func (d *deepSeekClient) preparedParams(messages []openai.ChatCompletionMessageParamUnion, tools []openai.ChatCompletionToolUnionParam) openai.ChatCompletionNewParams {
 	params := openai.ChatCompletionNewParams{
 		Model:     openai.ChatModel(d.providerOptions.model.APIModel),
 		Messages:  messages,
@@ -384,7 +386,6 @@ func (d *deepSeekClient) usage(completion openai.ChatCompletion) TokenUsage {
 	}
 }
 
-// --- FIX START: Added missing interface methods ---
 func (d *deepSeekClient) countTokens(ctx context.Context, messages []message.Message, tools []tools.BaseTool) (int64, error) {
 	return 0, fmt.Errorf("countTokens is unsupported by deepseek client: %w", errors.ErrUnsupported)
 }

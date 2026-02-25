@@ -32,7 +32,7 @@ INSERT INTO files (
     created_at,
     updated_at
 ) VALUES (
-    ?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now')
+    ?, ?, ?, ?, ?, unixepoch('now'), unixepoch('now')
 )
 RETURNING *;
 
@@ -41,7 +41,7 @@ UPDATE files
 SET
     content = ?,
     version = ?,
-    updated_at = strftime('%s', 'now')
+    updated_at = unixepoch('now')
 WHERE id = ?
 RETURNING *;
 

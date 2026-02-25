@@ -28,10 +28,31 @@ DROP TRIGGER IF EXISTS update_flow_states_updated_at;
 
 -- +goose StatementEnd
 -- +goose StatementBegin
+DROP TRIGGER IF EXISTS set_flow_states_created_at;
+
+-- +goose StatementEnd
+-- +goose StatementBegin
 CREATE TRIGGER update_flow_states_updated_at BEFORE
 UPDATE ON flow_states FOR EACH ROW
 SET
   NEW.updated_at = UNIX_TIMESTAMP ();
+
+-- +goose StatementEnd
+-- +goose StatementBegin
+DROP TRIGGER IF EXISTS set_flow_states_created_at;
+
+-- +goose StatementEnd
+-- +goose StatementBegin
+CREATE TRIGGER set_flow_states_created_at BEFORE
+INSERT ON flow_states FOR EACH ROW
+BEGIN
+  IF NEW.created_at = 0 THEN
+    SET NEW.created_at = UNIX_TIMESTAMP();
+  END IF;
+  IF NEW.updated_at = 0 THEN
+    SET NEW.updated_at = UNIX_TIMESTAMP();
+  END IF;
+END;
 
 -- +goose StatementEnd
 

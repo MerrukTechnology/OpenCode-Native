@@ -13,9 +13,9 @@ import (
 	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/tools"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/message"
-	"github.com/openai/openai-go"
-	"github.com/openai/openai-go/option"
-	"github.com/openai/openai-go/shared"
+	"github.com/openai/openai-go/v3"
+	"github.com/openai/openai-go/v3/option"
+	"github.com/openai/openai-go/v3/shared"
 )
 
 type openaiOptions struct {
@@ -108,15 +108,18 @@ func (o *openaiClient) convertMessages(messages []message.Message) (openaiMessag
 			}
 
 			if len(msg.ToolCalls()) > 0 {
-				assistantMsg.ToolCalls = make([]openai.ChatCompletionMessageToolCallParam, len(msg.ToolCalls()))
+				assistantMsg.ToolCalls = make([]openai.ChatCompletionMessageToolCallUnionParam, len(msg.ToolCalls()))
 				for i, call := range msg.ToolCalls() {
-					assistantMsg.ToolCalls[i] = openai.ChatCompletionMessageToolCallParam{
+					toolCall := openai.ChatCompletionMessageFunctionToolCallParam{
 						ID:   call.ID,
 						Type: "function",
-						Function: openai.ChatCompletionMessageToolCallFunctionParam{
+						Function: openai.ChatCompletionMessageFunctionToolCallFunctionParam{
 							Name:      call.Name,
 							Arguments: call.Input,
 						},
+					}
+					assistantMsg.ToolCalls[i] = openai.ChatCompletionMessageToolCallUnionParam{
+						OfFunction: &toolCall,
 					}
 				}
 			}
@@ -137,13 +140,13 @@ func (o *openaiClient) convertMessages(messages []message.Message) (openaiMessag
 	return
 }
 
-func (o *openaiClient) convertTools(tools []tools.BaseTool) []openai.ChatCompletionToolParam {
-	openaiTools := make([]openai.ChatCompletionToolParam, len(tools))
+func (o *openaiClient) convertTools(tools []tools.BaseTool) []openai.ChatCompletionToolUnionParam {
+	openaiTools := make([]openai.ChatCompletionToolUnionParam, len(tools))
 
 	for i, tool := range tools {
 		info := tool.Info()
-		openaiTools[i] = openai.ChatCompletionToolParam{
-			Function: openai.FunctionDefinitionParam{
+		openaiTools[i] = openai.ChatCompletionFunctionTool(
+			openai.FunctionDefinitionParam{
 				Name:        info.Name,
 				Description: openai.String(info.Description),
 				Parameters: openai.FunctionParameters{
@@ -152,7 +155,7 @@ func (o *openaiClient) convertTools(tools []tools.BaseTool) []openai.ChatComplet
 					"required":   info.Required,
 				},
 			},
-		}
+		)
 	}
 
 	return openaiTools
@@ -171,7 +174,7 @@ func (o *openaiClient) finishReason(reason string) message.FinishReason {
 	}
 }
 
-func (o *openaiClient) preparedParams(messages []openai.ChatCompletionMessageParamUnion, tools []openai.ChatCompletionToolParam) openai.ChatCompletionNewParams {
+func (o *openaiClient) preparedParams(messages []openai.ChatCompletionMessageParamUnion, tools []openai.ChatCompletionToolUnionParam) openai.ChatCompletionNewParams {
 	params := openai.ChatCompletionNewParams{
 		Model:    openai.ChatModel(o.providerOptions.model.APIModel),
 		Messages: messages,
@@ -443,8 +446,6 @@ func WithReasoningEffort(effort string) OpenAIOption {
 		options.reasoningEffort = defaultReasoningEffort
 	}
 }
-
-// --- FIX START: New Functions required by provider.go to support Groq/xAI/OpenRouter ---
 
 func WithOpenAIBaseURL(baseURL string) OpenAIOption {
 	return func(options *openaiOptions) {
