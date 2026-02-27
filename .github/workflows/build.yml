@@ -16,11 +16,16 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          fetch-tags: true # Ensure all tags are fetched for goreleaser to work correctly
 
-      - run: git fetch --force --tags
+      - name: Install dependencies (Ripgrep & FZF)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ripgrep fzf
 
       - uses: actions/setup-go@v5
         with:
