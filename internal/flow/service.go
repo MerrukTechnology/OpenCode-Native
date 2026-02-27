@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +16,7 @@ import (
 	"github.com/MerrukTechnology/OpenCode-Native/internal/db"
 	agentpkg "github.com/MerrukTechnology/OpenCode-Native/internal/llm/agent"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/message"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/permission"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/pubsub"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/session"
@@ -25,6 +28,7 @@ const (
 	FlowStatusRunning   FlowStatus = "running"
 	FlowStatusCompleted FlowStatus = "completed"
 	FlowStatusFailed    FlowStatus = "failed"
+	FlowStatusPostponed FlowStatus = "postponed"
 )
 
 type FlowState struct {
@@ -50,6 +54,7 @@ type Service interface {
 type service struct {
 	*pubsub.Broker[FlowState]
 	sessions    session.Service
+	messages    message.Service
 	querier     db.QuerierWithTx
 	permissions permission.Service
 	agents      agentpkg.AgentFactory
@@ -57,6 +62,7 @@ type service struct {
 
 func NewService(
 	sessions session.Service,
+	messages message.Service,
 	querier db.QuerierWithTx,
 	permissions permission.Service,
 	agents agentpkg.AgentFactory,
@@ -64,6 +70,7 @@ func NewService(
 	return &service{
 		Broker:      pubsub.NewBroker[FlowState](),
 		sessions:    sessions,
+		messages:    messages,
 		querier:     querier,
 		permissions: permissions,
 		agents:      agents,
@@ -74,6 +81,7 @@ type stepWork struct {
 	step     Step
 	args     map[string]any
 	prevStep *FlowState
+	postpone bool
 }
 
 func (s *service) Run(ctx context.Context, sessionPrefix string, flowID string, args map[string]any, fresh bool) (<-chan agentpkg.AgentEvent, <-chan *FlowState, error) {
@@ -152,14 +160,16 @@ func (s *service) Run(ctx context.Context, sessionPrefix string, flowID string, 
 		stepSessionID := fmt.Sprintf("%s-%s-%s", sessionPrefix, flowID, w.step.ID)
 		argsJSON, _ := json.Marshal(w.args)
 		if _, getErr := s.querier.GetFlowState(ctx, stepSessionID); getErr == nil {
-			s.querier.UpdateFlowState(ctx, db.UpdateFlowStateParams{
+			if _, err := s.querier.UpdateFlowState(ctx, db.UpdateFlowStateParams{
 				Status:         string(FlowStatusRunning),
 				Output:         sql.NullString{},
 				IsStructOutput: false,
 				SessionID:      stepSessionID,
-			})
+			}); err != nil {
+				logging.Warn("Failed to update initial flow state", "session_id", stepSessionID, "error", err)
+			}
 		} else {
-			s.querier.CreateFlowState(ctx, db.CreateFlowStateParams{
+			if _, err := s.querier.CreateFlowState(ctx, db.CreateFlowStateParams{
 				SessionID:      stepSessionID,
 				RootSessionID:  rootSessionID,
 				FlowID:         f.ID,
@@ -167,7 +177,9 @@ func (s *service) Run(ctx context.Context, sessionPrefix string, flowID string, 
 				Status:         string(FlowStatusRunning),
 				Args:           sql.NullString{String: string(argsJSON), Valid: true},
 				IsStructOutput: false,
-			})
+			}); err != nil {
+				logging.Warn("Failed to create initial flow state", "session_id", stepSessionID, "error", err)
+			}
 		}
 	}
 
@@ -179,7 +191,7 @@ func (s *service) Run(ctx context.Context, sessionPrefix string, flowID string, 
 	go func() {
 		for work := range nextSteps {
 			stepSessionID := fmt.Sprintf("%s-%s-%s", sessionPrefix, flowID, work.step.ID)
-			if _, loaded := startedSteps.LoadOrStore(work.step.ID, true); loaded {
+			if _, loaded := startedSteps.LoadOrStore(work.step.ID, true); loaded && !work.postpone {
 				logging.Debug("Step already started, skipping (diamond convergence)", "step", work.step.ID)
 				wg.Done() // balance the Add from sender
 				continue
@@ -187,7 +199,7 @@ func (s *service) Run(ctx context.Context, sessionPrefix string, flowID string, 
 
 			go func(w stepWork, sessID string) {
 				defer wg.Done()
-				s.runStep(ctx, f, w.step, sessID, rootSessionID, sessionPrefix, w.args, w.prevStep, &wg, agentEvents, flowStates, nextSteps, startedSteps)
+				s.runStep(ctx, f, w.step, sessID, rootSessionID, w.args, w.prevStep, &wg, agentEvents, flowStates, nextSteps, work.postpone)
 			}(work, stepSessionID)
 		}
 	}()
@@ -208,14 +220,13 @@ func (s *service) runStep(
 	step Step,
 	sessionID string,
 	rootSessionID string,
-	sessionPrefix string,
 	args map[string]any,
 	prevState *FlowState,
 	wg *sync.WaitGroup,
 	agentEvents chan<- agentpkg.AgentEvent,
 	flowStates chan<- *FlowState,
 	nextSteps chan<- stepWork,
-	startedSteps *sync.Map,
+	postpone bool,
 ) {
 	agentID := step.Agent
 	if agentID == "" {
@@ -228,13 +239,13 @@ func (s *service) runStep(
 	}
 	agentSvc, err := s.agents.NewAgent(ctx, agentID, outputSchema, step.ID)
 	if err != nil {
-		s.handleStepError(ctx, step, sessionID, rootSessionID, f.ID, args, err, wg, agentEvents, flowStates, nextSteps, f, sessionPrefix, startedSteps)
+		s.handleStepError(ctx, step, sessionID, rootSessionID, f.ID, args, err, wg, agentEvents, flowStates, nextSteps, f)
 		return
 	}
 
 	sess, err := s.resolveSession(ctx, step, sessionID, rootSessionID, prevState)
 	if err != nil {
-		s.handleStepError(ctx, step, sessionID, rootSessionID, f.ID, args, fmt.Errorf("resolving session: %w", err), wg, agentEvents, flowStates, nextSteps, f, sessionPrefix, startedSteps)
+		s.handleStepError(ctx, step, sessionID, rootSessionID, f.ID, args, fmt.Errorf("resolving session: %w", err), wg, agentEvents, flowStates, nextSteps, f)
 		return
 	}
 
@@ -245,10 +256,15 @@ func (s *service) runStep(
 		prompt = fmt.Sprintf("Previous step (%s) output:\n%s\n\n%s", prevState.StepID, prevState.Output, prompt)
 	}
 
+	status := FlowStatusRunning
+	if prevState != nil && postpone {
+		status = FlowStatusPostponed
+	}
+
 	argsJSON, _ := json.Marshal(args)
 	if _, getErr := s.querier.GetFlowState(ctx, sessionID); getErr == nil {
 		_, err = s.querier.UpdateFlowState(ctx, db.UpdateFlowStateParams{
-			Status:         string(FlowStatusRunning),
+			Status:         string(status),
 			Output:         sql.NullString{},
 			IsStructOutput: false,
 			SessionID:      sessionID,
@@ -259,13 +275,13 @@ func (s *service) runStep(
 			RootSessionID:  rootSessionID,
 			FlowID:         f.ID,
 			StepID:         step.ID,
-			Status:         string(FlowStatusRunning),
+			Status:         string(status),
 			Args:           sql.NullString{String: string(argsJSON), Valid: true},
 			IsStructOutput: false,
 		})
 	}
 	if err != nil {
-		s.handleStepError(ctx, step, sessionID, rootSessionID, f.ID, args, fmt.Errorf("persisting flow state: %w", err), wg, agentEvents, flowStates, nextSteps, f, sessionPrefix, startedSteps)
+		s.handleStepError(ctx, step, sessionID, rootSessionID, f.ID, args, fmt.Errorf("persisting flow state: %w", err), wg, agentEvents, flowStates, nextSteps, f)
 		return
 	}
 
@@ -274,11 +290,16 @@ func (s *service) runStep(
 		RootSessionID: rootSessionID,
 		FlowID:        f.ID,
 		StepID:        step.ID,
-		Status:        FlowStatusRunning,
+		Status:        status,
 		Args:          args,
 	}
 	flowStates <- runningState
 	s.Publish(pubsub.UpdatedEvent, *runningState)
+
+	if status == FlowStatusPostponed {
+		logging.Info("Step postponed for next execution", "step", step.ID)
+		return
+	}
 
 	var result agentpkg.AgentEvent
 	maxAttempts := 1
@@ -322,12 +343,14 @@ func (s *service) runStep(
 doneRetry:
 
 	if lastErr != nil {
-		s.querier.UpdateFlowState(ctx, db.UpdateFlowStateParams{
+		if _, updateErr := s.querier.UpdateFlowState(ctx, db.UpdateFlowStateParams{
 			Status:         string(FlowStatusFailed),
 			Output:         sql.NullString{String: lastErr.Error(), Valid: true},
 			IsStructOutput: false,
 			SessionID:      sessionID,
-		})
+		}); updateErr != nil {
+			logging.Warn("Failed to persist step failure state", "session_id", sessionID, "error", updateErr)
+		}
 
 		failedState := &FlowState{
 			SessionID:     sessionID,
@@ -359,20 +382,20 @@ doneRetry:
 
 		var structData map[string]any
 		if err := json.Unmarshal([]byte(output), &structData); err == nil {
-			for k, v := range structData {
-				args[k] = v
-			}
+			maps.Copy(args, structData)
 		}
 	} else {
 		output = result.Message.Content().Text
 	}
 
-	s.querier.UpdateFlowState(ctx, db.UpdateFlowStateParams{
+	if _, updateErr := s.querier.UpdateFlowState(ctx, db.UpdateFlowStateParams{
 		Status:         string(FlowStatusCompleted),
 		Output:         sql.NullString{String: output, Valid: output != ""},
 		IsStructOutput: isStructOutput,
 		SessionID:      sessionID,
-	})
+	}); updateErr != nil {
+		logging.Warn("Failed to persist step completion state", "session_id", sessionID, "error", updateErr)
+	}
 
 	completedState := &FlowState{
 		SessionID:      sessionID,
@@ -406,7 +429,7 @@ doneRetry:
 				nextStep := findStep(f.Spec.Steps, rule.Then)
 				if nextStep != nil {
 					wg.Add(1)
-					nextSteps <- stepWork{step: *nextStep, args: copyArgs(args), prevStep: completedState}
+					nextSteps <- stepWork{step: *nextStep, args: copyArgs(args), prevStep: completedState, postpone: rule.Postpone}
 				}
 			}
 		}
@@ -426,10 +449,17 @@ func (s *service) handleStepError(
 	flowStates chan<- *FlowState,
 	nextSteps chan<- stepWork,
 	f *Flow,
-	sessionPrefix string,
-	startedSteps *sync.Map,
 ) {
 	logging.Error("Flow step failed", "step", step.ID, "error", err)
+
+	if _, updateErr := s.querier.UpdateFlowState(ctx, db.UpdateFlowStateParams{
+		Status:         string(FlowStatusFailed),
+		Output:         sql.NullString{String: err.Error(), Valid: true},
+		IsStructOutput: false,
+		SessionID:      sessionID,
+	}); updateErr != nil {
+		logging.Warn("Failed to persist step error state", "session_id", sessionID, "error", updateErr)
+	}
 
 	failedState := &FlowState{
 		SessionID:     sessionID,
@@ -475,13 +505,18 @@ func (s *service) collectResumableSteps(
 
 	existing := stateMap[step.ID]
 
-	if existing == nil || existing.Status != FlowStatusCompleted {
+	if existing == nil || (existing.Status != FlowStatusCompleted && existing.Status != FlowStatusPostponed) {
 		if existing != nil {
 			logging.Info("Resuming non-completed step", "step", step.ID, "status", existing.Status)
 		} else {
 			logging.Info("Running step not yet attempted", "step", step.ID)
 		}
 		return []stepWork{{step: step, args: copyArgs(args), prevStep: prevState}}
+	}
+
+	if existing.Status == FlowStatusPostponed {
+		logging.Info("Resuming postponed step", "step", step.ID)
+		return []stepWork{{step: step, args: copyArgs(args), prevStep: existing}}
 	}
 
 	logging.Debug("Skipping completed step during resume", "step", step.ID)
@@ -492,9 +527,7 @@ func (s *service) collectResumableSteps(
 	if existing.IsStructOutput && existing.Output != "" {
 		var structData map[string]any
 		if err := json.Unmarshal([]byte(existing.Output), &structData); err == nil {
-			for k, v := range structData {
-				args[k] = v
-			}
+			maps.Copy(args, structData)
 		}
 	}
 
@@ -528,13 +561,39 @@ func (s *service) resolveSession(ctx context.Context, step Step, sessionID strin
 	}
 
 	title := fmt.Sprintf("Flow step: %s", step.ID)
-	sess, err := s.sessions.CreateWithID(ctx, sessionID, title)
+	sess, err := s.sessions.CreateFlowSession(ctx, sessionID, rootSessionID, title)
 	if err != nil {
 		return session.Session{}, fmt.Errorf("creating session: %w", err)
 	}
+
+	if step.Session.Fork && prevState != nil && prevState.SessionID != "" {
+		if copyErr := s.copySessionMessages(ctx, prevState.SessionID, sess.ID); copyErr != nil {
+			logging.Warn("Failed to fork session messages", "from", prevState.SessionID, "to", sess.ID, "error", copyErr)
+		}
+	}
+
 	return sess, nil
 }
 
+func (s *service) copySessionMessages(ctx context.Context, fromSessionID, toSessionID string) error {
+	msgs, err := s.messages.List(ctx, fromSessionID)
+	if err != nil {
+		return fmt.Errorf("listing messages from %s: %w", fromSessionID, err)
+	}
+	for _, msg := range msgs {
+		_, err := s.messages.Create(ctx, toSessionID, message.CreateMessageParams{
+			Role:  msg.Role,
+			Parts: msg.Parts,
+			Model: msg.Model,
+		})
+		if err != nil {
+			return fmt.Errorf("copying message to %s: %w", toSessionID, err)
+		}
+	}
+	return nil
+}
+
+// TODO: consider adding default value support ${args.name:-default}
 func substituteArgs(template string, args map[string]any) string {
 	if strings.Contains(template, "${args}") {
 		argsJSON, err := json.MarshalIndent(args, "", "  ")
@@ -552,7 +611,7 @@ func substituteArgs(template string, args map[string]any) string {
 	return template
 }
 
-var predicateRegex = regexp.MustCompile(`^\$\{args\.([^}]+)\}\s*(==|!=|=~)\s*(.+)$`)
+var predicateRegex = regexp.MustCompile(`^(?:(sizeof)\s+)?\$\{args\.([^}]+)\}\s*(==|!=|=~)\s*(.+)$`)
 
 func evaluatePredicate(predicate string, args map[string]any) (bool, error) {
 	matches := predicateRegex.FindStringSubmatch(strings.TrimSpace(predicate))
@@ -560,15 +619,20 @@ func evaluatePredicate(predicate string, args map[string]any) (bool, error) {
 		return false, fmt.Errorf("%w: %q", ErrInvalidPredicate, predicate)
 	}
 
-	key := matches[1]
-	op := matches[2]
-	expected := strings.TrimSpace(matches[3])
+	prefix := matches[1]
+	key := matches[2]
+	op := matches[3]
+	expected := strings.TrimSpace(matches[4])
 
 	actual, ok := args[key]
 	if !ok {
 		return false, nil
 	}
 	actualStr := fmt.Sprintf("%v", actual)
+
+	if prefix == "sizeof" {
+		actualStr = resolveSizeof(actual)
+	}
 
 	switch op {
 	case "==":
@@ -587,6 +651,17 @@ func evaluatePredicate(predicate string, args map[string]any) (bool, error) {
 		return re.MatchString(actualStr), nil
 	default:
 		return false, fmt.Errorf("unknown operator %q", op)
+	}
+}
+
+func resolveSizeof(value any) string {
+	switch v := value.(type) {
+	case []any:
+		return strconv.Itoa(len(v))
+	case map[string]any:
+		return strconv.Itoa(len(v))
+	default:
+		return strconv.Itoa(len(fmt.Sprintf("%v", v)))
 	}
 }
 
@@ -609,10 +684,14 @@ func findStep(steps []Step, id string) *Step {
 }
 
 func copyArgs(args map[string]any) map[string]any {
-	result := make(map[string]any, len(args))
-	for k, v := range args {
-		result[k] = v
+	data, err := json.Marshal(args)
+	if err != nil {
+		result := make(map[string]any, len(args))
+		maps.Copy(result, args)
+		return result
 	}
+	var result map[string]any
+	json.Unmarshal(data, &result)
 	return result
 }
 

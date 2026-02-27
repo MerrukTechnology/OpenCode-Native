@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/models"
@@ -309,9 +310,19 @@ func generateSchema() map[string]any {
 
 	// Add model enum
 	modelEnum := []string{}
-	for modelID := range models.SupportedModels {
-		modelEnum = append(modelEnum, string(modelID))
+	for modelID, info := range models.SupportedModels {
+		if info.Provider != models.ProviderLocal {
+			modelEnum = append(modelEnum, string(modelID))
+		}
 	}
+	sort.Slice(modelEnum, func(i, j int) bool {
+		mi := models.SupportedModels[models.ModelID(modelEnum[i])]
+		mj := models.SupportedModels[models.ModelID(modelEnum[j])]
+		if mi.Provider != mj.Provider {
+			return mi.Provider < mj.Provider
+		}
+		return mi.Name < mj.Name
+	})
 	agentSchema["additionalProperties"].(map[string]any)["properties"].(map[string]any)["model"].(map[string]any)["enum"] = modelEnum
 
 	// Add specific agent properties

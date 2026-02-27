@@ -181,7 +181,7 @@ func TestEditTool_Replace(t *testing.T) {
 			content:      "foo bar foo",
 			params:       EditParams{FilePath: "", OldString: "foo", NewString: "baz"},
 			wantError:    true,
-			wantContains: []string{"multiple times", "replace_all"},
+			wantContains: []string{"appears 2 times", "replace_all"},
 		},
 		{
 			name:        "replaceAll replaces all occurrences",
@@ -214,8 +214,10 @@ func TestEditTool_Replace(t *testing.T) {
 				}
 			} else {
 				assert.False(t, resp.IsError)
-				content, _ := os.ReadFile(tmpPath)
-				assert.Equal(t, tt.wantContent, string(content))
+				if tt.wantContent != "" {
+					content, _ := os.ReadFile(tmpPath)
+					assert.Equal(t, tt.wantContent, string(content))
+				}
 			}
 		})
 	}
@@ -398,7 +400,7 @@ func TestMultiEditTool_Validation(t *testing.T) {
 			content:      "foo bar foo",
 			params:       MultiEditParams{FilePath: "", Edits: []MultiEditItem{{OldString: "foo", NewString: "baz"}}},
 			wantError:    true,
-			wantContains: []string{"multiple times", "replace_all"},
+			wantContains: []string{"appears 2 times", "replace_all"},
 		},
 		{
 			name:         "file not read",
@@ -433,4 +435,59 @@ func TestMultiEditTool_Validation(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMultiEditTool_EmptyEdits(t *testing.T) {
+	ctx, tmpPath, tool := setupMultiEditTest(t)
+	writeAndTrack(t, tmpPath, "content")
+
+	resp := runMultiEdit(t, tool, ctx, MultiEditParams{
+		FilePath: tmpPath,
+		Edits:    []MultiEditItem{},
+	})
+	assert.True(t, resp.IsError)
+	assert.Contains(t, resp.Content, "must not be empty")
+}
+
+func TestMultiEditTool_EmptyOldString(t *testing.T) {
+	ctx, tmpPath, tool := setupMultiEditTest(t)
+	writeAndTrack(t, tmpPath, "content")
+
+	resp := runMultiEdit(t, tool, ctx, MultiEditParams{
+		FilePath: tmpPath,
+		Edits: []MultiEditItem{
+			{OldString: "", NewString: "new"},
+		},
+	})
+	assert.True(t, resp.IsError)
+	assert.Contains(t, resp.Content, "old_string cannot be empty")
+}
+
+func TestMultiEditTool_FileNotRead(t *testing.T) {
+	ctx, tmpPath, tool := setupMultiEditTest(t)
+	require.NoError(t, os.WriteFile(tmpPath, []byte("content"), 0o644))
+
+	resp := runMultiEdit(t, tool, ctx, MultiEditParams{
+		FilePath: tmpPath,
+		Edits: []MultiEditItem{
+			{OldString: "content", NewString: "new"},
+		},
+	})
+	assert.True(t, resp.IsError)
+	assert.Contains(t, resp.Content, "must read the file")
+}
+
+func TestMultiEditTool_MultipleMatchesWithoutReplaceAll(t *testing.T) {
+	ctx, tmpPath, tool := setupMultiEditTest(t)
+	writeAndTrack(t, tmpPath, "foo bar foo")
+
+	resp := runMultiEdit(t, tool, ctx, MultiEditParams{
+		FilePath: tmpPath,
+		Edits: []MultiEditItem{
+			{OldString: "foo", NewString: "baz"},
+		},
+	})
+	assert.True(t, resp.IsError)
+	assert.Contains(t, resp.Content, "2 times")
+	assert.Contains(t, resp.Content, "replace_all")
 }
