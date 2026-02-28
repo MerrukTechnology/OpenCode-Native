@@ -36,7 +36,7 @@ jobs:
     - name: Setup Go
       uses: actions/setup-go@v5
       with:
-        go-version: '>=1.24.13' # Adjust based on your opencode version
+        go-version: '1.24.x'
         cache: true
 
     # 2. Initialize CodeQL with Extended Queries
@@ -78,7 +78,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '>=1.24.13' # Adjust based on your opencode version
+          go-version: '1.24.x'
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@fce8c989772fe5b89e9c70c94aac89041cfb3aa9
