@@ -1,19 +1,26 @@
 name: "Pull Request Labeler"
+
 on:
-  - pull_request_target
+  pull_request_target:
+    # Trigger when PR is opened, or when code is pushed (to update labels)
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read        # Required to read .github/labeler.yml
+  pull-requests: write  # Required to apply labels
 
 jobs:
   labeler:
-    permissions:
-      issues: write
-      contents: read
-      pull-requests: write
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
-      with:
-        fetch-depth: 0
-    - uses: actions/labeler@v6
-      with:
-        repo-token: "${{ secrets.GITHUB_TOKEN }}"
-        configuration-path: .github/labeler.yml
+
+      - uses: actions/labeler@v6
+        with:
+          repo-token: "${{ secrets.GITHUB_TOKEN }}"
+          configuration-path: .github/labeler.yml
+
+          # If a file is removed from the PR, remove the associated label
+          sync-labels: true
+
+          # Allow matching dotfiles (e.g. .github, .gitignore, .opencode)
+          dot: true

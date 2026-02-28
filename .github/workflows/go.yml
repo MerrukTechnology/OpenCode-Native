@@ -1,16 +1,15 @@
-# This workflow will build a golang project
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
-
 name: Go
 
 permissions:
   contents: read
 
 on:
-  push:
-    branches: [ "main" ]
   pull_request:
-    branches: [ "main" ]
+    branches:
+      - main
+  push:
+    branches:
+      - main
 
 jobs:
 
@@ -22,10 +21,33 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: ">=1.24.13"
+        go-version: '1.24.x'
 
-    - name: Build
-      run: go build -v ./...
+    - name: Install dependencies (Ripgrep & FZF)
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ripgrep fzf
 
-    - name: Test
+    - name : Run fmt
+      run: go fmt ./...
+      env:
+        # Ensure tests run in "Native" mode
+        CGO_ENABLED: 0
+
+    - name : Run Vet
+      run: go vet ./...
+      env:
+        # Ensure tests run in "Native" mode
+        CGO_ENABLED: 0
+
+    - name: Run Test
       run: go test -v ./...
+      env:
+        # Ensure tests run in "Native" mode
+        CGO_ENABLED: 0
+
+    - name: Run Build
+      run: go build -v ./...
+      env:
+        # Ensure tests run in "Native" mode
+        CGO_ENABLED: 0

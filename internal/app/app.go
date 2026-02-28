@@ -15,6 +15,7 @@ import (
 	"github.com/MerrukTechnology/OpenCode-Native/internal/flow"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/history"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/agent"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/tools"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/message"
@@ -71,6 +72,16 @@ func (app *App) SwitchAgent() config.AgentName {
 	return name
 }
 
+func (app *App) SwitchAgentReverse() config.AgentName {
+	if len(app.PrimaryAgentKeys) <= 1 {
+		return app.ActiveAgentName()
+	}
+	app.ActiveAgentIdx = (app.ActiveAgentIdx - 1 + len(app.PrimaryAgentKeys)) % len(app.PrimaryAgentKeys)
+	name := app.PrimaryAgentKeys[app.ActiveAgentIdx]
+	app.activeAgent = app.PrimaryAgents[name]
+	return name
+}
+
 func (app *App) SetActiveAgent(agentID config.AgentName) error {
 	for i, key := range app.PrimaryAgentKeys {
 		if key == agentID {
@@ -92,7 +103,7 @@ func New(ctx context.Context, conn *sql.DB, cliSchema map[string]any) (*App, err
 	lspSvc := NewLspService()
 	mcpRegistry := agent.NewMCPRegistry(perm, reg)
 	factory := agent.NewAgentFactory(sessions, messages, perm, files, lspSvc, reg, mcpRegistry)
-	flows := flow.NewService(sessions, q, perm, factory)
+	flows := flow.NewService(sessions, messages, q, perm, factory)
 
 	app := &App{
 		Sessions:      sessions,
@@ -142,12 +153,14 @@ func (app *App) initTheme() {
 
 // Shutdown performs a clean shutdown of the application
 func (app *App) Shutdown() {
+	tools.CleanupTempDir()
 	app.LspService.Shutdown(context.Background())
 }
 
 // ForceShutdown performs an aggressive shutdown for non-interactive mode
 func (app *App) ForceShutdown() {
 	logging.Info("Starting force shutdown")
+	tools.CleanupTempDir()
 	app.LspService.ForceShutdown()
 	app.forceKillAllChildProcesses()
 	logging.Info("Force shutdown completed")
