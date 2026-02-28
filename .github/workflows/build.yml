@@ -56,7 +56,7 @@ jobs:
           category: goreleaser-${{ github.run_id }}
           distribution: goreleaser
           version: 2.13.3
-          args: build --snapshot --clean --skip=publish
+          args: build --snapshot --clean
         env:
           # Critical for your macOS Catalina support
           CGO_ENABLED: 0
