@@ -210,21 +210,29 @@ func listDirectoryWithWalk(initialPath string, ignorePatterns []string, limit in
 	var results []string
 	truncated := false
 
+	// Clean and resolve the initial path to handle trailing slashes consistently
+	initialPath = filepath.Clean(initialPath)
+
 	err := filepath.Walk(initialPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil // Skip files we don't have permission to access
 		}
 
-		if shouldSkip(path, ignorePatterns) {
+		// Clean the path for consistent comparison
+		cleanPath := filepath.Clean(path)
+
+		if shouldSkip(cleanPath, ignorePatterns) {
 			if info.IsDir() {
 				return filepath.SkipDir
 			}
 			return nil
 		}
 
-		if path != initialPath {
+		if cleanPath != initialPath {
 			if info.IsDir() {
-				path = path + string(filepath.Separator)
+				path = cleanPath + string(filepath.Separator)
+			} else {
+				path = cleanPath
 			}
 			results = append(results, path)
 		}
