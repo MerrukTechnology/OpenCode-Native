@@ -2,12 +2,10 @@ package chat
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
-
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/db"
@@ -17,6 +15,8 @@ import (
 	"github.com/MerrukTechnology/OpenCode-Native/internal/session"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/styles"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/theme"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type sidebarCmp struct {
@@ -135,7 +135,7 @@ func (m *sidebarCmp) projectSection() string {
 	projectValue := baseStyle.
 		Foreground(t.Text()).
 		Width(m.width - lipgloss.Width(projectKey)).
-		Render(fmt.Sprintf(": %s", projectID))
+		Render(": " + projectID)
 
 	return lipgloss.JoinHorizontal(
 		lipgloss.Left,
@@ -185,7 +185,7 @@ func (m *sidebarCmp) sessionSection() string {
 
 	sessionValue := baseStyle.
 		Foreground(t.Text()).
-		Render(fmt.Sprintf(": %s", m.session.Title))
+		Render(": " + m.session.Title)
 
 	sessionView := baseStyle.
 		Width(m.width - lipgloss.Width(sessionKey)).
@@ -223,16 +223,16 @@ func (m *sidebarCmp) modifiedFile(filePath string, additions, removals int) stri
 		content := lipgloss.JoinHorizontal(lipgloss.Left, additionsStr, removalsStr)
 		stats = baseStyle.Width(lipgloss.Width(content)).Render(content)
 	} else if additions > 0 {
-		additionsStr := fmt.Sprintf(" %s", baseStyle.
+		additionsStr := " " + baseStyle.
 			PaddingLeft(1).
 			Foreground(t.Success()).
-			Render(fmt.Sprintf("+%d", additions)))
+			Render(fmt.Sprintf("+%d", additions))
 		stats = baseStyle.Width(lipgloss.Width(additionsStr)).Render(additionsStr)
 	} else if removals > 0 {
-		removalsStr := fmt.Sprintf(" %s", baseStyle.
+		removalsStr := " " + baseStyle.
 			PaddingLeft(1).
 			Foreground(t.Error()).
-			Render(fmt.Sprintf("-%d", removals)))
+			Render(fmt.Sprintf("-%d", removals))
 		stats = baseStyle.Width(lipgloss.Width(removalsStr)).Render(removalsStr)
 	}
 
@@ -465,7 +465,7 @@ func (m *sidebarCmp) findInitialVersion(ctx context.Context, path string) (histo
 		}
 	}
 
-	return history.File{}, fmt.Errorf("initial version not found")
+	return history.File{}, errors.New("initial version not found")
 }
 
 func getDisplayPath(path string) string {

@@ -2,15 +2,15 @@ package db
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
-	_ "github.com/ncruces/go-sqlite3/driver"
-	_ "github.com/ncruces/go-sqlite3/embed"
-
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
+	_ "github.com/ncruces/go-sqlite3/driver"
+	_ "github.com/ncruces/go-sqlite3/embed"
 )
 
 // SQLiteProvider implements the Provider interface for SQLite databases.
@@ -28,7 +28,7 @@ func NewSQLiteProvider(dataDir string) *SQLiteProvider {
 // Connect establishes a connection to the SQLite database.
 func (p *SQLiteProvider) Connect() (*sql.DB, error) {
 	if p.dataDir == "" {
-		return nil, fmt.Errorf("data directory is not set")
+		return nil, errors.New("data directory is not set")
 	}
 
 	if err := os.MkdirAll(p.dataDir, 0o700); err != nil {

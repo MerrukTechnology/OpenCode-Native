@@ -208,7 +208,6 @@ func (m *editorCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.send()
 			}
 		}
-
 	}
 	m.textarea, cmd = m.textarea.Update(msg)
 	return m, cmd

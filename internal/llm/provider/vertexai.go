@@ -3,6 +3,7 @@ package provider
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,7 +15,6 @@ import (
 	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
 	sdkoption "github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/anthropics/anthropic-sdk-go/vertex"
-
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"google.golang.org/genai"
@@ -116,7 +116,7 @@ func vertexMiddleware(region, regionForCounting, projectID string) sdkoption.Mid
 					body, _ = sjson.SetBytes(body, "anthropic_beta", betas)
 				}
 				if projectID == "" {
-					return nil, fmt.Errorf("no projectId was given and it could not be resolved from credentials")
+					return nil, errors.New("no projectId was given and it could not be resolved from credentials")
 				}
 
 				// HACK: vertex expect no model in body here
@@ -135,7 +135,7 @@ func vertexMiddleware(region, regionForCounting, projectID string) sdkoption.Mid
 					body, _ = sjson.SetBytes(body, "anthropic_beta", betas)
 				}
 				if projectID == "" {
-					return nil, fmt.Errorf("no projectId was given and it could not be resolved from credentials")
+					return nil, errors.New("no projectId was given and it could not be resolved from credentials")
 				}
 
 				// HACK: vertex expect no beta in header

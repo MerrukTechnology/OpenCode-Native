@@ -48,14 +48,14 @@ func setupTestDir(t *testing.T) string {
 	// Create directories
 	for _, dir := range testDirs {
 		dirPath := filepath.Join(tempDir, dir)
-		err := os.MkdirAll(dirPath, 0755)
+		err := os.MkdirAll(dirPath, 0o755)
 		require.NoError(t, err)
 	}
 
 	// Create files
 	for _, file := range testFiles {
 		filePath := filepath.Join(tempDir, file)
-		err := os.WriteFile(filePath, []byte("test content"), 0644)
+		err := os.WriteFile(filePath, []byte("test content"), 0o644)
 		require.NoError(t, err)
 	}
 
@@ -397,14 +397,14 @@ func TestListDirectory(t *testing.T) {
 	// Create directories
 	for _, dir := range listTestDirs {
 		dirPath := filepath.Join(tempDir, dir)
-		err := os.MkdirAll(dirPath, 0755)
+		err := os.MkdirAll(dirPath, 0o755)
 		require.NoError(t, err)
 	}
 
 	// Create files
 	for _, file := range listTestFiles {
 		filePath := filepath.Join(tempDir, file)
-		err := os.WriteFile(filePath, []byte("test content"), 0644)
+		err := os.WriteFile(filePath, []byte("test content"), 0o644)
 		require.NoError(t, err)
 	}
 
@@ -489,14 +489,14 @@ func TestListDirectoryWithRipgrep(t *testing.T) {
 	}
 
 	for _, dir := range testDirs {
-		require.NoError(t, os.MkdirAll(filepath.Join(tempDir, dir), 0755))
+		require.NoError(t, os.MkdirAll(filepath.Join(tempDir, dir), 0o755))
 	}
 	for _, file := range testFiles {
-		require.NoError(t, os.WriteFile(filepath.Join(tempDir, file), []byte("content"), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(tempDir, file), []byte("content"), 0o644))
 	}
 
 	// Write .gitignore that ignores build/
-	require.NoError(t, os.WriteFile(filepath.Join(tempDir, ".gitignore"), []byte("build/\n"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, ".gitignore"), []byte("build/\n"), 0o644))
 
 	t.Run("respects gitignore", func(t *testing.T) {
 		files, truncated, err := listDirectoryWithRipgrep(context.Background(), tempDir, nil, 1000)
@@ -580,10 +580,10 @@ func TestListDirectoryWithWalk(t *testing.T) {
 	}
 
 	for _, dir := range testDirs {
-		require.NoError(t, os.MkdirAll(filepath.Join(tempDir, dir), 0755))
+		require.NoError(t, os.MkdirAll(filepath.Join(tempDir, dir), 0o755))
 	}
 	for _, file := range testFiles {
-		require.NoError(t, os.WriteFile(filepath.Join(tempDir, file), []byte("content"), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(tempDir, file), []byte("content"), 0o644))
 	}
 
 	t.Run("commonIgnored list is applied in walk fallback", func(t *testing.T) {

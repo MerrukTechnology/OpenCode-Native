@@ -2,6 +2,7 @@ package format
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -125,7 +126,7 @@ func ResolveSchemaRef(schema map[string]any, baseDir string) (map[string]any, er
 	}
 	refPath, isStr := ref.(string)
 	if !isStr || refPath == "" {
-		return nil, fmt.Errorf("$ref must be a non-empty file path string")
+		return nil, errors.New("$ref must be a non-empty file path string")
 	}
 	if baseDir != "" {
 		refPath = fileutil.ResolvePath(refPath, baseDir)
@@ -149,14 +150,14 @@ func loadSchemaFromFile(path string) (map[string]any, error) {
 // ValidateJSONSchema performs basic validation of a JSON schema.
 func ValidateJSONSchema(schema map[string]any) error {
 	if schema == nil {
-		return fmt.Errorf("schema cannot be nil")
+		return errors.New("schema cannot be nil")
 	}
 	t, ok := schema["type"]
 	if !ok {
-		return fmt.Errorf("schema must have a \"type\" field")
+		return errors.New("schema must have a \"type\" field")
 	}
 	if _, ok := t.(string); !ok {
-		return fmt.Errorf("schema \"type\" must be a string")
+		return errors.New("schema \"type\" must be a string")
 	}
 	return nil
 }

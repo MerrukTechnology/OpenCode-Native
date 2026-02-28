@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -34,7 +35,7 @@ func (p RelativePatternInfo) isPattern()          {}
 // AsPattern converts GlobPattern to a PatternInfo object
 func (g *GlobPattern) AsPattern() (PatternInfo, error) {
 	if g.Value == nil {
-		return nil, fmt.Errorf("nil pattern")
+		return nil, errors.New("nil pattern")
 	}
 
 	switch v := g.Value.(type) {

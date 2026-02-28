@@ -2,7 +2,6 @@ package skill
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -129,7 +128,7 @@ func TestParseSkillFile(t *testing.T) {
 
 	// Create a valid skill file
 	validSkillDir := filepath.Join(tmpDir, "git-release")
-	if err := os.MkdirAll(validSkillDir, 0755); err != nil {
+	if err := os.MkdirAll(validSkillDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -149,13 +148,13 @@ metadata:
 `
 
 	validSkillPath := filepath.Join(validSkillDir, "SKILL.md")
-	if err := os.WriteFile(validSkillPath, []byte(validSkillContent), 0644); err != nil {
+	if err := os.WriteFile(validSkillPath, []byte(validSkillContent), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
 	// Create skill with name mismatch
 	mismatchDir := filepath.Join(tmpDir, "wrong-name")
-	if err := os.MkdirAll(mismatchDir, 0755); err != nil {
+	if err := os.MkdirAll(mismatchDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -168,7 +167,7 @@ Content here
 `
 
 	mismatchPath := filepath.Join(mismatchDir, "SKILL.md")
-	if err := os.WriteFile(mismatchPath, []byte(mismatchContent), 0644); err != nil {
+	if err := os.WriteFile(mismatchPath, []byte(mismatchContent), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -233,13 +232,13 @@ func TestGetWorktreeRoot(t *testing.T) {
 	// Create nested directories
 	gitDir := filepath.Join(tmpDir, "project")
 	subDir := filepath.Join(gitDir, "src", "pkg")
-	if err := os.MkdirAll(subDir, 0755); err != nil {
+	if err := os.MkdirAll(subDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
 	// Create .git directory
 	dotGit := filepath.Join(gitDir, ".git")
-	if err := os.MkdirAll(dotGit, 0755); err != nil {
+	if err := os.MkdirAll(dotGit, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -295,19 +294,19 @@ func TestDiscoverProjectSkills(t *testing.T) {
 
 	// Create nested directory structure
 	subDir := filepath.Join(tmpDir, "src", "pkg")
-	if err := os.MkdirAll(subDir, 0755); err != nil {
+	if err := os.MkdirAll(subDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
 	// Create .git directory to mark as worktree root
 	gitDir := filepath.Join(tmpDir, ".git")
-	if err := os.MkdirAll(gitDir, 0755); err != nil {
+	if err := os.MkdirAll(gitDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
 	// Create skill in root .opencode/skills/
 	rootSkillDir := filepath.Join(tmpDir, ".opencode", "skills", "root-skill")
-	if err := os.MkdirAll(rootSkillDir, 0755); err != nil {
+	if err := os.MkdirAll(rootSkillDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	rootSkillContent := `---
@@ -315,13 +314,13 @@ name: root-skill
 description: Skill at root level
 ---
 Root content`
-	if err := os.WriteFile(filepath.Join(rootSkillDir, "SKILL.md"), []byte(rootSkillContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(rootSkillDir, "SKILL.md"), []byte(rootSkillContent), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
 	// Create skill in subdirectory .opencode/skills/
 	subSkillDir := filepath.Join(subDir, ".opencode", "skills", "sub-skill")
-	if err := os.MkdirAll(subSkillDir, 0755); err != nil {
+	if err := os.MkdirAll(subSkillDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	subSkillContent := `---
@@ -329,7 +328,7 @@ name: sub-skill
 description: Skill in subdirectory
 ---
 Sub content`
-	if err := os.WriteFile(filepath.Join(subSkillDir, "SKILL.md"), []byte(subSkillContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(subSkillDir, "SKILL.md"), []byte(subSkillContent), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -366,7 +365,7 @@ func TestDiscoverCustomPaths(t *testing.T) {
 
 	// Create custom skill directory
 	customDir := filepath.Join(tmpDir, "my-skills", "custom-skill")
-	if err := os.MkdirAll(customDir, 0755); err != nil {
+	if err := os.MkdirAll(customDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -375,7 +374,7 @@ name: custom-skill
 description: Custom skill from custom path
 ---
 Custom content`
-	if err := os.WriteFile(filepath.Join(customDir, "SKILL.md"), []byte(customContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(customDir, "SKILL.md"), []byte(customContent), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -442,12 +441,12 @@ Content`,
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			skillDir := filepath.Join(tmpDir, tt.dirName)
-			if err := os.MkdirAll(skillDir, 0755); err != nil {
+			if err := os.MkdirAll(skillDir, 0o755); err != nil {
 				t.Fatal(err)
 			}
 
 			skillPath := filepath.Join(skillDir, "SKILL.md")
-			if err := os.WriteFile(skillPath, []byte(tt.content), 0644); err != nil {
+			if err := os.WriteFile(skillPath, []byte(tt.content), 0o644); err != nil {
 				t.Fatal(err)
 			}
 
@@ -505,7 +504,7 @@ func TestSkillErrorUnwrap(t *testing.T) {
 	}
 
 	unwrapped := skillErr.Unwrap()
-	if unwrapped != wrappedErr {
+	if !errors.Is(unwrapped, wrappedErr) {
 		t.Errorf("Unwrap() = %v, want %v", unwrapped, wrappedErr)
 	}
 
@@ -583,7 +582,7 @@ func TestParseSkillFile_ContentTooLarge(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	skillDir := filepath.Join(tmpDir, "large-skill")
-	if err := os.MkdirAll(skillDir, 0755); err != nil {
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -593,14 +592,10 @@ func TestParseSkillFile_ContentTooLarge(t *testing.T) {
 		largeContent[i] = 'a'
 	}
 
-	content := fmt.Sprintf(`---
-name: large-skill
-description: A large skill
----
-%s`, string(largeContent))
+	content := "---\nname: large-skill\ndescription: A large skill\n---\n" + string(largeContent)
 
 	skillPath := filepath.Join(skillDir, "SKILL.md")
-	if err := os.WriteFile(skillPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(skillPath, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -611,7 +606,7 @@ description: A large skill
 
 	var skillErr *SkillError
 	if errors.As(err, &skillErr) {
-		if skillErr.Err != ErrContentTooLarge {
+		if !errors.Is(skillErr.Err, ErrContentTooLarge) {
 			t.Errorf("Expected ErrContentTooLarge, got %v", skillErr.Err)
 		}
 	} else {
@@ -624,7 +619,7 @@ func TestScanDirectory(t *testing.T) {
 
 	// Create skill directory structure
 	skillDir := filepath.Join(tmpDir, "skills", "test-skill")
-	if err := os.MkdirAll(skillDir, 0755); err != nil {
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -634,7 +629,7 @@ description: A test skill
 ---
 Test content`
 
-	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(skillContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(skillContent), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

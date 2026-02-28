@@ -389,7 +389,7 @@ func (w *WorkspaceWatcher) WatchWorkspace(ctx context.Context, workspacePath str
 				return
 			}
 
-			uri := fmt.Sprintf("file://%s", event.Name)
+			uri := "file://" + event.Name
 
 			// Add new directories to the watcher
 			if event.Op&fsnotify.Create != 0 {
@@ -419,7 +419,6 @@ func (w *WorkspaceWatcher) WatchWorkspace(ctx context.Context, workspacePath str
 					"watched", matched,
 					"kind", kind,
 				)
-
 			}
 
 			// Check if this path should be watched according to server registrations

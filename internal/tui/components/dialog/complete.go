@@ -146,9 +146,7 @@ func (c *completionDialogCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if c.pseudoSearchTextArea.Focused() {
-
 			if !key.Matches(msg, completionDialogKeys.Complete) && !key.Matches(msg, completionDialogKeys.Cycle) && !key.Matches(msg, completionDialogKeys.CycleBack) {
-
 				var cmd tea.Cmd
 				c.pseudoSearchTextArea, cmd = c.pseudoSearchTextArea.Update(msg)
 				cmds = append(cmds, cmd)
@@ -200,16 +198,14 @@ func (c *completionDialogCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 			return c, tea.Batch(cmds...)
-		} else {
-			items, err := c.completionProvider.GetChildEntries("")
-			if err != nil {
-				logging.Error("Failed to get child entries", err)
-			}
-
-			c.listView.SetItems(items)
-			c.pseudoSearchTextArea.SetValue(msg.String())
-			return c, c.pseudoSearchTextArea.Focus()
 		}
+		items, err := c.completionProvider.GetChildEntries("")
+		if err != nil {
+			logging.Error("Failed to get child entries", err)
+		}
+		c.listView.SetItems(items)
+		c.pseudoSearchTextArea.SetValue(msg.String())
+		return c, c.pseudoSearchTextArea.Focus()
 	case tea.WindowSizeMsg:
 		c.width = msg.Width
 		c.height = msg.Height

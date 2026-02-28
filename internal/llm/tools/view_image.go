@@ -99,14 +99,14 @@ func (v *viewImageTool) Run(ctx context.Context, call ToolCall) (ToolResponse, e
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return NewTextErrorResponse(fmt.Sprintf("File not found: %s", filePath)), nil
+			return NewTextErrorResponse("File not found: " + filePath), nil
 		}
 		return NewEmptyResponse(), fmt.Errorf("error accessing file: %w", err)
 	}
 
 	// Check if it's a directory
 	if fileInfo.IsDir() {
-		return NewTextErrorResponse(fmt.Sprintf("Path is a directory, not a file: %s", filePath)), nil
+		return NewTextErrorResponse("Path is a directory, not a file: " + filePath), nil
 	}
 
 	// Check file size

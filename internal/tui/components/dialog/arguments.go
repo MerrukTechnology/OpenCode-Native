@@ -3,14 +3,13 @@ package dialog
 import (
 	"fmt"
 
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/styles"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/theme"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/util"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-
-	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/styles"
-	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/theme"
-	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/util"
 )
 
 type argumentsDialogKeyMap struct {

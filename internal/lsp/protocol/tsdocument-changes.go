@@ -6,6 +6,7 @@ package protocol
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 )
 
@@ -77,5 +78,5 @@ func (d *DocumentChange) MarshalJSON() ([]byte, error) {
 	} else if d.DeleteFile != nil {
 		return json.Marshal(d.DeleteFile)
 	}
-	return nil, fmt.Errorf("empty DocumentChanges union value")
+	return nil, errors.New("empty DocumentChanges union value")
 }

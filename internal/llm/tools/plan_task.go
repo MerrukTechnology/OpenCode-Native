@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/MerrukTechnology/OpenCode-Native/internal/task"
@@ -99,7 +100,7 @@ func (p *planTaskTool) Run(ctx context.Context, call ToolCall) (ToolResponse, er
 
 	sessionID, _ := GetContextValues(ctx)
 	if sessionID == "" {
-		return NewEmptyResponse(), fmt.Errorf("session ID is required to create a task")
+		return NewEmptyResponse(), errors.New("session ID is required to create a task")
 	}
 
 	t, err := p.taskService.CreateTask(params.Title, sessionID, params.Steps)

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -19,7 +20,7 @@ type ProjectInitFlag struct {
 // ShouldShowInitDialog checks if the initialization dialog should be shown for the current directory
 func ShouldShowInitDialog() (bool, error) {
 	if cfg == nil {
-		return false, fmt.Errorf("config not loaded")
+		return false, errors.New("config not loaded")
 	}
 
 	// Create the flag file path
@@ -44,7 +45,7 @@ func ShouldShowInitDialog() (bool, error) {
 // MarkProjectInitialized marks the current project as initialized
 func MarkProjectInitialized() error {
 	if cfg == nil {
-		return fmt.Errorf("config not loaded")
+		return errors.New("config not loaded")
 	}
 	// Create the flag file path
 	flagFilePath := filepath.Join(cfg.Data.Directory, InitFlagFilename)

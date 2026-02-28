@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -51,7 +52,7 @@ func (w *writer) Write(p []byte) (int, error) {
 
 	for d.ScanRecord() {
 		msg := LogMessage{
-			ID:   fmt.Sprintf("%d", time.Now().UnixNano()),
+			ID:   strconv.FormatInt(time.Now().UnixNano(), 10),
 			Time: time.Now(),
 		}
 		for d.ScanKeyval() {

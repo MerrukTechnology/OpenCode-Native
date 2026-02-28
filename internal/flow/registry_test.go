@@ -172,7 +172,7 @@ flow:
           then: step-one
 `
 		path := filepath.Join(dir, "test-flow.yaml")
-		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 			t.Fatal(err)
 		}
 
@@ -195,7 +195,7 @@ flow:
 	t.Run("invalid YAML", func(t *testing.T) {
 		dir := t.TempDir()
 		path := filepath.Join(dir, "bad-flow.yaml")
-		if err := os.WriteFile(path, []byte("not: valid: yaml: ["), 0644); err != nil {
+		if err := os.WriteFile(path, []byte("not: valid: yaml: ["), 0o644); err != nil {
 			t.Fatal(err)
 		}
 
@@ -215,7 +215,7 @@ flow:
       prompt: "x"
 `
 		path := filepath.Join(dir, "BAD_NAME.yaml")
-		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 			t.Fatal(err)
 		}
 
@@ -235,7 +235,7 @@ flow:
       prompt: "x"
 `
 		path := filepath.Join(dir, "yml-flow.yml")
-		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 			t.Fatal(err)
 		}
 
@@ -259,7 +259,7 @@ flow:
       prompt: "x"
 `
 		path := filepath.Join(dir, "disabled-flow.yaml")
-		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 			t.Fatal(err)
 		}
 
@@ -290,10 +290,10 @@ flow:
     - id: step-one
       prompt: "x"
 `
-		if err := os.WriteFile(filepath.Join(dir, "flow-one.yaml"), []byte(content), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, "flow-one.yaml"), []byte(content), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(dir, "readme.txt"), []byte("ignore me"), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, "readme.txt"), []byte("ignore me"), 0o644); err != nil {
 			t.Fatal(err)
 		}
 

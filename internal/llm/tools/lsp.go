@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -101,7 +102,7 @@ func (t *lspTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error) 
 	}
 
 	if !validOperations[params.Operation] {
-		return NewTextErrorResponse(fmt.Sprintf("invalid operation: %s", params.Operation)), nil
+		return NewTextErrorResponse("invalid operation: " + params.Operation), nil
 	}
 
 	file, err := ValidatePathInWorkingDirectory(params.FilePath)
@@ -110,7 +111,7 @@ func (t *lspTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error) 
 	}
 
 	if _, err := os.Stat(file); os.IsNotExist(err) {
-		return NewTextErrorResponse(fmt.Sprintf("file not found: %s", file)), nil
+		return NewTextErrorResponse("file not found: " + file), nil
 	}
 
 	// Find LSP clients that handle this file type
@@ -191,14 +192,14 @@ func executeLspOperation(ctx context.Context, client *lsp.Client, operation stri
 	case "incomingCalls":
 		items, err := client.PrepareCallHierarchy(ctx, protocol.CallHierarchyPrepareParams{TextDocumentPositionParams: pos})
 		if err != nil || len(items) == 0 {
-			return nil, fmt.Errorf("no call hierarchy item found at position")
+			return nil, errors.New("no call hierarchy item found at position")
 		}
 		return client.IncomingCalls(ctx, protocol.CallHierarchyIncomingCallsParams{Item: items[0]})
 
 	case "outgoingCalls":
 		items, err := client.PrepareCallHierarchy(ctx, protocol.CallHierarchyPrepareParams{TextDocumentPositionParams: pos})
 		if err != nil || len(items) == 0 {
-			return nil, fmt.Errorf("no call hierarchy item found at position")
+			return nil, errors.New("no call hierarchy item found at position")
 		}
 		return client.OutgoingCalls(ctx, protocol.CallHierarchyOutgoingCallsParams{Item: items[0]})
 
@@ -209,7 +210,7 @@ func executeLspOperation(ctx context.Context, client *lsp.Client, operation stri
 
 func formatLspResult(operation string, result any) string {
 	if result == nil {
-		return fmt.Sprintf("No results found for %s", operation)
+		return "No results found for " + operation
 	}
 
 	data, err := json.MarshalIndent(result, "", "  ")
@@ -219,7 +220,7 @@ func formatLspResult(operation string, result any) string {
 
 	output := string(data)
 	if output == "null" || output == "[]" || output == "{}" {
-		return fmt.Sprintf("No results found for %s", operation)
+		return "No results found for " + operation
 	}
 
 	return output

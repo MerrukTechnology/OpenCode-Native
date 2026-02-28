@@ -198,7 +198,7 @@ func (p *Parser) Parse() error {
 			continue
 		}
 
-		return NewDiffError(fmt.Sprintf("Unknown Line: %s", p.lines[p.index]))
+		return NewDiffError("Unknown Line: " + p.lines[p.index])
 	}
 
 	if !p.startsWith("*** End Patch") {
@@ -230,7 +230,7 @@ func (p *Parser) parseUpdateFile(text string) (PatchAction, error) {
 			p.index++
 		}
 		if defStr == "" && sectionStr == "" && index != 0 {
-			return action, NewDiffError(fmt.Sprintf("Invalid Line:\n%s", p.lines[p.index]))
+			return action, NewDiffError("Invalid Line:\n" + p.lines[p.index])
 		}
 		if strings.TrimSpace(defStr) != "" {
 			found := false
@@ -302,7 +302,7 @@ func (p *Parser) parseAddFile() (PatchAction, error) {
 	for !p.isDone(endPrefixes) {
 		s := p.readStr("", true)
 		if !strings.HasPrefix(s, "+") {
-			return PatchAction{}, NewDiffError(fmt.Sprintf("Invalid Add File Line: %s", s))
+			return PatchAction{}, NewDiffError("Invalid Add File Line: " + s)
 		}
 		lines = append(lines, s[1:])
 	}
@@ -744,7 +744,7 @@ func ValidatePatch(patchText string, files map[string]string) (bool, string, err
 	neededFiles := IdentifyFilesNeeded(patchText)
 	for _, filePath := range neededFiles {
 		if _, exists := files[filePath]; !exists {
-			return false, fmt.Sprintf("File not found: %s", filePath), nil
+			return false, "File not found: " + filePath, nil
 		}
 	}
 

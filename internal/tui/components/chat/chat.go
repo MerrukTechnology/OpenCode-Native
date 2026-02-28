@@ -63,7 +63,7 @@ func lspsConfigured(width int) string {
 		server := servers[name]
 		lspName := baseStyle.
 			Foreground(t.Text()).
-			Render(fmt.Sprintf("• %s", name))
+			Render("• " + name)
 
 		cmd := ""
 		if len(server.Command) > 0 {
@@ -125,7 +125,7 @@ func logo(width int) string {
 }
 
 func cwd(width int) string {
-	cwd := fmt.Sprintf("cwd: %s", config.WorkingDirectory())
+	cwd := "cwd: " + config.WorkingDirectory()
 	t := theme.CurrentTheme()
 
 	return styles.BaseStyle().

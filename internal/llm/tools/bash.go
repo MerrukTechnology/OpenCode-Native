@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -249,7 +250,7 @@ func (b *bashTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error)
 
 	sessionID, messageID := GetContextValues(ctx)
 	if sessionID == "" || messageID == "" {
-		return NewEmptyResponse(), fmt.Errorf("session ID and message ID are required for creating a new file")
+		return NewEmptyResponse(), errors.New("session ID and message ID are required for creating a new file")
 	}
 	if !isSafeReadOnly {
 		action := b.registry.EvaluatePermission(string(GetAgentID(ctx)), BashToolName, params.Command)
@@ -266,7 +267,7 @@ func (b *bashTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error)
 					Path:        workdir,
 					ToolName:    BashToolName,
 					Action:      "execute",
-					Description: fmt.Sprintf("Execute command: %s", params.Command),
+					Description: "Execute command: " + params.Command,
 					Params: BashPermissionsParams{
 						Command: params.Command,
 						Workdir: workdir,
@@ -281,7 +282,7 @@ func (b *bashTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error)
 	startTime := time.Now()
 	sh := shell.GetPersistentShell(workdir)
 	if sh == nil {
-		return NewEmptyResponse(), fmt.Errorf("failed to create shell instance")
+		return NewEmptyResponse(), errors.New("failed to create shell instance")
 	}
 	stdout, stderr, exitCode, interrupted, err := sh.Exec(ctx, params.Command, params.Timeout)
 	if err != nil {

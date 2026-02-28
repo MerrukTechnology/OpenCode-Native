@@ -67,7 +67,6 @@ func TestStructOutputTool_Run_ValidJSON(t *testing.T) {
 		Name:  StructOutputToolName,
 		Input: input,
 	})
-
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -99,7 +98,6 @@ func TestStructOutputTool_Run_InvalidJSON(t *testing.T) {
 		Name:  StructOutputToolName,
 		Input: "not valid json",
 	})
-
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

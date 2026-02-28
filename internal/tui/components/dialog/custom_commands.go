@@ -1,6 +1,7 @@
 package dialog
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -25,7 +26,7 @@ var namedArgPattern = regexp.MustCompile(`\$([A-Z][A-Z0-9_]*)`)
 func LoadCustomCommands() ([]Command, error) {
 	cfg := config.Get()
 	if cfg == nil {
-		return nil, fmt.Errorf("config not loaded")
+		return nil, errors.New("config not loaded")
 	}
 
 	var commands []Command
@@ -133,7 +134,7 @@ func loadCommandsFromDir(commandsDir string, prefix string) ([]Command, error) {
 		command := Command{
 			ID:          prefix + commandID,
 			Title:       prefix + commandID,
-			Description: fmt.Sprintf("Custom command from %s", relPath),
+			Description: "Custom command from " + relPath,
 			Handler: func(cmd Command) tea.Cmd {
 				commandContent := string(content)
 				return ParameterizedCommandHandler(commandContent, &cmd)

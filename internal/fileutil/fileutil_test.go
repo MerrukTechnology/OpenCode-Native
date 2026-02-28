@@ -146,7 +146,7 @@ func TestFileAndDirExists(t *testing.T) {
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "test.txt")
 
-	if err := os.WriteFile(tmpFile, []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(tmpFile, []byte("test"), 0o644); err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
 
@@ -427,7 +427,7 @@ func TestFileValidation(t *testing.T) {
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "test.txt")
 
-	if err := os.WriteFile(tmpFile, []byte("test content"), 0644); err != nil {
+	if err := os.WriteFile(tmpFile, []byte("test content"), 0o644); err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
 
@@ -463,7 +463,7 @@ func TestFileValidation(t *testing.T) {
 
 		t.Run("file modified since last read", func(t *testing.T) {
 			time.Sleep(10 * time.Millisecond)
-			if err := os.WriteFile(tmpFile, []byte("modified content"), 0644); err != nil {
+			if err := os.WriteFile(tmpFile, []byte("modified content"), 0o644); err != nil {
 				t.Fatalf("failed to modify temp file: %v", err)
 			}
 
@@ -530,14 +530,14 @@ func TestFileValidation(t *testing.T) {
 func TestListDirectory(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	os.MkdirAll(filepath.Join(tmpDir, "subdir1"), 0755)
-	os.MkdirAll(filepath.Join(tmpDir, "subdir2"), 0755)
-	os.MkdirAll(filepath.Join(tmpDir, ".hidden"), 0755)
-	os.MkdirAll(filepath.Join(tmpDir, "node_modules"), 0755)
-	os.WriteFile(filepath.Join(tmpDir, "file1.txt"), []byte("test"), 0644)
-	os.WriteFile(filepath.Join(tmpDir, "file2.go"), []byte("test"), 0644)
-	os.WriteFile(filepath.Join(tmpDir, ".hiddenfile"), []byte("test"), 0644)
-	os.WriteFile(filepath.Join(tmpDir, "subdir1", "nested.txt"), []byte("test"), 0644)
+	os.MkdirAll(filepath.Join(tmpDir, "subdir1"), 0o755)
+	os.MkdirAll(filepath.Join(tmpDir, "subdir2"), 0o755)
+	os.MkdirAll(filepath.Join(tmpDir, ".hidden"), 0o755)
+	os.MkdirAll(filepath.Join(tmpDir, "node_modules"), 0o755)
+	os.WriteFile(filepath.Join(tmpDir, "file1.txt"), []byte("test"), 0o644)
+	os.WriteFile(filepath.Join(tmpDir, "file2.go"), []byte("test"), 0o644)
+	os.WriteFile(filepath.Join(tmpDir, ".hiddenfile"), []byte("test"), 0o644)
+	os.WriteFile(filepath.Join(tmpDir, "subdir1", "nested.txt"), []byte("test"), 0o644)
 
 	files, truncated, err := ListDirectory(tmpDir, []string{}, 100)
 	if err != nil {
@@ -663,11 +663,11 @@ func TestDeleteFile(t *testing.T) {
 func TestGlobWithDoublestar(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	os.MkdirAll(filepath.Join(tmpDir, "src", "util"), 0755)
-	os.WriteFile(filepath.Join(tmpDir, "main.go"), []byte("main"), 0644)
-	os.WriteFile(filepath.Join(tmpDir, "src", "util.go"), []byte("util"), 0644)
-	os.WriteFile(filepath.Join(tmpDir, "src", "util", "helper.go"), []byte("helper"), 0644)
-	os.WriteFile(filepath.Join(tmpDir, ".hidden.go"), []byte("hidden"), 0644)
+	os.MkdirAll(filepath.Join(tmpDir, "src", "util"), 0o755)
+	os.WriteFile(filepath.Join(tmpDir, "main.go"), []byte("main"), 0o644)
+	os.WriteFile(filepath.Join(tmpDir, "src", "util.go"), []byte("util"), 0o644)
+	os.WriteFile(filepath.Join(tmpDir, "src", "util", "helper.go"), []byte("helper"), 0o644)
+	os.WriteFile(filepath.Join(tmpDir, ".hidden.go"), []byte("hidden"), 0o644)
 
 	files, _, err := GlobWithDoublestar("*.go", tmpDir, 10)
 	if err != nil {
@@ -708,7 +708,7 @@ func TestGetFileInfo(t *testing.T) {
 	testFile := filepath.Join(tmpDir, "test.txt")
 
 	content := []byte("test content")
-	if err := os.WriteFile(testFile, content, 0644); err != nil {
+	if err := os.WriteFile(testFile, content, 0o644); err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
 
@@ -761,7 +761,7 @@ func TestSafeReadFile(t *testing.T) {
 				}
 
 				testFile := filepath.Join(tmpDir, tt.fileName)
-				if err := os.WriteFile(testFile, tt.content, 0644); err != nil {
+				if err := os.WriteFile(testFile, tt.content, 0o644); err != nil {
 					t.Fatalf("failed to create temp file: %v", err)
 				}
 
@@ -794,7 +794,7 @@ func TestSafeReadFile(t *testing.T) {
 			largeContent[i] = 'a'
 		}
 
-		if err := os.WriteFile(testFile, largeContent, 0644); err != nil {
+		if err := os.WriteFile(testFile, largeContent, 0o644); err != nil {
 			t.Fatalf("failed to create temp file: %v", err)
 		}
 
@@ -846,7 +846,7 @@ func TestIsTextFile(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			testFile := filepath.Join(tmpDir, tt.fileName)
-			if err := os.WriteFile(testFile, tt.content, 0644); err != nil {
+			if err := os.WriteFile(testFile, tt.content, 0o644); err != nil {
 				t.Fatalf("failed to create temp file: %v", err)
 			}
 

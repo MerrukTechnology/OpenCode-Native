@@ -6,10 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
-
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
+	_ "github.com/go-sql-driver/mysql"
 )
 
 // MySQLProvider implements the Provider interface for MySQL databases.

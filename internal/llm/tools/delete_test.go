@@ -116,7 +116,7 @@ func TestDeleteTool_DeleteFile(t *testing.T) {
 
 	tmpPath := createTempFileInWorkingDir(t, "delete_test_*.txt")
 	content := "test file content"
-	require.NoError(t, os.WriteFile(tmpPath, []byte(content), 0644))
+	require.NoError(t, os.WriteFile(tmpPath, []byte(content), 0o644))
 
 	resp := runDelete(t, tool, ctx, DeleteParams{Path: tmpPath})
 
@@ -125,7 +125,7 @@ func TestDeleteTool_DeleteFile(t *testing.T) {
 	var metadata DeleteResponseMetadata
 	err := json.Unmarshal([]byte(resp.Metadata), &metadata)
 	require.NoError(t, err)
-	assert.Greater(t, metadata.Removals, 0)
+	assert.Positive(t, metadata.Removals)
 	assert.NotEmpty(t, metadata.Diff)
 }
 
@@ -140,10 +140,10 @@ func TestDeleteTool_DeleteDirectory(t *testing.T) {
 	subDir := filepath.Join(tmpDir, "subdir")
 	file3 := filepath.Join(subDir, "file3.txt")
 
-	require.NoError(t, os.WriteFile(file1, []byte("content1"), 0644))
-	require.NoError(t, os.WriteFile(file2, []byte("content2"), 0644))
-	require.NoError(t, os.MkdirAll(subDir, 0755))
-	require.NoError(t, os.WriteFile(file3, []byte("content3"), 0644))
+	require.NoError(t, os.WriteFile(file1, []byte("content1"), 0o644))
+	require.NoError(t, os.WriteFile(file2, []byte("content2"), 0o644))
+	require.NoError(t, os.MkdirAll(subDir, 0o755))
+	require.NoError(t, os.WriteFile(file3, []byte("content3"), 0o644))
 
 	resp := runDelete(t, tool, ctx, DeleteParams{Path: tmpDir})
 
@@ -159,7 +159,7 @@ func TestDeleteTool_DeleteDirectory(t *testing.T) {
 	err = json.Unmarshal([]byte(resp.Metadata), &metadata)
 	require.NoError(t, err)
 	assert.Equal(t, 3, metadata.FilesDeleted)
-	assert.Greater(t, metadata.Removals, 0)
+	assert.Positive(t, metadata.Removals)
 }
 
 func TestDeleteTool_ErrorCases(t *testing.T) {
@@ -241,7 +241,7 @@ func TestDeleteTool_DeleteSymlink(t *testing.T) {
 	tmpDir := createTempDirInWorkingDir(t, "delete_symlink_test_*")
 
 	targetFile := filepath.Join(tmpDir, "target.txt")
-	require.NoError(t, os.WriteFile(targetFile, []byte("target content"), 0644))
+	require.NoError(t, os.WriteFile(targetFile, []byte("target content"), 0o644))
 
 	symlinkPath := filepath.Join(tmpDir, "symlink.txt")
 	require.NoError(t, os.Symlink(targetFile, symlinkPath))
@@ -268,7 +268,7 @@ func TestDeleteTool_RelativePath(t *testing.T) {
 
 	workingDir := config.WorkingDirectory()
 	tmpFile := filepath.Join(workingDir, "delete_relative_test.txt")
-	require.NoError(t, os.WriteFile(tmpFile, []byte("content"), 0644))
+	require.NoError(t, os.WriteFile(tmpFile, []byte("content"), 0o644))
 	t.Cleanup(func() {
 		os.Remove(tmpFile)
 	})
@@ -289,7 +289,7 @@ func TestDeleteTool_DirectoryWithManyFiles(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		filePath := filepath.Join(tmpDir, fmt.Sprintf("file%d.txt", i))
-		require.NoError(t, os.WriteFile(filePath, []byte("content"), 0644))
+		require.NoError(t, os.WriteFile(filePath, []byte("content"), 0o644))
 	}
 
 	resp := runDelete(t, tool, ctx, DeleteParams{Path: tmpDir})
@@ -308,16 +308,16 @@ func TestDeleteTool_DirectoryWithSymlinks(t *testing.T) {
 	tmpDir := createTempDirInWorkingDir(t, "delete_symlinks_test_*")
 
 	targetFile := filepath.Join(tmpDir, "target.txt")
-	require.NoError(t, os.WriteFile(targetFile, []byte("target"), 0644))
+	require.NoError(t, os.WriteFile(targetFile, []byte("target"), 0o644))
 
 	subDir := filepath.Join(tmpDir, "subdir")
-	require.NoError(t, os.MkdirAll(subDir, 0755))
+	require.NoError(t, os.MkdirAll(subDir, 0o755))
 
 	symlinkPath := filepath.Join(subDir, "symlink.txt")
 	require.NoError(t, os.Symlink(targetFile, symlinkPath))
 
 	regularFile := filepath.Join(subDir, "regular.txt")
-	require.NoError(t, os.WriteFile(regularFile, []byte("regular"), 0644))
+	require.NoError(t, os.WriteFile(regularFile, []byte("regular"), 0o644))
 
 	resp := runDelete(t, tool, ctx, DeleteParams{Path: tmpDir})
 

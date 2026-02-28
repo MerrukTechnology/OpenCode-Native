@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -203,7 +204,7 @@ func (t *sourcegraphTool) Run(ctx context.Context, call ToolCall) (ToolResponse,
 
 	req, err := http.NewRequestWithContext(
 		ctx,
-		"POST",
+		http.MethodPost,
 		"https://sourcegraph.com/.api/graphql",
 		bytes.NewBuffer(graphqlQueryBytes),
 	)
@@ -263,17 +264,17 @@ func formatSourcegraphResults(result map[string]any, maxResults int, contextWind
 
 	data, ok := result["data"].(map[string]any)
 	if !ok {
-		return "", fmt.Errorf("invalid response format: missing data field")
+		return "", errors.New("invalid response format: missing data field")
 	}
 
 	search, ok := data["search"].(map[string]any)
 	if !ok {
-		return "", fmt.Errorf("invalid response format: missing search field")
+		return "", errors.New("invalid response format: missing search field")
 	}
 
 	searchResults, ok := search["results"].(map[string]any)
 	if !ok {
-		return "", fmt.Errorf("invalid response format: missing results field")
+		return "", errors.New("invalid response format: missing results field")
 	}
 
 	matchCount, _ := searchResults["matchCount"].(float64)

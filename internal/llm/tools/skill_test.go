@@ -37,10 +37,10 @@ func TestSampleSkillFiles(t *testing.T) {
 			setup: func(t *testing.T) (string, int) {
 				dir := t.TempDir()
 				// Create SKILL.md (should be excluded)
-				os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("# Skill"), 0644)
+				os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("# Skill"), 0o644)
 				// Create other files (should be included)
-				os.WriteFile(filepath.Join(dir, "file1.txt"), []byte("content"), 0644)
-				os.WriteFile(filepath.Join(dir, "file2.txt"), []byte("content"), 0644)
+				os.WriteFile(filepath.Join(dir, "file1.txt"), []byte("content"), 0o644)
+				os.WriteFile(filepath.Join(dir, "file2.txt"), []byte("content"), 0o644)
 				return dir, 10
 			},
 			expectedMin: 2,
@@ -60,7 +60,7 @@ func TestSampleSkillFiles(t *testing.T) {
 				dir := t.TempDir()
 				// Create 5 files
 				for i := 0; i < 5; i++ {
-					os.WriteFile(filepath.Join(dir, "file"+string(rune('0'+i))+".txt"), []byte("content"), 0644)
+					os.WriteFile(filepath.Join(dir, "file"+string(rune('0'+i))+".txt"), []byte("content"), 0o644)
 				}
 				return dir, 3
 			},
@@ -74,8 +74,8 @@ func TestSampleSkillFiles(t *testing.T) {
 			setup: func(t *testing.T) (string, int) {
 				dir := t.TempDir()
 				subDir := filepath.Join(dir, "subdir")
-				os.Mkdir(subDir, 0755)
-				os.WriteFile(filepath.Join(subDir, "nested.txt"), []byte("content"), 0644)
+				os.Mkdir(subDir, 0o755)
+				os.WriteFile(filepath.Join(subDir, "nested.txt"), []byte("content"), 0o644)
 				return dir, 10
 			},
 			expectedMin: 1,
@@ -152,10 +152,10 @@ func TestCollectFiles(t *testing.T) {
 			setup: func(t *testing.T) (string, int) {
 				dir := t.TempDir()
 				// Create nested structure
-				os.MkdirAll(filepath.Join(dir, "level1", "level2"), 0755)
-				os.WriteFile(filepath.Join(dir, "root.txt"), []byte("root"), 0644)
-				os.WriteFile(filepath.Join(dir, "level1", "l1.txt"), []byte("l1"), 0644)
-				os.WriteFile(filepath.Join(dir, "level1", "level2", "l2.txt"), []byte("l2"), 0644)
+				os.MkdirAll(filepath.Join(dir, "level1", "level2"), 0o755)
+				os.WriteFile(filepath.Join(dir, "root.txt"), []byte("root"), 0o644)
+				os.WriteFile(filepath.Join(dir, "level1", "l1.txt"), []byte("l1"), 0o644)
+				os.WriteFile(filepath.Join(dir, "level1", "level2", "l2.txt"), []byte("l2"), 0o644)
 				return dir, 10
 			},
 			expectedMin: 3,
@@ -173,8 +173,8 @@ func TestCollectFiles(t *testing.T) {
 				dir := t.TempDir()
 				// Create many files across directories
 				for i := 0; i < 5; i++ {
-					os.MkdirAll(filepath.Join(dir, "dir"+string(rune('0'+i))), 0755)
-					os.WriteFile(filepath.Join(dir, "dir"+string(rune('0'+i)), "file.txt"), []byte("content"), 0644)
+					os.MkdirAll(filepath.Join(dir, "dir"+string(rune('0'+i))), 0o755)
+					os.WriteFile(filepath.Join(dir, "dir"+string(rune('0'+i)), "file.txt"), []byte("content"), 0o644)
 				}
 				return dir, 3
 			},

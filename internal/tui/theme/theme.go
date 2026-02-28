@@ -148,6 +148,7 @@ type BaseTheme struct {
 }
 
 // Implement the Theme interface for BaseTheme
+
 func (t *BaseTheme) Primary() lipgloss.AdaptiveColor   { return t.PrimaryColor }
 func (t *BaseTheme) Secondary() lipgloss.AdaptiveColor { return t.SecondaryColor }
 func (t *BaseTheme) Accent() lipgloss.AdaptiveColor    { return t.AccentColor }
@@ -182,6 +183,7 @@ func (t *BaseTheme) DiffLineNumber() lipgloss.AdaptiveColor       { return t.Dif
 func (t *BaseTheme) DiffAddedLineNumberBg() lipgloss.AdaptiveColor {
 	return t.DiffAddedLineNumberBgColor
 }
+
 func (t *BaseTheme) DiffRemovedLineNumberBg() lipgloss.AdaptiveColor {
 	return t.DiffRemovedLineNumberBgColor
 }

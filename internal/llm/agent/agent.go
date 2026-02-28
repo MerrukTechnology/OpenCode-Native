@@ -149,7 +149,7 @@ func (a *agent) Cancel(sessionID string) {
 	// Cancel regular requests
 	if cancelFunc, exists := a.activeRequests.LoadAndDelete(sessionID); exists {
 		if cancel, ok := cancelFunc.(context.CancelFunc); ok {
-			logging.InfoPersist(fmt.Sprintf("Request cancellation initiated for session: %s", sessionID))
+			logging.InfoPersist("Request cancellation initiated for session: " + sessionID)
 			cancel()
 		}
 	}
@@ -157,7 +157,7 @@ func (a *agent) Cancel(sessionID string) {
 	// Also check for summarize requests
 	if cancelFunc, exists := a.activeRequests.LoadAndDelete(sessionID + "-summarize"); exists {
 		if cancel, ok := cancelFunc.(context.CancelFunc); ok {
-			logging.InfoPersist(fmt.Sprintf("Summarize cancellation initiated for session: %s", sessionID))
+			logging.InfoPersist("Summarize cancellation initiated for session: " + sessionID)
 			cancel()
 		}
 	}
@@ -242,7 +242,7 @@ func (a *agent) Run(ctx context.Context, sessionID string, content string, attac
 		logging.Info("Agent started", "sessionID", sessionID, "agent", a.AgentID())
 		now := time.Now()
 		defer logging.RecoverPanic("agent.Run", func() {
-			events <- a.err(fmt.Errorf("panic while running the agent"))
+			events <- a.err(errors.New("panic while running the agent"))
 		})
 		var attachmentParts []message.ContentPart
 		for _, attachment := range attachments {
@@ -512,7 +512,7 @@ func (a *agent) streamAndHandleEvents(ctx context.Context, sessionID string, msg
 				toolResults[i] = message.ToolResult{
 					ToolCallID: toolCall.ID,
 					Name:       toolCall.Name,
-					Content:    fmt.Sprintf("Tool not found: %s", toolCall.Name),
+					Content:    "Tool not found: " + toolCall.Name,
 					IsError:    true,
 				}
 				continue
@@ -560,7 +560,7 @@ func (a *agent) streamAndHandleEvents(ctx context.Context, sessionID string, msg
 					toolResults[i] = message.ToolResult{
 						ToolCallID: toolCall.ID,
 						Name:       toolCall.Name,
-						Content:    fmt.Sprintf("Tool returned error: %s", toolErr.Error()),
+						Content:    "Tool returned error: " + toolErr.Error(),
 						IsError:    true,
 					}
 					continue
@@ -688,7 +688,7 @@ func (a *agent) processEvent(ctx context.Context, sessionID string, assistantMsg
 		return a.messages.Update(ctx, *assistantMsg)
 	case provider.EventError:
 		if errors.Is(event.Error, context.Canceled) {
-			logging.InfoPersist(fmt.Sprintf("Event processing canceled for session: %s", sessionID))
+			logging.InfoPersist("Event processing canceled for session: " + sessionID)
 			return context.Canceled
 		}
 		logging.ErrorPersist(event.Error.Error())
@@ -745,7 +745,7 @@ func (a *agent) TrackUsage(ctx context.Context, sessionID string, model models.M
 
 func (a *agent) Update(agentName config.AgentName, modelID models.ModelID) (models.Model, error) {
 	if a.IsBusy() {
-		return models.Model{}, fmt.Errorf("cannot change model while processing requests")
+		return models.Model{}, errors.New("cannot change model while processing requests")
 	}
 
 	if err := config.UpdateAgentModel(agentName, modelID); err != nil {
@@ -810,7 +810,7 @@ func (a *agent) filterMessagesFromSummary(msgs []message.Message, summaryMessage
 // This is used for auto-compaction in non-interactive mode to shrink context before continuing
 func (a *agent) performSynchronousCompaction(ctx context.Context, sessionID string) error {
 	if a.summarizeProvider == nil {
-		return fmt.Errorf("summarize provider not available")
+		return errors.New("summarize provider not available")
 	}
 
 	msgs, err := a.messages.List(ctx, sessionID)
@@ -822,7 +822,7 @@ func (a *agent) performSynchronousCompaction(ctx context.Context, sessionID stri
 	logging.Info("Starting synchronous compaction", "session_id", sessionID, "message_count", len(msgs))
 
 	if len(msgs) == 0 {
-		return fmt.Errorf("no messages to summarize")
+		return errors.New("no messages to summarize")
 	}
 
 	summarizeCtx := context.WithValue(ctx, tools.SessionIDContextKey, sessionID)
@@ -848,7 +848,7 @@ func (a *agent) performSynchronousCompaction(ctx context.Context, sessionID stri
 
 	summary := strings.TrimSpace(response.Content)
 	if summary == "" {
-		return fmt.Errorf("empty summary returned")
+		return errors.New("empty summary returned")
 	}
 
 	// Get the session to update
@@ -890,7 +890,7 @@ func (a *agent) performSynchronousCompaction(ctx context.Context, sessionID stri
 
 func (a *agent) Summarize(ctx context.Context, sessionID string) error {
 	if a.summarizeProvider == nil {
-		return fmt.Errorf("summarize provider not available")
+		return errors.New("summarize provider not available")
 	}
 
 	// Check if session is busy
@@ -929,7 +929,7 @@ func (a *agent) Summarize(ctx context.Context, sessionID string) error {
 		if len(msgs) == 0 {
 			event = AgentEvent{
 				Type:  AgentEventTypeError,
-				Error: fmt.Errorf("no messages to summarize"),
+				Error: errors.New("no messages to summarize"),
 				Done:  true,
 			}
 			a.Publish(pubsub.CreatedEvent, event)
@@ -989,7 +989,7 @@ func (a *agent) Summarize(ctx context.Context, sessionID string) error {
 		if summary == "" {
 			event = AgentEvent{
 				Type:  AgentEventTypeError,
-				Error: fmt.Errorf("empty summary returned"),
+				Error: errors.New("empty summary returned"),
 				Done:  true,
 			}
 			a.Publish(pubsub.CreatedEvent, event)
@@ -1153,7 +1153,7 @@ func createAgentProvider(agentName config.AgentName) (agentProvider provider.Pro
 		opts...,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not create provider: %v", err)
+		return nil, fmt.Errorf("could not create provider: %w", err)
 	}
 
 	return agentProvider, nil

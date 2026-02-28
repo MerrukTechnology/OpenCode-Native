@@ -94,7 +94,7 @@ func (s *service) Run(ctx context.Context, sessionPrefix string, flowID string, 
 	}
 
 	if sessionPrefix == "" {
-		sessionPrefix = fmt.Sprintf("%d", time.Now().Unix())
+		sessionPrefix = strconv.FormatInt(time.Now().Unix(), 10)
 	}
 	rootSessionID := fmt.Sprintf("%s-%s-%s", sessionPrefix, flowID, f.Spec.Steps[0].ID)
 
@@ -560,7 +560,7 @@ func (s *service) resolveSession(ctx context.Context, step Step, sessionID strin
 		return existing, nil
 	}
 
-	title := fmt.Sprintf("Flow step: %s", step.ID)
+	title := "Flow step: " + step.ID
 	sess, err := s.sessions.CreateFlowSession(ctx, sessionID, rootSessionID, title)
 	if err != nil {
 		return session.Session{}, fmt.Errorf("creating session: %w", err)

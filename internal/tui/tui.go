@@ -2,7 +2,6 @@ package tui
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/MerrukTechnology/OpenCode-Native/internal/app"
@@ -205,7 +204,7 @@ func (a appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		msg.Height -= 1 // Make space for the status bar
+		msg.Height-- // Make space for the status bar
 		a.width, a.height = msg.Width, msg.Height
 
 		s, _ := a.status.Update(msg)
@@ -268,14 +267,12 @@ func (a appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				})
 				a.status = s.(core.StatusCmp)
 				cmds = append(cmds, cmd)
-
 			case "warn":
 				s, cmd := a.status.Update(util.InfoMsg{
 					Type: util.InfoTypeWarn,
 					Msg:  msg.Payload.Message,
 					TTL:  msg.Payload.PersistTime,
 				})
-
 				a.status = s.(core.StatusCmp)
 				cmds = append(cmds, cmd)
 			default:
@@ -393,7 +390,7 @@ func (a appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return a, tea.Batch(
 			util.CmdHandler(core.ActiveAgentChangedMsg{Name: a.app.ActiveAgentName()}),
-			util.ReportInfo(fmt.Sprintf("Model changed to %s", model.Name)),
+			util.ReportInfo("Model changed to "+model.Name),
 		)
 
 	case dialog.ShowInitDialogMsg:
@@ -493,7 +490,6 @@ func (a appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		switch {
-
 		case key.Matches(msg, keys.Quit):
 			a.showQuit = !a.showQuit
 			if a.showHelp {
@@ -585,7 +581,7 @@ func (a appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				agentName := a.app.SwitchAgent()
 				return a, tea.Batch(
 					util.CmdHandler(core.ActiveAgentChangedMsg{Name: agentName}),
-					util.ReportInfo(fmt.Sprintf("Switched to %s", agentName)),
+					util.ReportInfo("Switched to "+agentName),
 				)
 			}
 		case key.Matches(msg, keys.SwitchAgentBack):
@@ -598,7 +594,7 @@ func (a appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				agentName := a.app.SwitchAgentReverse()
 				return a, tea.Batch(
 					util.CmdHandler(core.ActiveAgentChangedMsg{Name: agentName}),
-					util.ReportInfo(fmt.Sprintf("Switched to %s", agentName)),
+					util.ReportInfo("Switched to "+agentName),
 				)
 			}
 		case key.Matches(msg, returnKey) || key.Matches(msg):
@@ -657,7 +653,6 @@ func (a appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		f, filepickerCmd := a.filepicker.Update(msg)
 		a.filepicker = f.(dialog.FilepickerCmp)
 		cmds = append(cmds, filepickerCmd)
-
 	}
 
 	if a.showFilepicker {
@@ -679,6 +674,7 @@ func (a appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, tea.Batch(cmds...)
 		}
 	}
+
 	if a.showPermissions {
 		d, permissionsCmd := a.permissions.Update(msg)
 		a.permissions = d.(dialog.PermissionDialogCmp)
@@ -839,7 +835,6 @@ func (a appModel) View() string {
 			appView,
 			true,
 		)
-
 	}
 
 	// Show compacting status overlay
@@ -1082,6 +1077,7 @@ func New(app *app.App) tea.Model {
 			}
 		},
 	})
+
 	// Load custom commands
 	customCommands, err := dialog.LoadCustomCommands()
 	if err != nil {

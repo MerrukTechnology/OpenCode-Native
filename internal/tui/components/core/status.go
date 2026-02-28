@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -78,8 +79,10 @@ func (m statusCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-var helpWidget = ""
-var agentHintWidget = ""
+var (
+	helpWidget      = ""
+	agentHintWidget = ""
+)
 
 // getHelpWidget returns the help widget with current theme colors
 func getHelpWidget() string {
@@ -117,7 +120,7 @@ func formatTokensAndCost(tokens, contextWindow int64, cost float64) string {
 	case tokens >= 1_000:
 		formattedTokens = fmt.Sprintf("%.1fK", float64(tokens)/1_000)
 	default:
-		formattedTokens = fmt.Sprintf("%d", tokens)
+		formattedTokens = strconv.FormatInt(tokens, 10)
 	}
 
 	// Remove .0 suffix if present
@@ -222,7 +225,7 @@ func (m *statusCmp) projectDiagnostics() string {
 		return lipgloss.NewStyle().
 			Background(t.BackgroundDarker()).
 			Foreground(t.Warning()).
-			Render(fmt.Sprintf("%s Initializing LSP...", styles.SpinnerIcon))
+			Render(styles.SpinnerIcon + " Initializing LSP...")
 	}
 
 	errorDiagnostics := []protocol.Diagnostic{}

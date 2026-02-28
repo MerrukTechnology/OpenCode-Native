@@ -126,7 +126,7 @@ func (m *modelDialogCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.switchProvider(1)
 			}
 		case key.Matches(msg, modelKeys.Enter):
-			msgText := fmt.Sprintf("selected model: %s", m.models[m.selectedIdx].Name)
+			msgText := "selected model: " + m.models[m.selectedIdx].Name
 			util.ReportInfo(msgText)
 			return m, util.CmdHandler(ModelSelectedMsg{Model: m.models[m.selectedIdx]})
 		case key.Matches(msg, modelKeys.Escape):
@@ -301,24 +301,23 @@ func (m *modelDialogCmp) setupModels() {
 }
 
 func GetSelectedModel(cfg *config.Config) models.Model {
-
 	agentCfg := cfg.Agents[config.AgentCoder]
-	selectedModelId := agentCfg.Model
-	return models.SupportedModels[selectedModelId]
+	selectedModelID := agentCfg.Model
+	return models.SupportedModels[selectedModelID]
 }
 
 func getEnabledProviders(cfg *config.Config) []models.ModelProvider {
 	providersMap := make(map[models.ModelProvider]bool)
 
 	// Add providers from config
-	for providerId, provider := range cfg.Providers {
+	for providerID, provider := range cfg.Providers {
 		if !provider.Disabled {
-			providersMap[providerId] = true
+			providersMap[providerID] = true
 		}
 	}
 
 	// Also add providers that have API keys available via environment variables
-	for _, provider := range getAllProviderIds() {
+	for _, provider := range getAllproviderIDs() {
 		if !providersMap[provider] {
 			// Check if provider has API key available via env or other means
 			if hasProviderAPIKey(provider) {
@@ -350,8 +349,8 @@ func getEnabledProviders(cfg *config.Config) []models.ModelProvider {
 	return providers
 }
 
-// getAllProviderIds returns all known provider IDs
-func getAllProviderIds() []models.ModelProvider {
+// getAllproviderIDs returns all known provider IDs
+func getAllproviderIDs() []models.ModelProvider {
 	return []models.ModelProvider{
 		models.ProviderVertexAI,
 		models.ProviderAnthropic,
@@ -392,7 +391,7 @@ func findProviderIndex(providers []models.ModelProvider, provider models.ModelPr
 func (m *modelDialogCmp) setupModelsForProvider(provider models.ModelProvider) {
 	cfg := config.Get()
 	agentCfg := cfg.Agents[config.AgentCoder]
-	selectedModelId := agentCfg.Model
+	selectedModelID := agentCfg.Model
 
 	m.provider = provider
 	m.models = getModelsForProvider(provider)
@@ -400,9 +399,9 @@ func (m *modelDialogCmp) setupModelsForProvider(provider models.ModelProvider) {
 	m.scrollOffset = 0
 
 	// Try to select the current model if it belongs to this provider
-	if provider == models.SupportedModels[selectedModelId].Provider {
+	if provider == models.SupportedModels[selectedModelID].Provider {
 		for i, model := range m.models {
-			if model.ID == selectedModelId {
+			if model.ID == selectedModelID {
 				m.selectedIdx = i
 				// Adjust scroll position to keep selected model visible
 				if m.selectedIdx >= numVisibleModels {

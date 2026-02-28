@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
@@ -191,7 +192,6 @@ func (d *deepSeekClient) send(ctx context.Context, messages []message.Message, t
 	for {
 		attempts++
 		deepSeekResponse, err := d.client.Chat.Completions.New(ctx, params)
-
 		// If there is an error we are going to see if we can retry the call
 		if err != nil {
 			retry, after, retryErr := d.shouldRetry(attempts, err)
@@ -255,20 +255,24 @@ func (d *deepSeekClient) stream(ctx context.Context, messages []message.Message,
 			currentContent := ""
 			toolCalls := make([]message.ToolCall, 0)
 
+			var currentContentSb258 strings.Builder
 			for deepSeekStream.Next() {
 				chunk := deepSeekStream.Current()
 				acc.AddChunk(chunk)
 
+				var currentContentSb262 strings.Builder
 				for _, choice := range chunk.Choices {
 					if choice.Delta.Content != "" {
 						eventChan <- ProviderEvent{
 							Type:    EventContentDelta,
 							Content: choice.Delta.Content,
 						}
-						currentContent += choice.Delta.Content
+						currentContentSb262.WriteString(choice.Delta.Content)
 					}
 				}
+				currentContentSb258.WriteString(currentContentSb262.String())
 			}
+			currentContent += currentContentSb258.String()
 
 			err := deepSeekStream.Err()
 			if err == nil || errors.Is(err, io.EOF) {

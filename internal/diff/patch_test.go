@@ -229,7 +229,7 @@ func TestPatch_UnicodePunctuationNormalization(t *testing.T) {
 
 	patch, fuzz, err := TextToPatch(patchText, files)
 	require.NoError(t, err)
-	assert.Greater(t, fuzz, 0, "expected fuzzy match for unicode normalization")
+	assert.Positive(t, fuzz, "expected fuzzy match for unicode normalization")
 
 	commit, err := PatchToCommit(patch, files)
 	require.NoError(t, err)

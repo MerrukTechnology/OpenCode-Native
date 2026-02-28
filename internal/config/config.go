@@ -3,6 +3,7 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -366,11 +367,11 @@ func initLogging(debug bool) error {
 
 // configureViper sets up viper's configuration paths and environment variable handling.
 func configureViper() {
-	viper.SetConfigName(fmt.Sprintf(".%s", appName))
+	viper.SetConfigName("." + appName)
 	viper.SetConfigType("json")
 	viper.AddConfigPath("$HOME")
-	viper.AddConfigPath(fmt.Sprintf("$XDG_CONFIG_HOME/%s", appName))
-	viper.AddConfigPath(fmt.Sprintf("$HOME/.config/%s", appName))
+	viper.AddConfigPath("$XDG_CONFIG_HOME/" + appName)
+	viper.AddConfigPath("$HOME/.config/" + appName)
 	viper.SetEnvPrefix(strings.ToUpper(appName))
 	viper.AutomaticEnv()
 }
@@ -432,7 +433,7 @@ func mapEnvVarsToViper() {
 		"QWEN_API_KEY":       "providers.qwen.apiKey",
 		"MISTRAL_API_KEY":    "providers.mistral.apiKey",
 		"KILO_API_KEY":       "providers.kilocode.apiKey",
-		//"MOONSHOT_API_KEY":   "providers.moonshot.apiKey",
+		// "MOONSHOT_API_KEY":   "providers.moonshot.apiKey",
 		"VERTEXAI_PROJECT":  "providers.vertexai.project",
 		"VERTEXAI_LOCATION": "providers.vertexai.location",
 	}
@@ -497,7 +498,8 @@ func readConfig(err error) error {
 	if err == nil {
 		return nil
 	}
-	if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+	var configFileNotFoundError viper.ConfigFileNotFoundError
+	if errors.As(err, &configFileNotFoundError) {
 		return nil
 	}
 	return fmt.Errorf("failed to read config: %w", err)
@@ -506,7 +508,7 @@ func readConfig(err error) error {
 // mergeLocalConfig loads and merges configuration from the local directory.
 func mergeLocalConfig(workingDir string) {
 	local := viper.New()
-	local.SetConfigName(fmt.Sprintf(".%s", appName))
+	local.SetConfigName("." + appName)
 	local.SetConfigType("json")
 	local.AddConfigPath(workingDir)
 	if err := local.ReadInConfig(); err == nil {
@@ -776,7 +778,7 @@ func validateAgent(cfg *Config, name AgentName, agent Agent) error {
 // Validate checks if the configuration is valid.
 func Validate() error {
 	if cfg == nil {
-		return fmt.Errorf("config not loaded")
+		return errors.New("config not loaded")
 	}
 
 	if err := validateSessionProvider(); err != nil {
@@ -831,16 +833,16 @@ func validateSessionProvider() error {
 		if mysql.DSN == "" {
 			// Validate individual connection fields
 			if mysql.Host == "" {
-				return fmt.Errorf("MySQL host is required when using MySQL session provider (or provide DSN)")
+				return errors.New("MySQL host is required when using MySQL session provider (or provide DSN)")
 			}
 			if mysql.Database == "" {
-				return fmt.Errorf("MySQL database is required when using MySQL session provider (or provide DSN)")
+				return errors.New("MySQL database is required when using MySQL session provider (or provide DSN)")
 			}
 			if mysql.Username == "" {
-				return fmt.Errorf("MySQL username is required when using MySQL session provider (or provide DSN)")
+				return errors.New("MySQL username is required when using MySQL session provider (or provide DSN)")
 			}
 			if mysql.Password == "" {
-				return fmt.Errorf("MySQL password is required when using MySQL session provider (or provide DSN)")
+				return errors.New("MySQL password is required when using MySQL session provider (or provide DSN)")
 			}
 		}
 	}
@@ -884,7 +886,7 @@ func GetProviderAPIKey(provider models.ModelProvider) string {
 // updateCfgFile updates the configuration file.
 func updateCfgFile(updateCfg func(config *Config)) error {
 	if cfg == nil {
-		return fmt.Errorf("config not loaded")
+		return errors.New("config not loaded")
 	}
 
 	configFile := viper.ConfigFileUsed()
@@ -983,7 +985,7 @@ func UpdateTheme(themeName string) error {
 	mu.Lock()
 	defer mu.Unlock()
 	if cfg == nil {
-		return fmt.Errorf("config not loaded")
+		return errors.New("config not loaded")
 	}
 	cfg.TUI.Theme = themeName
 	return updateCfgFile(func(config *Config) {

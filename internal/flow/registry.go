@@ -8,10 +8,9 @@ import (
 	"strings"
 	"sync"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -178,7 +177,7 @@ func parseFlowFile(path string) (*Flow, error) {
 
 	var ff flowFile
 	if err := yaml.Unmarshal(data, &ff); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidYAML, err)
+		return nil, fmt.Errorf("%w: %w", ErrInvalidYAML, err)
 	}
 
 	// Derive ID from filename (basename without extension)

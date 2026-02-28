@@ -8,7 +8,6 @@ import (
 
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
-
 	"github.com/pressly/goose/v3"
 )
 

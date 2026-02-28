@@ -107,7 +107,6 @@ func (m *messagesCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		needsRerender := false
 		if msg.Type == pubsub.CreatedEvent {
 			if msg.Payload.SessionID == m.session.ID {
-
 				messageExists := false
 				for _, v := range m.messages {
 					if v.ID == msg.Payload.ID {

@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"sync"
@@ -15,7 +16,6 @@ import (
 	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/permission"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/version"
-
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/client/transport"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -260,7 +260,7 @@ func (b *mcpTool) Info() tools.ToolInfo {
 func (b *mcpTool) Run(ctx context.Context, params tools.ToolCall) (tools.ToolResponse, error) {
 	sessionID, messageID := tools.GetContextValues(ctx)
 	if sessionID == "" || messageID == "" {
-		return tools.ToolResponse{}, fmt.Errorf("session ID and message ID are required for creating a new file")
+		return tools.ToolResponse{}, errors.New("session ID and message ID are required for creating a new file")
 	}
 
 	action := b.reg.EvaluatePermission(string(tools.GetAgentID(ctx)), b.Info().Name, params.Input)

@@ -9,12 +9,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/bmatcuk/doublestar/v4"
-	"gopkg.in/yaml.v3"
-
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/fileutil"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
+	"github.com/bmatcuk/doublestar/v4"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -341,7 +340,7 @@ func parseSkillFile(path string) (*Info, error) {
 func splitFrontmatter(data string) (frontmatter, content string, err error) {
 	// Check for frontmatter delimiters
 	if !strings.HasPrefix(data, "---\n") && !strings.HasPrefix(data, "---\r\n") {
-		return "", "", fmt.Errorf("missing frontmatter delimiter")
+		return "", "", errors.New("missing frontmatter delimiter")
 	}
 
 	// Find end of frontmatter
@@ -356,7 +355,7 @@ func splitFrontmatter(data string) (frontmatter, content string, err error) {
 	}
 
 	if endIdx == -1 {
-		return "", "", fmt.Errorf("missing frontmatter end delimiter")
+		return "", "", errors.New("missing frontmatter end delimiter")
 	}
 
 	// Extract frontmatter and content

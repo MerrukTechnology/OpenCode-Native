@@ -4,10 +4,12 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp"
@@ -138,14 +140,14 @@ func (v *viewTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error)
 				}
 			}
 
-			return NewTextErrorResponse(fmt.Sprintf("File not found: %s", filePath)), nil
+			return NewTextErrorResponse("File not found: " + filePath), nil
 		}
 		return NewEmptyResponse(), fmt.Errorf("error accessing file: %w", err)
 	}
 
 	// Check if it's a directory
 	if fileInfo.IsDir() {
-		return NewTextErrorResponse(fmt.Sprintf("Path is a directory, not a file: %s", filePath)), nil
+		return NewTextErrorResponse("Path is a directory, not a file: " + filePath), nil
 	}
 
 	// Check file size
@@ -217,7 +219,7 @@ func addLineNumbers(content string, startLine int) string {
 		line = strings.TrimSuffix(line, "\r")
 
 		lineNum := i + startLine
-		numStr := fmt.Sprintf("%d", lineNum)
+		numStr := strconv.Itoa(lineNum)
 
 		if len(numStr) >= 6 {
 			result = append(result, fmt.Sprintf("%s|%s", numStr, line))
@@ -331,7 +333,7 @@ func isBinaryFile(filePath string) (bool, error) {
 
 	buf := make([]byte, 4096)
 	n, err := f.Read(buf)
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		return false, err
 	}
 	if n == 0 {

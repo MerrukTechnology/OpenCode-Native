@@ -1,7 +1,70 @@
+# ----------------------------------------------------------------------------
+# OpenCode Native - Professional Linter Config
+# ----------------------------------------------------------------------------
 version: "2"
 
+# Options for analysis running
+run:
+  # Timeout for analysis
+  timeout: 5m
+  # Include test files in linting
+  tests: true
+  # STRICTLY enforce Go 1.24 semantics
+  go: '1.24'
+  # Allow parallel runners (faster on multi-core)
+  allow-parallel-runners: true
+
+# Output configuration
 output:
   show-stats: true
   sort-order:
     - file
     - linter
+    - severity
+
+formatters:
+  enable:
+    # --- FORMATTING (The New Part) ---
+    - gofumpt       # Stricter gofmt (Enforces professional style)
+    - goimports     # Fixes imports
+    - gci           # Groups imports clearly (Std / 3rd Party / Local)
+
+# Linter selection
+linters:
+  enable:
+    # --- CORE STABILITY ---
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+
+    # --- MODERN GO ---
+    - errorlint
+    - revive
+    - unconvert
+    - goconst
+    - nilerr
+    - sloglint
+
+    # --- SAFETY ---
+    - bodyclose
+    - noctx
+    - sqlclosecheck
+    - rowserrcheck
+    - contextcheck
+
+    # --- PERFORMANCE ---
+    - prealloc
+    - gocritic
+    - perfsprint
+
+    # --- CODE QUALITY ---
+    - testifylint
+    - usestdlibvars
+    - whitespace
+
+# Issues Configuration
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

@@ -192,7 +192,7 @@ func TestExtractTextFromHTML(t *testing.T) {
 			result, err := extractTextFromHTML(tt.html)
 			if tt.name == "empty HTML" {
 				assert.NoError(t, err)
-				assert.Equal(t, "", result)
+				assert.Empty(t, result)
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.expected, result)

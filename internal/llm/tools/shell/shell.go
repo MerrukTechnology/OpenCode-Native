@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -266,7 +267,7 @@ func (s *PersistentShell) killChildren() {
 		return
 	}
 
-	pgrepCmd := exec.Command("pgrep", "-P", fmt.Sprintf("%d", s.cmd.Process.Pid))
+	pgrepCmd := exec.Command("pgrep", "-P", strconv.Itoa(s.cmd.Process.Pid))
 	output, err := pgrepCmd.Output()
 	if err != nil {
 		return

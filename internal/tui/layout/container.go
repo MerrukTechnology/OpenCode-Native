@@ -124,7 +124,6 @@ func (c *container) BindingKeys() []key.Binding {
 type ContainerOption func(*container)
 
 func NewContainer(content tea.Model, options ...ContainerOption) Container {
-
 	c := &container{
 		content:     content,
 		borderStyle: lipgloss.NormalBorder(),
@@ -137,7 +136,8 @@ func NewContainer(content tea.Model, options ...ContainerOption) Container {
 	return c
 }
 
-// Padding options
+// WithPadding allows you to set padding for each side of the container.
+// You can specify different values for top, right, bottom, and left padding.
 func WithPadding(top, right, bottom, left int) ContainerOption {
 	return func(c *container) {
 		c.paddingTop = top
@@ -147,10 +147,12 @@ func WithPadding(top, right, bottom, left int) ContainerOption {
 	}
 }
 
+// WithPaddingAll sets the same padding value for all sides of the container.
 func WithPaddingAll(padding int) ContainerOption {
 	return WithPadding(padding, padding, padding, padding)
 }
 
+// WithPaddingHorizontal sets the same padding value for the left and right sides of the container.
 func WithPaddingHorizontal(padding int) ContainerOption {
 	return func(c *container) {
 		c.paddingLeft = padding
@@ -158,6 +160,7 @@ func WithPaddingHorizontal(padding int) ContainerOption {
 	}
 }
 
+// WithPaddingVertical sets the same padding value for the top and bottom sides of the container.
 func WithPaddingVertical(padding int) ContainerOption {
 	return func(c *container) {
 		c.paddingTop = padding
@@ -165,6 +168,8 @@ func WithPaddingVertical(padding int) ContainerOption {
 	}
 }
 
+// WithBorder allows you to set borders for each side of the container.
+// You can specify different values for top, right, bottom, and left borders.
 func WithBorder(top, right, bottom, left bool) ContainerOption {
 	return func(c *container) {
 		c.borderTop = top
@@ -174,32 +179,39 @@ func WithBorder(top, right, bottom, left bool) ContainerOption {
 	}
 }
 
+// WithBorderAll sets borders on all sides of the container.
 func WithBorderAll() ContainerOption {
 	return WithBorder(true, true, true, true)
 }
 
+// WithBorderHorizontal sets borders on the left and right sides of the container.
 func WithBorderHorizontal() ContainerOption {
 	return WithBorder(true, false, true, false)
 }
 
+// WithBorderVertical sets borders on the top and bottom sides of the container.
 func WithBorderVertical() ContainerOption {
 	return WithBorder(false, true, false, true)
 }
 
+// WithBorderStyle sets the style of the border.
 func WithBorderStyle(style lipgloss.Border) ContainerOption {
 	return func(c *container) {
 		c.borderStyle = style
 	}
 }
 
+// WithBorderStyle sets the style of the border.
 func WithRoundedBorder() ContainerOption {
 	return WithBorderStyle(lipgloss.RoundedBorder())
 }
 
+// WithBorderStyle sets the style of the border.
 func WithThickBorder() ContainerOption {
 	return WithBorderStyle(lipgloss.ThickBorder())
 }
 
+// WithBorderStyle sets the style of the border.
 func WithDoubleBorder() ContainerOption {
 	return WithBorderStyle(lipgloss.DoubleBorder())
 }

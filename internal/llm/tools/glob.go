@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -106,7 +107,7 @@ func (g *globTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error)
 	info, err := os.Stat(searchPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return NewTextErrorResponse(fmt.Sprintf("path does not exist: %s", searchPath)), nil
+			return NewTextErrorResponse("path does not exist: " + searchPath), nil
 		}
 		return NewEmptyResponse(), fmt.Errorf("error accessing path: %w", err)
 	}
@@ -155,7 +156,8 @@ func globFiles(pattern, searchPath string, limit int) ([]string, bool, error) {
 func runRipgrep(cmd *exec.Cmd, searchRoot string, limit int) ([]string, error) {
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		if ee, ok := err.(*exec.ExitError); ok && ee.ExitCode() == 1 {
+		ee := &exec.ExitError{}
+		if errors.As(err, &ee) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("ripgrep: %w\n%s", err, out)

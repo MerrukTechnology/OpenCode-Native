@@ -179,9 +179,9 @@ func (e *editTool) createNewFile(ctx context.Context, filePath, content string) 
 	fileInfo, err := fileutil.GetFileInfo(filePath)
 	if err == nil {
 		if fileInfo.IsDir() {
-			return NewTextErrorResponse(fmt.Sprintf("path is a directory, not a file: %s", filePath)), nil
+			return NewTextErrorResponse("path is a directory, not a file: " + filePath), nil
 		}
-		return NewTextErrorResponse(fmt.Sprintf("file already exists: %s", filePath)), nil
+		return NewTextErrorResponse("file already exists: " + filePath), nil
 	} else if !os.IsNotExist(err) {
 		return NewEmptyResponse(), fmt.Errorf("failed to access file: %w", err)
 	}
@@ -192,7 +192,7 @@ func (e *editTool) createNewFile(ctx context.Context, filePath, content string) 
 
 	sessionID, messageID := GetContextValues(ctx)
 	if sessionID == "" || messageID == "" {
-		return NewEmptyResponse(), fmt.Errorf("session ID and message ID are required for creating a new file")
+		return NewEmptyResponse(), errors.New("session ID and message ID are required for creating a new file")
 	}
 
 	diff, additions, removals := diff.GenerateDiff(
@@ -219,7 +219,7 @@ func (e *editTool) createNewFile(ctx context.Context, filePath, content string) 
 				Path:        permissionPath,
 				ToolName:    EditToolName,
 				Action:      "write",
-				Description: fmt.Sprintf("Create file %s", filePath),
+				Description: "Create file " + filePath,
 				Params: EditPermissionsParams{
 					FilePath: filePath,
 					Diff:     diff,
@@ -267,13 +267,13 @@ func (e *editTool) deleteContent(ctx context.Context, filePath, oldString string
 	fileInfo, err := fileutil.GetFileInfo(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return NewTextErrorResponse(fmt.Sprintf("file not found: %s", filePath)), nil
+			return NewTextErrorResponse("file not found: " + filePath), nil
 		}
 		return NewEmptyResponse(), fmt.Errorf("failed to access file: %w", err)
 	}
 
 	if fileInfo.IsDir() {
-		return NewTextErrorResponse(fmt.Sprintf("path is a directory, not a file: %s", filePath)), nil
+		return NewTextErrorResponse("path is a directory, not a file: " + filePath), nil
 	}
 
 	if getLastReadTime(filePath).IsZero() {
@@ -317,7 +317,7 @@ func (e *editTool) deleteContent(ctx context.Context, filePath, oldString string
 	sessionID, messageID := GetContextValues(ctx)
 
 	if sessionID == "" || messageID == "" {
-		return NewEmptyResponse(), fmt.Errorf("session ID and message ID are required for creating a new file")
+		return NewEmptyResponse(), errors.New("session ID and message ID are required for creating a new file")
 	}
 
 	diff, additions, removals := diff.GenerateDiff(
@@ -344,7 +344,7 @@ func (e *editTool) deleteContent(ctx context.Context, filePath, oldString string
 				Path:        permissionPath,
 				ToolName:    EditToolName,
 				Action:      "write",
-				Description: fmt.Sprintf("Delete content from file %s", filePath),
+				Description: "Delete content from file " + filePath,
 				Params: EditPermissionsParams{
 					FilePath: filePath,
 					Diff:     diff,
@@ -399,13 +399,13 @@ func (e *editTool) replaceContent(ctx context.Context, filePath, oldString, newS
 	fileInfo, err := fileutil.GetFileInfo(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return NewTextErrorResponse(fmt.Sprintf("file not found: %s", filePath)), nil
+			return NewTextErrorResponse("file not found: " + filePath), nil
 		}
 		return NewEmptyResponse(), fmt.Errorf("failed to access file: %w", err)
 	}
 
 	if fileInfo.IsDir() {
-		return NewTextErrorResponse(fmt.Sprintf("path is a directory, not a file: %s", filePath)), nil
+		return NewTextErrorResponse("path is a directory, not a file: " + filePath), nil
 	}
 
 	if getLastReadTime(filePath).IsZero() {
@@ -453,7 +453,7 @@ func (e *editTool) replaceContent(ctx context.Context, filePath, oldString, newS
 	sessionID, messageID := GetContextValues(ctx)
 
 	if sessionID == "" || messageID == "" {
-		return NewEmptyResponse(), fmt.Errorf("session ID and message ID are required for creating a new file")
+		return NewEmptyResponse(), errors.New("session ID and message ID are required for creating a new file")
 	}
 	diff, additions, removals := diff.GenerateDiff(
 		oldContent,
@@ -478,7 +478,7 @@ func (e *editTool) replaceContent(ctx context.Context, filePath, oldString, newS
 				Path:        permissionPath,
 				ToolName:    EditToolName,
 				Action:      "write",
-				Description: fmt.Sprintf("Replace content in file %s", filePath),
+				Description: "Replace content in file " + filePath,
 				Params: EditPermissionsParams{
 					FilePath: filePath,
 					Diff:     diff,

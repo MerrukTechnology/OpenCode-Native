@@ -179,7 +179,7 @@ func installGitHubRelease(ctx context.Context, server ResolvedServer) error {
 
 	// Fetch latest release info
 	url := fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", server.InstallRepo)
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
 	}
@@ -191,7 +191,7 @@ func installGitHubRelease(ctx context.Context, server ResolvedServer) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("GitHub API returned status %d for %s", resp.StatusCode, server.InstallRepo)
 	}
 
@@ -213,7 +213,7 @@ func installGitHubRelease(ctx context.Context, server ResolvedServer) error {
 
 	// Download the asset
 	logging.Info("Downloading LSP server", "name", server.ID, "url", asset)
-	req, err = http.NewRequestWithContext(ctx, "GET", asset, nil)
+	req, err = http.NewRequestWithContext(ctx, http.MethodGet, asset, nil)
 	if err != nil {
 		return err
 	}
@@ -262,7 +262,8 @@ type releaseAsset struct {
 func findMatchingAsset(assets []struct {
 	Name               string `json:"name"`
 	BrowserDownloadURL string `json:"browser_download_url"`
-}, serverID string) string {
+}, serverID string,
+) string {
 	goos := runtime.GOOS
 	goarch := runtime.GOARCH
 

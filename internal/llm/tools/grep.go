@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -155,20 +156,22 @@ func (g *grepTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error)
 		output = fmt.Sprintf("Found %d matches\n", len(matches))
 
 		currentFile := ""
+		var outputSb158 strings.Builder
 		for _, match := range matches {
 			if currentFile != match.path {
 				if currentFile != "" {
-					output += "\n"
+					outputSb158.WriteString("\n")
 				}
 				currentFile = match.path
-				output += fmt.Sprintf("%s:\n", match.path)
+				outputSb158.WriteString(match.path + ":\n")
 			}
 			if match.lineNum > 0 {
-				output += fmt.Sprintf("  Line %d: %s\n", match.lineNum, match.lineText)
+				outputSb158.WriteString(fmt.Sprintf("  Line %d: %s\n", match.lineNum, match.lineText))
 			} else {
-				output += fmt.Sprintf("  %s\n", match.path)
+				outputSb158.WriteString(fmt.Sprintf("  %s\n", match.path))
 			}
 		}
+		output += outputSb158.String()
 
 		if truncated {
 			output += fmt.Sprintf("\n(Results truncated: showing %d matches. Consider using a more specific path or pattern.)", len(matches))
@@ -221,7 +224,8 @@ func searchWithRipgrep(pattern, path, include string) ([]grepMatch, error) {
 	cmd := exec.Command("rg", args...)
 	output, err := cmd.Output()
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		exitErr := &exec.ExitError{}
+		if errors.As(err, &exitErr) {
 			switch exitErr.ExitCode() {
 			case 1:
 				return []grepMatch{}, nil

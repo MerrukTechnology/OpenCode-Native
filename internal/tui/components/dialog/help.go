@@ -103,7 +103,7 @@ func (h *helpCmp) render() string {
 		for i := range descs {
 			remainingWidth := maxDescWidth - lipgloss.Width(descs[i])
 			if remainingWidth > 0 {
-				descs[i] = descs[i] + baseStyle.Render(strings.Repeat(" ", remainingWidth))
+				descs[i] += baseStyle.Render(strings.Repeat(" ", remainingWidth))
 			}
 		}
 		maxKeyWidth := 0
@@ -115,7 +115,7 @@ func (h *helpCmp) render() string {
 		for i := range keys {
 			remainingWidth := maxKeyWidth - lipgloss.Width(keys[i])
 			if remainingWidth > 0 {
-				keys[i] = keys[i] + baseStyle.Render(strings.Repeat(" ", remainingWidth))
+				keys[i] += baseStyle.Render(strings.Repeat(" ", remainingWidth))
 			}
 		}
 

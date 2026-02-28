@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -107,14 +108,14 @@ func (d *deleteTool) Run(ctx context.Context, call ToolCall) (ToolResponse, erro
 	fileInfo, err := os.Lstat(absPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return NewTextErrorResponse(fmt.Sprintf("file or directory does not exist: %s", absPath)), nil
+			return NewTextErrorResponse("file or directory does not exist: " + absPath), nil
 		}
 		return NewEmptyResponse(), fmt.Errorf("error checking path: %w", err)
 	}
 
 	sessionID, messageID := GetContextValues(ctx)
 	if sessionID == "" || messageID == "" {
-		return NewEmptyResponse(), fmt.Errorf("session_id and message_id are required")
+		return NewEmptyResponse(), errors.New("session_id and message_id are required")
 	}
 
 	if !fileInfo.IsDir() {
@@ -137,7 +138,7 @@ func (d *deleteTool) Run(ctx context.Context, call ToolCall) (ToolResponse, erro
 					Path:        filepath.Dir(absPath),
 					ToolName:    DeleteToolName,
 					Action:      "delete",
-					Description: fmt.Sprintf("Delete file %s", absPath),
+					Description: "Delete file " + absPath,
 					Params: DeletePermissionsParams{
 						Path: absPath,
 						Diff: diffStr,
@@ -204,7 +205,7 @@ func (d *deleteTool) Run(ctx context.Context, call ToolCall) (ToolResponse, erro
 		}
 
 		if len(files) >= 500 {
-			return fmt.Errorf("directory contains more than 500 files")
+			return errors.New("directory contains more than 500 files")
 		}
 
 		content, err := os.ReadFile(path)

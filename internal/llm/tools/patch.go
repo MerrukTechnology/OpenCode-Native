@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -144,13 +145,13 @@ func (p *patchTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 		fileInfo, err := os.Stat(absPath)
 		if err != nil {
 			if os.IsNotExist(err) {
-				return NewTextErrorResponse(fmt.Sprintf("file not found: %s", absPath)), nil
+				return NewTextErrorResponse("file not found: " + absPath), nil
 			}
 			return NewEmptyResponse(), fmt.Errorf("failed to access file: %w", err)
 		}
 
 		if fileInfo.IsDir() {
-			return NewTextErrorResponse(fmt.Sprintf("path is a directory, not a file: %s", absPath)), nil
+			return NewTextErrorResponse("path is a directory, not a file: " + absPath), nil
 		}
 
 		modTime := fileInfo.ModTime()
@@ -170,7 +171,7 @@ func (p *patchTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 
 		_, err := os.Stat(absPath)
 		if err == nil {
-			return NewTextErrorResponse(fmt.Sprintf("file already exists and cannot be added: %s", absPath)), nil
+			return NewTextErrorResponse("file already exists and cannot be added: " + absPath), nil
 		} else if !os.IsNotExist(err) {
 			return NewEmptyResponse(), fmt.Errorf("failed to check file: %w", err)
 		}
@@ -207,13 +208,14 @@ func (p *patchTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 	// Get session ID and message ID
 	sessionID, messageID := GetContextValues(ctx)
 	if sessionID == "" || messageID == "" {
-		return NewEmptyResponse(), fmt.Errorf("session ID and message ID are required for creating a patch")
+		return NewEmptyResponse(), errors.New("session ID and message ID are required for creating a patch")
 	}
 
 	// Request permission for all changes
 	var combinedDiff string
 	needsPermission := false
 	permissionFiles := make([]string, 0)
+	var combinedDiffSb217 strings.Builder
 	for filePath, change := range commit.Changes {
 		fileAction := p.registry.EvaluatePermission(string(GetAgentID(ctx)), PatchToolName, filePath)
 		if fileAction == permission.ActionDeny {
@@ -234,8 +236,9 @@ func (p *patchTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 			newContent = *change.NewContent
 		}
 		fileDiff, _, _ := diff.GenerateDiff(oldContent, newContent, filePath)
-		combinedDiff += fileDiff + "\n"
+		combinedDiffSb217.WriteString(fileDiff + "\n")
 	}
+	combinedDiff += combinedDiffSb217.String()
 
 	if needsPermission {
 		sort.Strings(permissionFiles)
@@ -345,9 +348,11 @@ func (p *patchTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 		len(changedFiles), totalAdditions, totalRemovals)
 
 	diagnosticsText := ""
+	var diagnosticsTextSb348 strings.Builder
 	for _, filePath := range changedFiles {
-		diagnosticsText += p.lsp.FormatDiagnostics(filePath)
+		diagnosticsTextSb348.WriteString(p.lsp.FormatDiagnostics(filePath))
 	}
+	diagnosticsText += diagnosticsTextSb348.String()
 
 	if diagnosticsText != "" {
 		result += "\n\nDiagnostics:\n" + diagnosticsText

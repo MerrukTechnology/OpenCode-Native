@@ -8,11 +8,10 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"strings"
-
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
+	"strings"
 	"sync"
 	"time"
 )
@@ -111,7 +110,7 @@ func RecoverPanic(name string, cleanup func()) {
 			fmt.Fprintf(file, "Time: %s\n\n", time.Now().Format(time.RFC3339))
 			fmt.Fprintf(file, "Stack Trace:\n%s\n", debug.Stack())
 
-			InfoPersist(fmt.Sprintf("Panic details written to %s", filename))
+			InfoPersist("Panic details written to " + filename)
 		}
 
 		// Execute cleanup function if provided

@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -156,13 +157,13 @@ func (m *multiEditTool) Run(ctx context.Context, call ToolCall) (ToolResponse, e
 	fileInfo, err := os.Stat(params.FilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return NewTextErrorResponse(fmt.Sprintf("file not found: %s", params.FilePath)), nil
+			return NewTextErrorResponse("file not found: " + params.FilePath), nil
 		}
 		return NewEmptyResponse(), fmt.Errorf("failed to access file: %w", err)
 	}
 
 	if fileInfo.IsDir() {
-		return NewTextErrorResponse(fmt.Sprintf("path is a directory, not a file: %s", params.FilePath)), nil
+		return NewTextErrorResponse("path is a directory, not a file: " + params.FilePath), nil
 	}
 
 	if getLastReadTime(params.FilePath).IsZero() {
@@ -231,7 +232,7 @@ func (m *multiEditTool) Run(ctx context.Context, call ToolCall) (ToolResponse, e
 
 	sessionID, messageID := GetContextValues(ctx)
 	if sessionID == "" || messageID == "" {
-		return NewEmptyResponse(), fmt.Errorf("session ID and message ID are required")
+		return NewEmptyResponse(), errors.New("session ID and message ID are required")
 	}
 
 	combinedDiff, additions, removals := diff.GenerateDiff(

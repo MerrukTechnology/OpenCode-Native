@@ -2,6 +2,7 @@ package completions
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os/exec"
 	"path/filepath"
@@ -86,7 +87,8 @@ func (cg *filesAndFoldersContextGroup) getFiles(query string) ([]string, error) 
 		}
 
 		if errFzf != nil {
-			if exitErr, ok := errFzf.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+			exitErr := &exec.ExitError{}
+			if errors.As(errFzf, &exitErr) {
 				return []string{}, nil // No matches from fzf
 			}
 			return nil, fmt.Errorf("fzf command failed: %w\nStderr: %s", errFzf, fzfErr.String())
@@ -137,7 +139,8 @@ func (cg *filesAndFoldersContextGroup) getFiles(query string) ([]string, error) 
 		cmdFzf.Stderr = &fzfErr
 
 		if err := cmdFzf.Run(); err != nil {
-			if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+			exitErr := &exec.ExitError{}
+			if errors.As(err, &exitErr) {
 				return []string{}, nil
 			}
 			return nil, fmt.Errorf("fzf command failed: %w\nStderr: %s", err, fzfErr.String())

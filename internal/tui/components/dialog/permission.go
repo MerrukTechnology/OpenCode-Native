@@ -202,13 +202,13 @@ func (p *permissionDialogCmp) renderHeader() string {
 	toolValue := baseStyle.
 		Foreground(t.Text()).
 		Width(p.width - lipgloss.Width(toolKey)).
-		Render(fmt.Sprintf(": %s", p.permission.ToolName))
+		Render(": " + p.permission.ToolName)
 
 	pathKey := baseStyle.Foreground(t.TextMuted()).Bold(true).Render("Path")
 	pathValue := baseStyle.
 		Foreground(t.Text()).
 		Width(p.width - lipgloss.Width(pathKey)).
-		Render(fmt.Sprintf(": %s", p.permission.Path))
+		Render(": " + p.permission.Path)
 
 	headerParts := []string{
 		lipgloss.JoinHorizontal(
@@ -235,7 +235,7 @@ func (p *permissionDialogCmp) renderHeader() string {
 		filePath := baseStyle.
 			Foreground(t.Text()).
 			Width(p.width - lipgloss.Width(fileKey)).
-			Render(fmt.Sprintf(": %s", params.FilePath))
+			Render(": " + params.FilePath)
 		headerParts = append(headerParts,
 			lipgloss.JoinHorizontal(
 				lipgloss.Left,
@@ -250,7 +250,7 @@ func (p *permissionDialogCmp) renderHeader() string {
 		filePath := baseStyle.
 			Foreground(t.Text()).
 			Width(p.width - lipgloss.Width(fileKey)).
-			Render(fmt.Sprintf(": %s", params.FilePath))
+			Render(": " + params.FilePath)
 		headerParts = append(headerParts,
 			lipgloss.JoinHorizontal(
 				lipgloss.Left,
@@ -266,7 +266,7 @@ func (p *permissionDialogCmp) renderHeader() string {
 		filePath := baseStyle.
 			Foreground(t.Text()).
 			Width(p.width - lipgloss.Width(fileKey)).
-			Render(fmt.Sprintf(": %s", params.FilePath))
+			Render(": " + params.FilePath)
 		headerParts = append(headerParts,
 			lipgloss.JoinHorizontal(
 				lipgloss.Left,

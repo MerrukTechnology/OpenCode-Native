@@ -5,9 +5,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-var (
-	ImageBakcground = "#212121"
-)
+var ImageBakcground = "#212121"
 
 // Style generation functions that use the current theme
 

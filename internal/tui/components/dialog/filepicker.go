@@ -30,6 +30,7 @@ const (
 	upArrow           = "up"
 )
 
+// FilePrickerKeyMap is a key map for the file picker.
 type FilePrickerKeyMap struct {
 	Enter          key.Binding
 	Down           key.Binding
@@ -135,7 +136,10 @@ func (f *filepickerCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			f.cwd.Focus()
 			return f, cmd
 		case key.Matches(msg, filePickerKeyMap.Esc):
-			if f.cwd.Focused() {
+			if !f.cwd.Focused() {
+				f.cursorChain = make(stack, 0)
+				f.cursor = 0
+			} else {
 				f.cwd.Blur()
 			}
 		case key.Matches(msg, filePickerKeyMap.Down):
@@ -182,13 +186,6 @@ func (f *filepickerCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				f.selectedFile = path
 				return f.addAttachmentToMessage()
-			}
-		case key.Matches(msg, filePickerKeyMap.Esc):
-			if !f.cwd.Focused() {
-				f.cursorChain = make(stack, 0)
-				f.cursor = 0
-			} else {
-				f.cwd.Blur()
 			}
 		case key.Matches(msg, filePickerKeyMap.Forward):
 			if !f.cwd.Focused() && len(f.dirs) > 0 {
@@ -304,7 +301,7 @@ func (f *filepickerCmp) View() string {
 			filename = filename[:adjustedWidth-7] + "..."
 		}
 		if file.IsDir() {
-			filename = filename + "/"
+			filename += "/"
 		}
 		// No need to reassign filename if it's not changing
 
@@ -418,7 +415,7 @@ func (f *filepickerCmp) getCurrentFileBelowCursor() {
 }
 
 func readDir(path string, showHidden bool) []os.DirEntry {
-	logging.Info(fmt.Sprintf("Reading directory: %s", path))
+	logging.Info("Reading directory: " + path)
 
 	entriesChan := make(chan []os.DirEntry, 1)
 	errChan := make(chan error, 1)
@@ -459,11 +456,11 @@ func readDir(path string, showHidden bool) []os.DirEntry {
 		return sanitizedDirEntries
 
 	case err := <-errChan:
-		logging.ErrorPersist(fmt.Sprintf("Error reading directory %s", path), err)
+		logging.ErrorPersist("Error reading directory "+path, err)
 		return []os.DirEntry{}
 
 	case <-time.After(5 * time.Second):
-		logging.ErrorPersist(fmt.Sprintf("Timeout reading directory %s", path), nil)
+		logging.ErrorPersist("Timeout reading directory "+path, nil)
 		return []os.DirEntry{}
 	}
 }

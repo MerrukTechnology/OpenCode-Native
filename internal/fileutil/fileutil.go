@@ -28,8 +28,8 @@ var (
 
 // Standard permissions for a Native application
 const (
-	DefaultDirPerms  = 0755
-	DefaultFilePerms = 0644
+	DefaultDirPerms  = 0o755
+	DefaultFilePerms = 0o644
 	// MaxReadSize limits AI from reading massive files (1MB is usually plenty for context)
 	MaxReadSize = 1 * 1024 * 1024
 )
@@ -471,7 +471,7 @@ func IsTextFile(path string) (bool, error) {
 	// Read the first 512 bytes to determine the content type
 	buffer := make([]byte, 512)
 	n, err := f.Read(buffer)
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		return false, err
 	}
 
@@ -516,7 +516,7 @@ func SafeReadFile(path, workingDir string) (string, error) {
 	// Read first 512 bytes for content type detection
 	header := make([]byte, 512)
 	n, err := f.Read(header)
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		return "", err
 	}
 	header = header[:n]

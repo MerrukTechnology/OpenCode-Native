@@ -3,7 +3,6 @@ package tools
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"maps"
 )
 
@@ -48,11 +47,11 @@ func (s *structOutputTool) Info() ToolInfo {
 func (s *structOutputTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error) {
 	var result map[string]any
 	if err := json.Unmarshal([]byte(call.Input), &result); err != nil {
-		return NewTextErrorResponse(fmt.Sprintf("Invalid JSON: %s", err.Error())), nil
+		return NewTextErrorResponse("Invalid JSON: " + err.Error()), nil
 	}
 	output, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
-		return NewTextErrorResponse(fmt.Sprintf("Failed to format output: %s", err.Error())), nil
+		return NewTextErrorResponse("Failed to format output: " + err.Error()), nil
 	}
 	return NewTextResponse(string(output)), nil
 }

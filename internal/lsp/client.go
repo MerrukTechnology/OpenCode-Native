@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -265,7 +266,7 @@ func (c *Client) Close() error {
 		if err := c.Cmd.Process.Kill(); err != nil {
 			return fmt.Errorf("failed to kill process: %w", err)
 		}
-		return fmt.Errorf("process killed after timeout")
+		return errors.New("process killed after timeout")
 	}
 }
 
@@ -325,7 +326,7 @@ func (c *Client) WaitForServerReady(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			c.SetServerState(StateError)
-			return fmt.Errorf("timeout waiting for LSP server to be ready")
+			return errors.New("timeout waiting for LSP server to be ready")
 		case <-ticker.C:
 			// Try a ping method appropriate for this server type
 			err := c.pingServerByType(ctx, serverType)
@@ -611,7 +612,7 @@ func (c *Client) OpenFile(ctx context.Context, filePath string) error {
 		return nil // Silently skip files that this server shouldn't handle
 	}
 
-	uri := fmt.Sprintf("file://%s", filePath)
+	uri := "file://" + filePath
 
 	c.openFilesMu.Lock()
 	if _, exists := c.openFiles[uri]; exists {
@@ -650,7 +651,7 @@ func (c *Client) OpenFile(ctx context.Context, filePath string) error {
 }
 
 func (c *Client) NotifyChange(ctx context.Context, filepath string) error {
-	uri := fmt.Sprintf("file://%s", filepath)
+	uri := "file://" + filepath
 
 	content, err := os.ReadFile(filepath)
 	if err != nil {
@@ -690,7 +691,7 @@ func (c *Client) NotifyChange(ctx context.Context, filepath string) error {
 
 func (c *Client) CloseFile(ctx context.Context, filepath string) error {
 	cnf := config.Get()
-	uri := fmt.Sprintf("file://%s", filepath)
+	uri := "file://" + filepath
 
 	c.openFilesMu.Lock()
 	if _, exists := c.openFiles[uri]; !exists {
@@ -720,7 +721,7 @@ func (c *Client) CloseFile(ctx context.Context, filepath string) error {
 }
 
 func (c *Client) IsFileOpen(filepath string) bool {
-	uri := fmt.Sprintf("file://%s", filepath)
+	uri := "file://" + filepath
 	c.openFilesMu.RLock()
 	defer c.openFilesMu.RUnlock()
 	_, exists := c.openFiles[uri]
@@ -790,7 +791,7 @@ func (c *Client) OpenFileOnDemand(ctx context.Context, filepath string) error {
 // GetDiagnosticsForFile ensures a file is open and returns its diagnostics
 // This is useful for on-demand diagnostics when using lazy loading
 func (c *Client) GetDiagnosticsForFile(ctx context.Context, filepath string) ([]protocol.Diagnostic, error) {
-	uri := fmt.Sprintf("file://%s", filepath)
+	uri := "file://" + filepath
 	documentUri := protocol.DocumentUri(uri)
 
 	// Make sure the file is open

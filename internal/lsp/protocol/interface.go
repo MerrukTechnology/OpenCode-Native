@@ -1,6 +1,9 @@
 package protocol
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 // TextEditResult is an interface for types that represent workspace symbols
 type WorkspaceSymbolResult interface {
@@ -101,7 +104,7 @@ func (te *TextEdit) isTextEdit()        {}
 // Convert Or_TextDocumentEdit_edits_Elem to TextEdit
 func (e Or_TextDocumentEdit_edits_Elem) AsTextEdit() (TextEdit, error) {
 	if e.Value == nil {
-		return TextEdit{}, fmt.Errorf("nil text edit")
+		return TextEdit{}, errors.New("nil text edit")
 	}
 	switch v := e.Value.(type) {
 	case TextEdit:

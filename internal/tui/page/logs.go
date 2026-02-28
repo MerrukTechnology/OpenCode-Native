@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// LogsPage is the page for viewing logs.
 var LogsPage PageID = "logs"
 
 type LogPage interface {

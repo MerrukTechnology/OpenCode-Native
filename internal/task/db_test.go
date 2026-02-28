@@ -2,9 +2,10 @@ package task
 
 import (
 	"database/sql"
+	"testing"
+
 	dbsql "github.com/MerrukTechnology/OpenCode-Native/internal/db/sql"
 	_ "modernc.org/sqlite"
-	"testing"
 )
 
 func newTestDB(t *testing.T) *sql.DB {

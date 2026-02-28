@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -125,7 +126,7 @@ func (w *writeTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 	fileInfo, err := os.Stat(filePath)
 	if err == nil {
 		if fileInfo.IsDir() {
-			return NewTextErrorResponse(fmt.Sprintf("Path is a directory, not a file: %s", filePath)), nil
+			return NewTextErrorResponse("Path is a directory, not a file: " + filePath), nil
 		}
 
 		modTime := fileInfo.ModTime()
@@ -158,7 +159,7 @@ func (w *writeTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 
 	sessionID, messageID := GetContextValues(ctx)
 	if sessionID == "" || messageID == "" {
-		return NewEmptyResponse(), fmt.Errorf("session_id and message_id are required")
+		return NewEmptyResponse(), errors.New("session_id and message_id are required")
 	}
 
 	diff, additions, removals := diff.GenerateDiff(
@@ -185,7 +186,7 @@ func (w *writeTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 				Path:        permissionPath,
 				ToolName:    WriteToolName,
 				Action:      "write",
-				Description: fmt.Sprintf("Create file %s", filePath),
+				Description: "Create file " + filePath,
 				Params: WritePermissionsParams{
 					FilePath: filePath,
 					Diff:     diff,
@@ -230,7 +231,7 @@ func (w *writeTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 		w.lsp.WaitForDiagnostics(ctx, filePath)
 	}
 
-	result := fmt.Sprintf("File successfully written: %s", filePath)
+	result := "File successfully written: " + filePath
 	result = fmt.Sprintf("<result>\n%s\n</result>", result)
 	if w.lsp != nil {
 		result += w.lsp.FormatDiagnostics(filePath)

@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
+	"strings"
 	"time"
 
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
@@ -288,20 +290,24 @@ func (o *openaiClient) stream(ctx context.Context, messages []message.Message, t
 			currentContent := ""
 			toolCalls := make([]message.ToolCall, 0)
 
+			var currentContentSb293 strings.Builder
 			for openaiStream.Next() {
 				chunk := openaiStream.Current()
 				acc.AddChunk(chunk)
 
+				var currentContentSb295 strings.Builder
 				for _, choice := range chunk.Choices {
 					if choice.Delta.Content != "" {
 						eventChan <- ProviderEvent{
 							Type:    EventContentDelta,
 							Content: choice.Delta.Content,
 						}
-						currentContent += choice.Delta.Content
+						currentContentSb295.WriteString(choice.Delta.Content)
 					}
 				}
+				currentContentSb293.WriteString(currentContentSb295.String())
 			}
+			currentContent += currentContentSb293.String()
 
 			err := openaiStream.Err()
 			if err == nil || errors.Is(err, io.EOF) {
@@ -363,7 +369,7 @@ func (o *openaiClient) shouldRetry(attempts int, err error) (bool, int64, error)
 		return false, 0, err
 	}
 
-	if apierr.StatusCode != 429 && apierr.StatusCode != 500 {
+	if apierr.StatusCode != http.StatusTooManyRequests && apierr.StatusCode != http.StatusInternalServerError {
 		return false, 0, err
 	}
 

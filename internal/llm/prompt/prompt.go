@@ -166,7 +166,7 @@ func processContextPaths(workDir string, paths []string) string {
 					return nil
 				})
 
-				//if _err != nil {
+				// if _err != nil {
 				//	return _err // Handle the error as needed, e.g., log it and decide whether to continue or return
 				//}
 			} else {

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -89,17 +90,17 @@ Key Features:
 		timeoutStr, _ := cmd.Flags().GetString("timeout")
 
 		if deleteSession && sessionID == "" {
-			return fmt.Errorf("--delete requires --session/-s to be specified")
+			return errors.New("--delete requires --session/-s to be specified")
 		}
 
 		if flowID == "" && len(flowArgs) > 0 {
-			return fmt.Errorf("--arg/-A requires --flow/-F to be specified")
+			return errors.New("--arg/-A requires --flow/-F to be specified")
 		}
 		if flowID == "" && argsFile != "" {
-			return fmt.Errorf("--args-file requires --flow/-F to be specified")
+			return errors.New("--args-file requires --flow/-F to be specified")
 		}
 		if len(flowArgs) > 0 && argsFile != "" {
-			return fmt.Errorf("--arg/-A and --args-file are mutually exclusive; use only one")
+			return errors.New("--arg/-A and --args-file are mutually exclusive; use only one")
 		}
 
 		// Parse format option (may include schema)
@@ -111,13 +112,13 @@ Key Features:
 		if cwd != "" {
 			err := os.Chdir(cwd)
 			if err != nil {
-				return fmt.Errorf("failed to change directory: %v", err)
+				return fmt.Errorf("failed to change directory: %w", err)
 			}
 		}
 		if cwd == "" {
 			c, err := os.Getwd()
 			if err != nil {
-				return fmt.Errorf("failed to get current working directory: %v", err)
+				return fmt.Errorf("failed to get current working directory: %w", err)
 			}
 			cwd = c
 		}
@@ -287,7 +288,7 @@ Key Features:
 
 		if err != nil {
 			logging.Error("TUI error: %v", err)
-			return fmt.Errorf("TUI error: %v", err)
+			return fmt.Errorf("TUI error: %w", err)
 		}
 
 		logging.Info("TUI exited with result: %v", result)
@@ -314,7 +315,7 @@ func setupSubscriber[T any](
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		defer logging.RecoverPanic(fmt.Sprintf("subscription-%s", name), nil)
+		defer logging.RecoverPanic("subscription-"+name, nil)
 
 		subCh := subscriber(ctx)
 
@@ -355,7 +356,7 @@ func setupSubscriptions(app *app.App, parentCtx context.Context) (chan tea.Msg, 
 	setupSubscriber(ctx, &wg, "messages", app.Messages.Subscribe, ch)
 	setupSubscriber(ctx, &wg, "permissions", app.Permissions.Subscribe, ch)
 	for name, primaryAgent := range app.PrimaryAgents {
-		setupSubscriber(ctx, &wg, fmt.Sprintf("agent-%s", name), primaryAgent.Subscribe, ch)
+		setupSubscriber(ctx, &wg, "agent-"+name, primaryAgent.Subscribe, ch)
 	}
 
 	cleanupFunc := func() {

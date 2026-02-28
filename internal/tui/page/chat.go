@@ -17,6 +17,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// ChatPage is the main page for interacting with chat sessions, sending messages, and viewing message history.
 var ChatPage PageID = "chat"
 
 type chatPage struct {

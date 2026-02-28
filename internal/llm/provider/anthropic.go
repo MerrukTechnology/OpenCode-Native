@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 	"time"
 
@@ -465,7 +466,7 @@ func (a *anthropicClient) shouldRetry(attempts int, err error) (bool, int64, err
 		return false, 0, err
 	}
 
-	if apierr.StatusCode != 429 && apierr.StatusCode != 529 {
+	if apierr.StatusCode != http.StatusTooManyRequests && apierr.StatusCode != 529 {
 		return false, 0, err
 	}
 

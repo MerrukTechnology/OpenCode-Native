@@ -129,7 +129,7 @@ func TestProcessContextPaths(t *testing.T) {
 		tmpDir := t.TempDir()
 		createTestFiles(t, tmpDir, []string{"source.txt"})
 
-		err := os.MkdirAll(filepath.Join(tmpDir, "dir"), 0755)
+		err := os.MkdirAll(filepath.Join(tmpDir, "dir"), 0o755)
 		require.NoError(t, err)
 		err = os.Symlink(filepath.Join(tmpDir, "source.txt"), filepath.Join(tmpDir, "dir", "link.txt"))
 		require.NoError(t, err)
@@ -179,13 +179,13 @@ func createTestFiles(t *testing.T, tmpDir string, testFiles []string) {
 	for _, path := range testFiles {
 		fullPath := filepath.Join(tmpDir, path)
 		if path[len(path)-1] == '/' {
-			err := os.MkdirAll(fullPath, 0755)
+			err := os.MkdirAll(fullPath, 0o755)
 			require.NoError(t, err)
 		} else {
 			dir := filepath.Dir(fullPath)
-			err := os.MkdirAll(dir, 0755)
+			err := os.MkdirAll(dir, 0o755)
 			require.NoError(t, err)
-			err = os.WriteFile(fullPath, []byte(path+": test content"), 0644)
+			err = os.WriteFile(fullPath, []byte(path+": test content"), 0o644)
 			require.NoError(t, err)
 		}
 	}

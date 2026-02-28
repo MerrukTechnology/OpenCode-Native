@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -111,7 +112,7 @@ func (b *agentTool) Run(ctx context.Context, call tools.ToolCall) (tools.ToolRes
 
 	sessionID, messageID := tools.GetContextValues(ctx)
 	if sessionID == "" || messageID == "" {
-		return tools.ToolResponse{}, fmt.Errorf("session_id and message_id are required")
+		return tools.ToolResponse{}, errors.New("session_id and message_id are required")
 	}
 
 	// Validate the subagent exists in the registry
@@ -128,7 +129,7 @@ func (b *agentTool) Run(ctx context.Context, call tools.ToolCall) (tools.ToolRes
 
 	a, err := b.factory.NewAgent(ctx, subagentType, nil, "")
 	if err != nil {
-		return tools.ToolResponse{}, fmt.Errorf("error creating agent: %s", err)
+		return tools.ToolResponse{}, fmt.Errorf("error creating agent: %w", err)
 	}
 
 	var taskSession session.Session
@@ -147,17 +148,17 @@ func (b *agentTool) Run(ctx context.Context, call tools.ToolCall) (tools.ToolRes
 			b.permissions.AutoApproveSession(taskSession.ID)
 		}
 		if err != nil {
-			return tools.ToolResponse{}, fmt.Errorf("error creating session: %s", err)
+			return tools.ToolResponse{}, fmt.Errorf("error creating session: %w", err)
 		}
 	}
 
 	done, err := a.Run(ctx, taskSession.ID, params.Prompt)
 	if err != nil {
-		return tools.ToolResponse{}, fmt.Errorf("error while running task agent: %s", err)
+		return tools.ToolResponse{}, fmt.Errorf("error while running task agent: %w", err)
 	}
 	result := <-done
 	if result.Error != nil {
-		return tools.ToolResponse{}, fmt.Errorf("error while running task agent: %s", result.Error)
+		return tools.ToolResponse{}, fmt.Errorf("error while running task agent: %w", result.Error)
 	}
 
 	response := result.Message
@@ -173,18 +174,18 @@ func (b *agentTool) Run(ctx context.Context, call tools.ToolCall) (tools.ToolRes
 
 	updatedSession, err := b.sessions.Get(ctx, taskSession.ID)
 	if err != nil {
-		return tools.ToolResponse{}, fmt.Errorf("error getting session: %s", err)
+		return tools.ToolResponse{}, fmt.Errorf("error getting session: %w", err)
 	}
 	parentSession, err := b.sessions.Get(ctx, sessionID)
 	if err != nil {
-		return tools.ToolResponse{}, fmt.Errorf("error getting parent session: %s", err)
+		return tools.ToolResponse{}, fmt.Errorf("error getting parent session: %w", err)
 	}
 
 	parentSession.Cost += updatedSession.Cost
 
 	_, err = b.sessions.Save(ctx, parentSession)
 	if err != nil {
-		return tools.ToolResponse{}, fmt.Errorf("error saving parent session: %s", err)
+		return tools.ToolResponse{}, fmt.Errorf("error saving parent session: %w", err)
 	}
 
 	agentName := subagentType

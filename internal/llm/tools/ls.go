@@ -113,7 +113,7 @@ func (l *lsTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error) {
 	}
 
 	if _, err := os.Stat(searchPath); os.IsNotExist(err) {
-		return NewTextErrorResponse(fmt.Sprintf("path does not exist: %s", searchPath)), nil
+		return NewTextErrorResponse("path does not exist: " + searchPath), nil
 	}
 
 	files, truncated, err := listDirectory(ctx, searchPath, params.Ignore, MaxLSFiles)
@@ -170,7 +170,8 @@ func listDirectoryWithRipgrep(ctx context.Context, initialPath string, ignorePat
 	cmd := exec.CommandContext(ctx, rgPath, args...)
 	output, err := cmd.Output()
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		exitErr := &exec.ExitError{}
+		if errors.As(err, &exitErr) {
 			switch exitErr.ExitCode() {
 			case 1:
 				// No matches — empty directory or all files ignored

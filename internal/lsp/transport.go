@@ -166,7 +166,7 @@ func (c *Client) handleMessages() {
 			} else {
 				response.Error = &ResponseError{
 					Code:    -32601,
-					Message: fmt.Sprintf("method not found: %s", msg.Method),
+					Message: "method not found: " + msg.Method,
 				}
 			}
 
@@ -253,7 +253,7 @@ func (c *Client) Call(ctx context.Context, method string, params any, result any
 	select {
 	case resp, ok := <-ch:
 		if !ok {
-			return fmt.Errorf("LSP client connection closed while waiting for response")
+			return errors.New("LSP client connection closed while waiting for response")
 		}
 
 		if cnf.DebugLSP {

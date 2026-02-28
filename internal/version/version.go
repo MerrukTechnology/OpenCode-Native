@@ -2,7 +2,7 @@ package version
 
 import "runtime/debug"
 
-// Build-time parameters set via -ldflags
+// Version Build-time parameters set via -ldflags
 var Version = "unknown"
 
 // A user may install pug using `go install github.com/MerrukTechnology/OpenCode-Native@latest`.

@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -69,7 +70,7 @@ func (s *stubHistoryService) CreateVersion(_ context.Context, _, path, content s
 }
 
 func (s *stubHistoryService) Get(_ context.Context, _ string) (history.File, error) {
-	return history.File{}, fmt.Errorf("not found")
+	return history.File{}, errors.New("not found")
 }
 
 func (s *stubHistoryService) GetByPathAndSession(_ context.Context, path, _ string) (history.File, error) {

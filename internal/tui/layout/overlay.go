@@ -47,19 +47,22 @@ func PlaceOverlay(
 		t := theme.CurrentTheme()
 		baseStyle := styles.BaseStyle()
 
-		var shadowbg = ""
+		shadowbg := ""
+
 		shadowchar := lipgloss.NewStyle().
 			Background(t.BackgroundDarker()).
 			Foreground(t.Background()).
 			Render("░")
 		bgchar := baseStyle.Render(" ")
+		var shadowbgSb57 strings.Builder
 		for i := 0; i <= fgHeight; i++ {
 			if i == 0 {
-				shadowbg += bgchar + strings.Repeat(bgchar, fgWidth) + "\n"
+				shadowbgSb57.WriteString(bgchar + strings.Repeat(bgchar, fgWidth) + "\n")
 			} else {
-				shadowbg += bgchar + strings.Repeat(shadowchar, fgWidth) + "\n"
+				shadowbgSb57.WriteString(bgchar + strings.Repeat(shadowchar, fgWidth) + "\n")
 			}
 		}
+		shadowbg += shadowbgSb57.String()
 
 		fg = PlaceOverlay(0, 0, fg, shadowbg, false, opts...)
 		fgLines, fgWidth = getLines(fg)
@@ -121,13 +124,6 @@ func PlaceOverlay(
 // This function is heavily based on muesli's ansi and truncate packages.
 func cutLeft(s string, cutWidth int) string {
 	return chAnsi.Cut(s, cutWidth, lipgloss.Width(s))
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }
 
 type whitespace struct {

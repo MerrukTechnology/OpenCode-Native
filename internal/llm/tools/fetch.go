@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -120,7 +121,7 @@ func (t *fetchTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 
 	sessionID, messageID := GetContextValues(ctx)
 	if sessionID == "" || messageID == "" {
-		return NewEmptyResponse(), fmt.Errorf("session ID and message ID are required for creating a new file")
+		return NewEmptyResponse(), errors.New("session ID and message ID are required for creating a new file")
 	}
 
 	p := t.permissions.Request(
@@ -129,7 +130,7 @@ func (t *fetchTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 			Path:        config.WorkingDirectory(),
 			ToolName:    FetchToolName,
 			Action:      "fetch",
-			Description: fmt.Sprintf("Fetch content from URL: %s", params.URL),
+			Description: "Fetch content from URL: " + params.URL,
 			Params:      FetchPermissionsParams(params),
 		},
 	)
@@ -149,7 +150,7 @@ func (t *fetchTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 		client = &clientCopy
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", params.URL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, params.URL, nil)
 	if err != nil {
 		return NewEmptyResponse(), fmt.Errorf("failed to create request: %w", err)
 	}

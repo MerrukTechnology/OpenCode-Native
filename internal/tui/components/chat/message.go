@@ -406,7 +406,7 @@ func renderToolParams(paramWidth int, toolCall message.ToolCall) string {
 		var params tools.MultiEditParams
 		json.Unmarshal([]byte(toolCall.Input), &params)
 		filePath := removeWorkingDirPrefix(params.FilePath)
-		return renderParams(paramWidth, filePath, "edits", fmt.Sprintf("%d", len(params.Edits)))
+		return renderParams(paramWidth, filePath, "edits", strconv.Itoa(len(params.Edits)))
 	case tools.FetchToolName:
 		var params tools.FetchParams
 		json.Unmarshal([]byte(toolCall.Input), &params)
@@ -464,7 +464,7 @@ func renderToolParams(paramWidth int, toolCall message.ToolCall) string {
 	case tools.LSPToolName:
 		var params tools.LSParams
 		json.Unmarshal([]byte(toolCall.Input), &params)
-		return renderParams(paramWidth, params.Path, fmt.Sprintf("ignore: %s", strings.Join(params.Ignore, ", ")))
+		return renderParams(paramWidth, params.Path, "ignore: "+strings.Join(params.Ignore, ", "))
 	case tools.ViewToolName:
 		var params tools.ViewParams
 		json.Unmarshal([]byte(toolCall.Input), &params)
@@ -473,10 +473,10 @@ func renderToolParams(paramWidth int, toolCall message.ToolCall) string {
 			filePath,
 		}
 		if params.Limit != 0 {
-			toolParams = append(toolParams, "limit", fmt.Sprintf("%d", params.Limit))
+			toolParams = append(toolParams, "limit", strconv.Itoa(params.Limit))
 		}
 		if params.Offset != 0 {
-			toolParams = append(toolParams, "offset", fmt.Sprintf("%d", params.Offset))
+			toolParams = append(toolParams, "offset", strconv.Itoa(params.Offset))
 		}
 		return renderParams(paramWidth, toolParams...)
 	case tools.ViewImageToolName:
@@ -499,7 +499,7 @@ func renderToolParams(paramWidth int, toolCall message.ToolCall) string {
 		json.Unmarshal([]byte(toolCall.Input), &params)
 		toolParams := []string{params.Title}
 		if len(params.Steps) > 0 {
-			toolParams = append(toolParams, "steps", fmt.Sprintf("%d", len(params.Steps)))
+			toolParams = append(toolParams, "steps", strconv.Itoa(len(params.Steps)))
 		}
 		return renderParams(paramWidth, toolParams...)
 	case tools.UpdateStepToolName:
@@ -531,7 +531,7 @@ func renderToolResponse(toolCall message.ToolCall, response message.ToolResult, 
 	baseStyle := styles.BaseStyle()
 
 	if response.IsError {
-		errContent := fmt.Sprintf("Error: %s", strings.ReplaceAll(response.Content, "\n", " "))
+		errContent := "Error: " + strings.ReplaceAll(response.Content, "\n", " ")
 		errContent = ansi.Truncate(errContent, width-1, "...")
 		return baseStyle.
 			Width(width).
@@ -682,7 +682,7 @@ func renderToolMessage(
 
 	response := findToolResponse(toolCall.ID, allMessages)
 	toolNameText := baseStyle.Foreground(t.TextMuted()).
-		Render(fmt.Sprintf("%s: ", toolName(toolCall.Name)))
+		Render(toolName(toolCall.Name) + ": ")
 
 	// Show subagent badge for task tool calls
 	if toolCall.Name == agent.TaskToolName {
@@ -717,7 +717,7 @@ func renderToolMessage(
 		progressText := baseStyle.
 			Width(paramWidth).
 			Foreground(t.TextMuted()).
-			Render(fmt.Sprintf(" %s", toolAction))
+			Render(" " + toolAction)
 
 		content := style.Render(lipgloss.JoinHorizontal(lipgloss.Left, toolNameText, progressText))
 		toolMsg := uiMessage{

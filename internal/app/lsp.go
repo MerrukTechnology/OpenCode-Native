@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"maps"
 	"os"
 	"path/filepath"
@@ -49,7 +48,7 @@ func (s *lspService) Init(ctx context.Context) error {
 		go func(nm string, srv install.ResolvedServer) {
 			lspName := "LSP-" + nm
 			defer logging.RecoverPanic(lspName, func() {
-				logging.ErrorPersist(fmt.Sprintf("Panic while starting %s", lspName))
+				logging.ErrorPersist("Panic while starting " + lspName)
 			})
 			defer wg.Done()
 			s.startLSPServer(ctx, nm, srv)

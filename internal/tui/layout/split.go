@@ -241,7 +241,6 @@ func (s *splitPaneLayout) BindingKeys() []key.Binding {
 }
 
 func NewSplitPane(options ...SplitPaneOption) SplitPaneLayout {
-
 	layout := &splitPaneLayout{
 		ratio:         0.7,
 		verticalRatio: 0.9, // Default 90% for top section, 10% for bottom

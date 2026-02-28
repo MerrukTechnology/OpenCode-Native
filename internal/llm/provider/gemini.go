@@ -424,7 +424,6 @@ func (g *geminiClient) stream(ctx context.Context, messages []message.Message, t
 			eventChan <- ProviderEvent{Type: EventContentStop}
 
 			if finalResp != nil {
-
 				finishReason := message.FinishReasonEndTurn
 				if len(finalResp.Candidates) > 0 {
 					finishReason = g.finishReason(finalResp.Candidates[0].FinishReason)
@@ -443,7 +442,6 @@ func (g *geminiClient) stream(ctx context.Context, messages []message.Message, t
 				}
 				return
 			}
-
 		}
 	}()
 

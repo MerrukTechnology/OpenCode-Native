@@ -9,8 +9,10 @@ type QuerierWithTx interface {
 }
 
 // Ensure Queries implements QuerierWithTx
-var _ QuerierWithTx = (*queriesWrapper)(nil)
-var _ QuerierWithTx = (*mysqlQuerierWrapper)(nil)
+var (
+	_ QuerierWithTx = (*queriesWrapper)(nil)
+	_ QuerierWithTx = (*mysqlQuerierWrapper)(nil)
+)
 
 // queriesWrapper wraps Queries to implement QuerierWithTx
 type queriesWrapper struct {

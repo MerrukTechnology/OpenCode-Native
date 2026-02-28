@@ -89,7 +89,7 @@ func listLocalModels(modelsEndpoint string) []localModel {
 		err error
 	)
 	if token != "" {
-		req, reqErr := http.NewRequest("GET", modelsEndpoint, nil)
+		req, reqErr := http.NewRequest(http.MethodGet, modelsEndpoint, nil)
 		if reqErr != nil {
 			logging.Debug("Failed to create local models request",
 				"error", reqErr,
@@ -202,14 +202,16 @@ var modelInfoRegex = regexp.MustCompile(`(?i)^([a-z0-9]+)(?:[-_.]?([rv]?\d[\.\d]
 func friendlyModelName(modelID string) string {
 	mainID := modelID
 	tag := ""
+	var ok bool
 
 	if slash := strings.LastIndex(mainID, "/"); slash != -1 {
 		mainID = mainID[slash+1:]
 	}
 
-	if at := strings.Index(modelID, "@"); at != -1 {
-		mainID = modelID[:at]
-		tag = modelID[at+1:]
+	mainID, tag, ok = strings.Cut(modelID, "@")
+	if !ok {
+		mainID = modelID
+		tag = ""
 	}
 
 	match := modelInfoRegex.FindStringSubmatch(mainID)
