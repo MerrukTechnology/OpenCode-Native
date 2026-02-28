@@ -71,5 +71,5 @@ jobs:
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: results.sarif
-          category: codacy-analysis
+          category: codacy-analysis-${{ github.run_id }}
           token: ${{ secrets.GITHUB_TOKEN }}
