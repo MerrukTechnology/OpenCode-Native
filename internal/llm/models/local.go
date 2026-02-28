@@ -208,9 +208,8 @@ func friendlyModelName(modelID string) string {
 		mainID = mainID[slash+1:]
 	}
 
-	mainID, tag, ok = strings.Cut(modelID, "@")
+	mainID, tag, ok = strings.Cut(mainID, "@")
 	if !ok {
-		mainID = modelID
 		tag = ""
 	}
 

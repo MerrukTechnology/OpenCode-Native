@@ -325,13 +325,14 @@ func TestFriendlyModelName(t *testing.T) {
 		modelID  string
 		expected string
 	}{
+		// Basic cases
 		{
 			name:     "Simple model name",
 			modelID:  "llama",
 			expected: "Llama",
 		},
 		{
-			name:     "Model with version - actual behavior",
+			name:     "Model with version",
 			modelID:  "llama3.2",
 			expected: "Llama3 2",
 		},
@@ -340,16 +341,47 @@ func TestFriendlyModelName(t *testing.T) {
 			modelID:  "llama3.2-instruct",
 			expected: "Llama3 2 Instruct",
 		},
+
+		// Publisher prefix cases (the bug we fixed)
 		{
 			name:     "Model with publisher prefix",
 			modelID:  "meta/llama3.2",
 			expected: "Llama3 2",
 		},
 		{
+			name:     "Publisher prefix with full path",
+			modelID:  "anthropic/claude-3-opus",
+			expected: "Claude 3 Opus",
+		},
+		{
+			name:     "OpenAI prefix",
+			modelID:  "openai/gpt-4o",
+			expected: "Gpt 4 O",
+		},
+		{
+			name:     "Google prefix",
+			modelID:  "google/gemini-2.0-flash",
+			expected: "Gemini 2.0 Flash",
+		},
+
+		// Tag/version cases (@ suffix)
+		{
 			name:     "Model with tag",
 			modelID:  "llama3.2@latest",
 			expected: "Llama3 2 latest",
 		},
+		{
+			name:     "Publisher prefix with tag",
+			modelID:  "meta/llama3.2@latest",
+			expected: "Llama3 2 latest",
+		},
+		{
+			name:     "Model with version tag",
+			modelID:  "gpt-4@turbo",
+			expected: "Gpt 4 turbo",
+		},
+
+		// Version patterns
 		{
 			name:     "Qwen model",
 			modelID:  "qwen2.5",
@@ -361,14 +393,99 @@ func TestFriendlyModelName(t *testing.T) {
 			expected: "Mistral7b",
 		},
 		{
-			name:     "Complex model ID",
+			name:     "Deepseek R1 model",
 			modelID:  "deepseek-r1",
 			expected: "Deepseek R1",
 		},
 		{
+			name:     "Model with v prefix version",
+			modelID:  "gpt-4v",
+			expected: "Gpt 4 V",
+		},
+		{
+			name:     "Model with r prefix version",
+			modelID:  "llama-r1",
+			expected: "Llama R1",
+		},
+
+		// Edge cases
+		{
 			name:     "Empty string",
 			modelID:  "",
 			expected: "",
+		},
+		{
+			name:     "Single character",
+			modelID:  "g",
+			expected: "G",
+		},
+		{
+			name:     "Only numbers",
+			modelID:  "3.2",
+			expected: "3 2",
+		},
+		{
+			name:     "Model with underscore",
+			modelID:  "llama_3_2",
+			expected: "Llama 3",
+		},
+		{
+			name:     "Model with dot",
+			modelID:  "llama3.2.1",
+			expected: "Llama3 2.1",
+		},
+		{
+			name:     "Complex model with multiple separators",
+			modelID:  "llama-3.5-70b-instruct",
+			expected: "Llama 3.5",
+		},
+
+		// Provider-specific patterns
+		{
+			name:     "Anthropic pattern",
+			modelID:  "claude-3-opus-20240229",
+			expected: "Claude 3 Opus",
+		},
+		{
+			name:     "Cohere model",
+			modelID:  "command-r-plus",
+			expected: "Command R",
+		},
+		{
+			name:     "Mistral small model",
+			modelID:  "mistral-small-latest",
+			expected: "Mistral Small",
+		},
+
+		// Unmatched patterns (should return original)
+		{
+			name:     "Special characters",
+			modelID:  "model@special!",
+			expected: "Model special!",
+		},
+		{
+			name:     "Only special chars",
+			modelID:  "!!!",
+			expected: "!!!",
+		},
+
+		// Regression: prefix with no version
+		{
+			name:     "Publisher prefix no version",
+			modelID:  "meta/llama",
+			expected: "Llama",
+		},
+		{
+			name:     "Publisher prefix with label only",
+			modelID:  "meta/llama-instruct",
+			expected: "Llama Instruct",
+		},
+
+		// Very long version numbers
+		{
+			name:     "Long version number",
+			modelID:  "model1.2.3.4.5",
+			expected: "Model1 2.3.4.5",
 		},
 	}
 
