@@ -1,0 +1,43 @@
+name: 'Setup OpenCode CI Tools, Dependencies and Environment'
+description: 'Centralized setup for Go, Tools, and macOS Compatibility'
+
+inputs:
+  go-version:
+    description: 'Go version to use'
+    default: '1.24.x'
+  enable-cgo:
+    description: 'Enable CGO'
+    default: '0'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ inputs.go-version }}
+        cache: true
+        cache-dependency-path: go.sum
+
+    - name: Install System Dependencies
+      shell: bash
+      run: |
+        sudo apt-get update && sudo apt-get install -y ripgrep fzf sqlc
+        # Installation propre de mockgen (plus fiable via Go)
+        go install github.com/golang/mock/mockgen@latest
+        echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+    - name: Configure Global Environment
+      shell: bash
+      run: |
+        # Configuration pour macOS Catalina & CGO
+        echo "CGO_ENABLED=${{ inputs.enable-cgo }}" >> $GITHUB_ENV
+        echo "MACOSX_DEPLOYMENT_TARGET=10.15" >> $GITHUB_ENV
+
+        # Rendre les scripts exécutables une fois pour toutes
+        find . -name "*.sh" -exec chmod +x {} + 2>/dev/null || true
+        [ -f "./install" ] && chmod +x ./install
+
+    - name: Download Modules
+      shell: bash
+      run: go mod download
