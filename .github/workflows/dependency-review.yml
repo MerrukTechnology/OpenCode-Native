@@ -23,7 +23,7 @@ jobs:
       # ENFORCE GO 1.24.x
       # This ensures the dependency graph resolution uses the correct toolchain
       - name: 'Setup Go'
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: '1.24.x'
           check-latest: true

@@ -25,7 +25,7 @@ jobs:
 
       # 1. SETUP GO (Required to generate coverage)
       - name: Setup Go 1.24.x
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: '1.24.x'
 

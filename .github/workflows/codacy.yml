@@ -35,7 +35,7 @@ jobs:
 
       # Even though Codacy runs in Docker, having Go available helps analysis context
       - name: Setup Go 1.24.x
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: '1.24.x'
 
