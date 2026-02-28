@@ -149,7 +149,7 @@ Makefile:
     - any-glob-to-any-file: ['[Mm]akefile']
 
 # CI/CD Workflows
-CI:
+CI/CD:
   - changed-files:
     - any-glob-to-any-file:
       - '.github/**'

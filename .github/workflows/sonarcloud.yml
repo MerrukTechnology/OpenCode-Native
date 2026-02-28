@@ -1,10 +1,10 @@
-name: SonarCloud analysis
+name: SonarCloud Analysis
 
 on:
   push:
     branches: [ "main" ]
   pull_request:
-    types: [opened, synchronize, reopened] # Better trigger for PR decoration
+    types: [opened, synchronize, reopened] # Allows SonarCloud to comment on PRs
     branches: [ "main" ]
   workflow_dispatch:
 
@@ -13,28 +13,42 @@ permissions:
   contents: read
 
 jobs:
-  Analysis:
+  sonarcloud:
+    name: SonarCloud Scan
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v6
         with:
-          fetch-depth: 0 # Fetches all history for all branches and tags
+          fetch-depth: 0 # CRITICAL: Disabling shallow clone is required for Sonar "Blame" info
 
+      # 1. SETUP GO (Required to generate coverage)
+      - name: Setup Go 1.24.x
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+
+      # 2. RUN TESTS & GENERATE COVERAGE
+      # SonarCloud needs this file to calculate "% Coverage"
+      - name: Run Tests with Coverage
+        run: go test -coverprofile=coverage.out ./...
+        env:
+          CGO_ENABLED: 0 # Keep it Native
+
+      # 3. RUN ANALYSIS
       - name: Analyze with SonarCloud
-
-        # You can pin the exact commit or the version.
-        # uses: SonarSource/sonarcloud-github-action@v2.2.0
-        # uses: SonarSource/sonarcloud-github-action@4006f663ecaf1f8093e8e4abb9227f6041f52216
-        uses: SonarSource/sonarqube-scan-action@b9f37f9de00914b9db556335bd46019dbafed98d
+        uses: SonarSource/sonarqube-scan-action@master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
-          args:
+          # Arguments passed to the SonarScanner
+          args: >
             -Dsonar.projectKey=MerrukTechnology_OpenCode-Native
             -Dsonar.organization=merruktechnology
             -Dsonar.scm.provider=git
+            -Dsonar.go.coverage.reportPaths=coverage.out
+            -Dsonar.exclusions=**/*_test.go,**/vendor/**,test/**,docs/**,**/*.md,**/*.json,**/*.yaml,**/*.yml
             -Dsonar.verbose=false
           projectBaseDir: .

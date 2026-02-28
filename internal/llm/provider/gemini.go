@@ -82,6 +82,10 @@ func (g *geminiClient) convertMessages(messages []message.Message) []*genai.Cont
 
 			if msg.Content().String() != "" {
 				assistantParts = append(assistantParts, &genai.Part{Text: msg.Content().String()})
+			} else {
+				logging.Warn("Assistant message with empty content reached provider conversion",
+					"message_index", i,
+				)
 			}
 
 			if len(msg.ToolCalls()) > 0 {

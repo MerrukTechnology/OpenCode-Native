@@ -120,6 +120,10 @@ func (a *anthropicClient) convertMessages(messages []message.Message) (anthropic
 					content.OfText.CacheControl = anthropic.NewCacheControlEphemeralParam()
 				}
 				blocks = append(blocks, content)
+			} else {
+				logging.Warn("Assistant message with empty content reached provider conversion",
+					"message_index", i,
+				)
 			}
 
 			for _, toolCall := range msg.ToolCalls() {

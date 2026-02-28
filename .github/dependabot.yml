@@ -1,11 +1,51 @@
-# To get started with Dependabot version updates, you'll need to specify which
-# package ecosystems to update and where the package manifests are located.
-# Please see the documentation for all configuration options:
-# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
-
 version: 2
+
 updates:
+  # ---------------------------------------------------------
+  # 1. GO MODULES (The Application Code)
+  # ----
   - package-ecosystem: "gomod" # See documentation for possible values
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
+
+    # STRATEGY: Group all minor/patch updates into ONE Pull Request.
+    # This prevents "PR Spam" where you get 50 notifications for small bumps.
+    groups:
+      dependencies:
+        patterns:
+          - "*"
+
+    # LABELS & COMMITS
+    labels:
+      - "Dependencies"
+      - "GO"
+
+    # Semantic Commit Messages (e.g., "build(deps): bump github.com/spf13/viper")
+    commit-message:
+      prefix: "build(deps)"
+      prefix-development: "chore(deps)"
+      include: "scope"
+
+
+  # ---------------------------------------------------------
+  # 2. GITHUB ACTIONS ( The CI/CD Pipeline)
+  # ---------------------------------------------------------
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly" # Actions change less often, monthly is usually enough
+
+    # Group all action updates into one PR
+    groups:
+      actions:
+        patterns:
+          - "*"
+
+    labels:
+      - "Dependencies"
+      - "CI/CD"
+
+    commit-message:
+      prefix: "ci(deps)"
+      include: "scope"
