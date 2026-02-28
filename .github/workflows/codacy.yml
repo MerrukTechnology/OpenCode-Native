@@ -59,35 +59,32 @@ jobs:
 
       # Split Multi-Run SARIF into Individual Files
       # GitHub rejects multi-run files with a single category.
-      # We use jq to break "results.sarif" into "sarif-out/0.sarif", "sarif-out/1.sarif", etc.
+      # We use jq to break "results.sarif" into individual with a unique tool name.
       - name: Split SARIF Runs
         run: |
           mkdir -p sarif-out
 
           if [ ! -s results.sarif ]; then
-            echo "No results file generated."
+            echo "No results file. Creating empty SARIF."
+            echo '{"version":"2.1.0","runs":[]}' > sarif-out/empty.sarif
             exit 0
           fi
 
-          # Count how many tool runs are in the file
-          run_count=$(jq '.runs | length' results.sarif)
+          # Extraction et découpage via jq
+          # On nettoie le nom de l'outil pour qu'il soit compatible avec une catégorie GitHub (alphanumérique)
+          jq -c '.runs[]' results.sarif | while read -r run; do
+            tool_name=$(echo "$run" | jq -r '.tool.driver.name // "unknown"' | tr -cd '[:alnum:]_-')
+            run_id=$(echo "$run" | jq -r '.tool.driver.guid // ""' | cut -c1-8)
 
-          echo "Found $run_count analysis runs in SARIF."
+            # Nom de fichier unique : outil + petit hash du run
+            filename="sarif-out/${tool_name}-${run_id}.sarif"
 
-          if [ "$run_count" -eq "0" ]; then
-             echo "No runs found. Generating empty placeholder to satisfy GitHub."
-             echo '{"version": "2.1.0", "runs": []}' > sarif-out/empty.sarif
-          else
-             # Loop through each run and extract it to a standalone file
-             for ((i=0; i<$run_count; i++)); do
-               jq --argjson i "$i" \
-                 '{version: .version, "$schema": ."$schema", runs: [.runs[$i]]}' \
-                 results.sarif > "sarif-out/run-$i.sarif"
-             done
-          fi
+            echo "Enregistrement du run pour l'outil : $tool_name"
+            echo "{\"version\": \"2.1.0\", \"\$schema\": \"https://schemastore.azurewebsites.net\", \"runs\": [$run]}" > "$filename"
+          done
 
       # Upload the SARIF file generated in the previous step
-      - name: Upload SARIF results
+      - name: Upload SARIF results to Github
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: sarif-out
