@@ -17,6 +17,8 @@ permissions:
 
 jobs:
   codacy-security-scan:
+    name: Codacy Security Scan
+    runs-on: ubuntu-latest
     permissions:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
       contents: read # for actions/checkout to fetch code
@@ -24,18 +26,24 @@ jobs:
       pull-requests: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
 
-    name: Codacy Security Scan
-    runs-on: ubuntu-latest
     steps:
       # Checkout the repository to the GitHub Actions runner
-      - name: Checkout code
+      - name: Checkout Repository
         uses: actions/checkout@v6
         with:
           fetch-depth: 0 # Codacy works better with full history
 
+      # Even though Codacy runs in Docker, having Go available helps analysis context
+      - name: Setup Go 1.24.x
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+
       # Execute Codacy Analysis CLI and generate a SARIF output with the security issues identified during the analysis
       - name: Run Codacy Analysis CLI
         uses: codacy/codacy-analysis-cli-action@30783d03e758713bb5ed7b79292cfb14b9dd9a4a
+        id: codacy
+        continue-on-error: true # Don't fail job if Codacy finds issues (let the upload step handle it)
         with:
           # Check https://github.com/codacy/codacy-analysis-cli#project-token to get your project token from your Codacy repository
           # You can also omit the token and run the tools that support default configurations
@@ -49,27 +57,38 @@ jobs:
           # This will handover control about PR rejection to the GitHub side
           max-allowed-issues: 2147483647
 
-      - name: Check and Repair SARIF file
-        id: check-sarif
+      # Split Multi-Run SARIF into Individual Files
+      # GitHub rejects multi-run files with a single category.
+      # We use jq to break "results.sarif" into "sarif-out/0.sarif", "sarif-out/1.sarif", etc.
+      - name: Split SARIF Runs
         run: |
-          # Check if file exists and has actual content
-          if [[ -s results.sarif ]]; then
-            # Even if it exists, check if 'runs' is empty '[]'
-            if grep -q '"runs":\s*\[\s*\]' results.sarif; then
-              echo "⚠️ SARIF has empty runs array. Injecting valid placeholder..."
-              echo '{"$schema":"https://schemastore.azurewebsites.net","version":"2.1.0","runs":[{"tool":{"driver":{"name":"Codacy","rules":[]}},"results":[]}]}' > results.sarif
-            else
-              echo "✅ SARIF file is valid and contains data."
-            fi
+          mkdir -p sarif-out
+
+          if [ ! -s results.sarif ]; then
+            echo "No results file generated."
+            exit 0
+          fi
+
+          # Count how many tool runs are in the file
+          run_count=$(jq '.runs | length' results.sarif)
+
+          echo "Found $run_count analysis runs in SARIF."
+
+          if [ "$run_count" -eq "0" ]; then
+             echo "No runs found. Generating empty placeholder to satisfy GitHub."
+             echo '{"version": "2.1.0", "runs": []}' > sarif-out/empty.sarif
           else
-            echo "❌ SARIF file missing. Creating minimal valid SARIF..."
-            echo '{"$schema":"https://schemastore.azurewebsites.net","version":"2.1.0","runs":[{"tool":{"driver":{"name":"Codacy","rules":[]}},"results":[]}]}' > results.sarif
+             # Loop through each run and extract it to a standalone file
+             for ((i=0; i<$run_count; i++)); do
+               jq --argjson i "$i" \
+                 '{version: .version, "$schema": ."$schema", runs: [.runs[$i]]}' \
+                 results.sarif > "sarif-out/run-$i.sarif"
+             done
           fi
 
       # Upload the SARIF file generated in the previous step
-      - name: Upload SARIF results file
+      - name: Upload SARIF results
         uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: results.sarif
-          category: codacy-analysis-${{ github.run_id }}
+          sarif_file: sarif-out
           token: ${{ secrets.GITHUB_TOKEN }}

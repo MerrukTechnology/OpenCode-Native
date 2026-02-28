@@ -1,35 +1,66 @@
-# This workflow warns and then closes issues that have had no activity for a specified amount of time.
-name: Mark and close stale issues
+# This workflow warns and then closes issues and PRs that have had no activity.
+name: Manage Stale Items
 
 on:
   schedule:
-  # Scheduled to run at 1:30 UTC everyday
-  - cron: '30 1 * * *'
+    # Run every day at 01:30 UTC
+    - cron: '30 1 * * *'
+  # Allow manual trigger for testing
+  workflow_dispatch:
 
 jobs:
   stale:
-
     runs-on: ubuntu-latest
     permissions:
       issues: write
+      pull-requests: write
 
     steps:
-    - uses: actions/stale@v5
+    - uses: actions/stale@v9
       with:
+        # TOKEN
         repo-token: ${{ secrets.GITHUB_TOKEN }}
-        days-before-issue-stale: 14
+
+        # --- TIMING SETTINGS ---
+        # Mark as stale after 60 days of inactivity
+        days-before-issue-stale: 60
+        days-before-pr-stale: 45
+
+        # Close 7 days after marking as stale
         days-before-issue-close: 7
+        days-before-pr-close: 7
+
+        # --- LABELS ---
         stale-issue-label: "status:stale"
-        close-issue-reason: not_planned
-        any-of-labels: "status:awaiting user response"
+        stale-pr-label: "status:stale"
+
+        # Labels that PROTECT an issue from being closed
+        exempt-issue-labels: 'override-stale,pinned,security,enhancement,bug'
+        exempt-pr-labels: 'override-stale,dependencies'
+
+        # --- LOGIC ---
+        # If the user comments, remove the stale label and reset the timer
         remove-stale-when-updated: true
-        labels-to-remove-when-unstale: 'status:awaiting user response,status:stale'
+
+        # Limit the bot to process only 30 items per run (prevents API rate limits)
+        operations-per-run: 30
+
+        # Order by updated date to handle oldest first
+        ascending: true
+
+        # --- MESSAGES ---
         stale-issue-message: >
-          This issue has been marked as stale because it has been open for 7 days with no activity. It will be closed in 2 days if no further activity occurs.
+          This issue has been automatically marked as stale because it has not had
+          recent activity. It will be closed in 7 days if no further activity occurs.
+          Thank you for your contributions to OpenCode Native.
+
+        stale-pr-message: >
+          This pull request has been automatically marked as stale because it has not had
+          recent activity. It will be closed in 7 days if no further activity occurs.
+
         close-issue-message: >
-          This issue was closed because it has been inactive for 9 days.
-          Please post a new issue if you need further assistance. Thanks!
-        # Label that can be assigned to issues to exclude them from being marked as stale
-        exempt-issue-labels: 'override-stale'
-        # Label that can be assigned to issues to exclude them from being marked as stale
-        exempt-pr-labels: 'override-stale'
+          This issue has been automatically closed due to inactivity.
+          Please feel free to reopen it if you have more details.
+
+        close-pr-message: >
+          This pull request has been automatically closed due to inactivity.
