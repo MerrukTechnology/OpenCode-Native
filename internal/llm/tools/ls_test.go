@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -14,14 +16,7 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-// Test directory structure constants
-const (
-	testDir1   = "dir1"
-	testDir2   = "dir2"
-	testDir3   = "dir3"
-	testSubDir = "dir2/subdir1"
-)
-
+// Create a test directory structure
 var testDirs = []string{
 	"dir1",
 	"dir2",
@@ -394,6 +389,7 @@ func TestListDirectory(t *testing.T) {
 		"file1.txt",
 		"file2.txt",
 		"dir1/file3.txt",
+		"dir1/file3.go",
 		"dir1/subdir1/file4.txt",
 		".hidden_file.txt",
 	}
@@ -412,69 +408,205 @@ func TestListDirectory(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	testCases := []struct {
-		name        string
-		ignorePats  []string
-		limit       int
-		checkTrunc  bool
-		assertFiles func(*testing.T, []string)
-	}{
-		{
-			name:       "lists files with no limit",
-			ignorePats: []string{},
-			limit:      1000,
-			checkTrunc: false,
-			assertFiles: func(t *testing.T, files []string) {
-				assert.True(t, containsPath(files, tempDir, "dir1"))
-				assert.True(t, containsPath(files, tempDir, "file1.txt"))
-				assert.True(t, containsPath(files, tempDir, "file2.txt"))
-				assert.True(t, containsPath(files, tempDir, "dir1/file3.txt"))
-				assert.False(t, containsPath(files, tempDir, ".hidden_dir"))
-				assert.False(t, containsPath(files, tempDir, ".hidden_file.txt"))
-			},
-		},
-		{
-			name:       "respects limit and returns truncated flag",
-			ignorePats: []string{},
-			limit:      2,
-			checkTrunc: true,
-			assertFiles: func(t *testing.T, files []string) {
-				assert.Len(t, files, 2)
-			},
-		},
-		{
-			name:       "respects ignore patterns",
-			ignorePats: []string{"*.txt"},
-			limit:      1000,
-			checkTrunc: false,
-			assertFiles: func(t *testing.T, files []string) {
-				for _, file := range files {
-					assert.False(t, strings.HasSuffix(file, ".txt"), "Found .txt file: %s", file)
-				}
-				containsDir := false
-				for _, file := range files {
-					if strings.Contains(file, "dir1") {
-						containsDir = true
-						break
-					}
-				}
-				assert.True(t, containsDir)
-			},
-		},
-	}
+	t.Run("lists files with no limit", func(t *testing.T) {
+		files, truncated, err := listDirectory(context.Background(), tempDir, []string{}, 1000)
+		require.NoError(t, err)
+		assert.False(t, truncated)
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			files, truncated, err := listDirectory(tempDir, tc.ignorePats, tc.limit)
-			require.NoError(t, err)
-
-			if tc.checkTrunc {
-				assert.True(t, truncated)
-			} else {
-				assert.False(t, truncated)
+		// Check that visible files and directories are included
+		containsPath := func(paths []string, target string) bool {
+			targetPath := filepath.Join(tempDir, target)
+			for _, path := range paths {
+				if strings.HasPrefix(path, targetPath) {
+					return true
+				}
 			}
+			return false
+		}
 
-			tc.assertFiles(t, files)
-		})
+		assert.True(t, containsPath(files, "dir1"))
+		assert.True(t, containsPath(files, "file1.txt"))
+		assert.True(t, containsPath(files, "file2.txt"))
+		assert.True(t, containsPath(files, "dir1/file3.txt"))
+
+		// Check that hidden files and directories are not included
+		assert.False(t, containsPath(files, ".hidden_dir"))
+		assert.False(t, containsPath(files, ".hidden_file.txt"))
+	})
+
+	t.Run("respects limit and returns truncated flag", func(t *testing.T) {
+		files, truncated, err := listDirectory(context.Background(), tempDir, []string{}, 2)
+		require.NoError(t, err)
+		assert.True(t, truncated)
+		assert.Len(t, files, 2)
+	})
+
+	t.Run("respects ignore patterns", func(t *testing.T) {
+		files, truncated, err := listDirectory(context.Background(), tempDir, []string{"*.txt"}, 1000)
+		require.NoError(t, err)
+		assert.False(t, truncated)
+
+		// Check that no .txt files are included
+		for _, file := range files {
+			assert.False(t, strings.HasSuffix(file, ".txt"), "Found .txt file: %s", file)
+		}
+
+		// But directories should still be included
+		containsDir := false
+		for _, file := range files {
+			if strings.Contains(file, "dir1") {
+				containsDir = true
+				break
+			}
+		}
+		assert.True(t, containsDir)
+	})
+}
+
+func TestListDirectoryWithRipgrep(t *testing.T) {
+	if _, err := exec.LookPath("rg"); err != nil {
+		t.Skip("ripgrep not installed, skipping ripgrep-specific tests")
 	}
+
+	tempDir, err := os.MkdirTemp("", "ls_rg_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	// Initialize a git repo so .gitignore is respected
+	gitInit := exec.Command("git", "init", tempDir)
+	require.NoError(t, gitInit.Run())
+
+	testDirs := []string{
+		"src",
+		"src/sub",
+		"build",
+	}
+	testFiles := []string{
+		"src/main.go",
+		"src/sub/helper.go",
+		"build/output.bin",
+		"README.md",
+	}
+
+	for _, dir := range testDirs {
+		require.NoError(t, os.MkdirAll(filepath.Join(tempDir, dir), 0755))
+	}
+	for _, file := range testFiles {
+		require.NoError(t, os.WriteFile(filepath.Join(tempDir, file), []byte("content"), 0644))
+	}
+
+	// Write .gitignore that ignores build/
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, ".gitignore"), []byte("build/\n"), 0644))
+
+	t.Run("respects gitignore", func(t *testing.T) {
+		files, truncated, err := listDirectoryWithRipgrep(context.Background(), tempDir, nil, 1000)
+		require.NoError(t, err)
+		assert.False(t, truncated)
+
+		containsPath := func(paths []string, target string) bool {
+			targetPath := filepath.Join(tempDir, target)
+			for _, p := range paths {
+				if p == targetPath {
+					return true
+				}
+			}
+			return false
+		}
+
+		assert.True(t, containsPath(files, "src/main.go"))
+		assert.True(t, containsPath(files, "src/sub/helper.go"))
+		assert.True(t, containsPath(files, "README.md"))
+		assert.False(t, containsPath(files, "build/output.bin"), "build/ should be excluded by .gitignore")
+	})
+
+	t.Run("user ignore patterns become glob flags", func(t *testing.T) {
+		files, _, err := listDirectoryWithRipgrep(context.Background(), tempDir, []string{"*.md"}, 1000)
+		require.NoError(t, err)
+
+		for _, f := range files {
+			assert.False(t, strings.HasSuffix(f, ".md"), "should have excluded .md files: %s", f)
+		}
+	})
+
+	t.Run("truncation at limit returns lexicographically earliest entries", func(t *testing.T) {
+		files, truncated, err := listDirectoryWithRipgrep(context.Background(), tempDir, nil, 2)
+		require.NoError(t, err)
+		assert.True(t, truncated)
+		assert.Len(t, files, 2)
+		assert.True(t, sort.StringsAreSorted(files), "truncated results should be sorted")
+
+		// The 2 returned files must be the lexicographically smallest from the full set
+		allFiles, _, err := listDirectoryWithRipgrep(context.Background(), tempDir, nil, 1000)
+		require.NoError(t, err)
+		sort.Strings(allFiles)
+		assert.Equal(t, allFiles[:2], files, "truncated results should be the first entries in sorted order")
+	})
+
+	t.Run("empty directory returns empty results", func(t *testing.T) {
+		emptyDir, err := os.MkdirTemp("", "ls_rg_empty")
+		require.NoError(t, err)
+		defer os.RemoveAll(emptyDir)
+
+		files, truncated, err := listDirectoryWithRipgrep(context.Background(), emptyDir, nil, 1000)
+		require.NoError(t, err)
+		assert.False(t, truncated)
+		assert.Empty(t, files)
+	})
+
+	t.Run("output is sorted", func(t *testing.T) {
+		files, _, err := listDirectoryWithRipgrep(context.Background(), tempDir, nil, 1000)
+		require.NoError(t, err)
+		assert.True(t, sort.StringsAreSorted(files), "ripgrep output should be sorted")
+	})
+}
+
+func TestListDirectoryWithWalk(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "ls_walk_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	testDirs := []string{
+		"src",
+		"node_modules",
+		"__pycache__",
+		".hidden",
+	}
+	testFiles := []string{
+		"src/main.go",
+		"node_modules/pkg.js",
+		"__pycache__/mod.pyc",
+		".hidden/secret.txt",
+		"readme.txt",
+	}
+
+	for _, dir := range testDirs {
+		require.NoError(t, os.MkdirAll(filepath.Join(tempDir, dir), 0755))
+	}
+	for _, file := range testFiles {
+		require.NoError(t, os.WriteFile(filepath.Join(tempDir, file), []byte("content"), 0644))
+	}
+
+	t.Run("commonIgnored list is applied in walk fallback", func(t *testing.T) {
+		files, _, err := listDirectoryWithWalk(tempDir, nil, 1000)
+		require.NoError(t, err)
+
+		containsPath := func(paths []string, substr string) bool {
+			for _, p := range paths {
+				// Handle both absolute and relative paths
+				normalizedPath := filepath.ToSlash(p)
+				if strings.Contains(normalizedPath, substr) {
+					return true
+				}
+			}
+			return false
+		}
+
+		// Check that expected files are present (using relative paths for matching)
+		// The function returns absolute paths, but we check for the relative path substring
+		assert.True(t, containsPath(files, "src/main.go"), "Expected src/main.go in results: %v", files)
+		assert.True(t, containsPath(files, "readme.txt"), "Expected readme.txt in results: %v", files)
+		assert.False(t, containsPath(files, "node_modules"), "node_modules should be skipped by commonIgnored")
+		assert.False(t, containsPath(files, "__pycache__"), "__pycache__ should be skipped by commonIgnored")
+		assert.False(t, containsPath(files, ".hidden"), "hidden dirs should be skipped")
+	})
 }

@@ -170,6 +170,11 @@ func (v *viewTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error)
 		return NewTextErrorResponse(fmt.Sprintf("This is an image file of type: %s\nUse a view_image tool to process images", imageType)), nil
 	}
 
+	// Check if it's a binary file by sampling content
+	if isBinary, err := isBinaryFile(filePath); err == nil && isBinary {
+		return NewTextErrorResponse("File appears to be binary. Use the appropriate tool for this file type."), nil
+	}
+
 	// Read the file content
 	content, linesRead, lineCount, err := readTextFile(filePath, params.Offset, params.Limit)
 	if err != nil {
@@ -315,4 +320,34 @@ func (s *LineScanner) Text() string {
 
 func (s *LineScanner) Err() error {
 	return s.scanner.Err()
+}
+
+func isBinaryFile(filePath string) (bool, error) {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return false, err
+	}
+	defer f.Close()
+
+	buf := make([]byte, 4096)
+	n, err := f.Read(buf)
+	if err != nil && err != io.EOF {
+		return false, err
+	}
+	if n == 0 {
+		return false, nil
+	}
+	buf = buf[:n]
+
+	nonPrintable := 0
+	for _, b := range buf {
+		if b == 0 {
+			return true, nil
+		}
+		if b < 0x20 && b != '\n' && b != '\r' && b != '\t' && b != '\x1b' {
+			nonPrintable++
+		}
+	}
+
+	return float64(nonPrintable)/float64(n) > 0.3, nil
 }

@@ -7,7 +7,7 @@ require (
 	github.com/PuerkitoBio/goquery v1.11.0
 	github.com/alecthomas/chroma/v2 v2.23.1
 	github.com/anthropics/anthropic-sdk-go v1.26.0
-	github.com/aymanbagabas/go-udiff v0.3.1
+	github.com/aymanbagabas/go-udiff v0.4.0
 	github.com/bmatcuk/doublestar/v4 v4.10.0
 	github.com/catppuccin/go v0.3.0
 	github.com/charmbracelet/bubbles v1.0.0
@@ -20,7 +20,7 @@ require (
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/google/uuid v1.6.0
 	github.com/lrstanley/bubblezone v1.0.0
-	github.com/mark3labs/mcp-go v0.44.0
+	github.com/mark3labs/mcp-go v0.44.1
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6
 	github.com/muesli/reflow v0.3.0
 	github.com/muesli/termenv v0.16.0

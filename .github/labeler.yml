@@ -1,20 +1,20 @@
-# --- GLOBAL & META LABELS ---
-# Add 'CMD' label to any changes inside the cmd folder
-CMD:
-  - changed-files:
-    - any-glob-to-any-file: 'cmd/**/*'
-
-# Add 'Internal' label to any changes inside the internal folder
-Internal:
-  - changed-files:
-    - any-glob-to-any-file: 'internal/**/*'
-
-# Add 'Source' label to any Go file change
+# --- ARCHITECTURE & CORE ---
+# General Go Source Code
 Source:
   - changed-files:
     - any-glob-to-any-file: '**/*.go'
 
-# --- CORE PROJECT DIRECTORIES (internal/) ---
+# App Entry Points
+CMD:
+  - changed-files:
+    - any-glob-to-any-file: 'cmd/**/*'
+
+# Core Application Logic (Catch-all for internal, but excluding specific domains below)
+Internal:
+  - changed-files:
+    - any-glob-to-any-file: 'internal/**/*'
+
+# --- DOMAIN SPECIFIC AREAS ---
 Agents:
   - changed-files:
     - any-glob-to-any-file: 'internal/agent/**/*'
@@ -23,19 +23,13 @@ App:
   - changed-files:
     - any-glob-to-any-file: 'internal/app/**/*'
 
-Completions:
-  - changed-files:
-    - any-glob-to-any-file: 'internal/completions/**/*'
-
 Config:
   - changed-files:
     - any-glob-to-any-file: 'internal/config/**/*'
 
-Database:
+Completions:
   - changed-files:
-    - any-glob-to-any-file:
-      - 'internal/db/**/*'
-      - '**/*.sql'
+    - any-glob-to-any-file: 'internal/completions/**/*'
 
 Diff:
   - changed-files:
@@ -53,10 +47,14 @@ History:
   - changed-files:
     - any-glob-to-any-file: 'internal/history/**/*'
 
+# Combined LLM areas to reduce clutter (Optional: Split if you really want distinct labels)
 LLM:
   - changed-files:
-    - any-glob-to-any-file: 'internal/llm/**/*'
-
+    - any-glob-to-any-file:
+      - 'internal/llm/**/*'
+      - 'internal/llm/models/**'
+      - 'internal/llm/providers/**'
+      - 'internal/llm/tools/**'
 Models:
 - changed-files:
   - any-glob-to-any-file: 'internal/llm/models/**'
@@ -68,14 +66,6 @@ Providers:
 Tools:
 - changed-files:
   - any-glob-to-any-file: 'internal/llm/tools/**'
-
-Logging:
-  - changed-files:
-    - any-glob-to-any-file: 'internal/logging/**/*'
-
-LSP:
-  - changed-files:
-    - any-glob-to-any-file: 'internal/lsp/**/*'
 
 Messages:
   - changed-files:
@@ -89,39 +79,66 @@ PubSub:
   - changed-files:
     - any-glob-to-any-file: 'internal/pubsub/**/*'
 
-Sessions:
-  - changed-files:
-    - any-glob-to-any-file: 'internal/session/**/*'
-
 Skills:
   - changed-files:
     - any-glob-to-any-file: 'internal/skill/**/*'
-
-TUI:
-  - changed-files:
-    - any-glob-to-any-file: 'internal/tui/**/*'
 
 Version:
   - changed-files:
     - any-glob-to-any-file: 'internal/version/**/*'
 
-# --- INFRASTRUCTURE & CONFIGURATION ---
+# Database (SQL + Go Migrations)
+Database:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'internal/db/**/*'
+      - '**/*.sql'
+
+# TUI (Bubble Tea)
+TUI:
+  - changed-files:
+    - any-glob-to-any-file: 'internal/tui/**/*'
+
+# Native Session Management
+Sessions:
+  - changed-files:
+    - any-glob-to-any-file: 'internal/session/**/*'
+
+# --- UTILITIES ---
+Logging:
+  - changed-files:
+    - any-glob-to-any-file: 'internal/logging/**/*'
+
+LSP:
+  - changed-files:
+    - any-glob-to-any-file: 'internal/lsp/**/*'
+
+# --- INFRASTRUCTURE ---
+# Configuration Files (Restricted to root config to avoid noise)
 Configuration:
   - changed-files:
     - any-glob-to-any-file:
       - 'config/**'
-      - 'ci/**'
-      - '**/*.yaml'
-      - '**/*.yml'
-      - '**/*.json'
       - '.vscode/**'
       - '.cursor/**'
+      - '*.yaml'
+      - '*.json'
 
+# Build Systems & Dependencies
 Dependencies:
   - changed-files:
     - any-glob-to-any-file:
       - go.mod
       - go.sum
+
+# Combined Build & Docker into one strong "Build" label
+Build:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'Makefile'
+      - '.goreleaser.yaml'
+      - 'Dockerfile'
+      - 'docker/**'
 
 Docker:
   - changed-files:
@@ -131,34 +148,46 @@ Makefile:
   - changed-files:
     - any-glob-to-any-file: ['[Mm]akefile']
 
+# CI/CD Workflows
 CI:
   - changed-files:
-    - any-glob-to-any-file: ['.github/**', '.githooks/**']
+    - any-glob-to-any-file:
+      - '.github/**'
+      - '.githooks/**'
+      - 'scripts/**'
+
+Documentation:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'docs/**'
+      - '**/*.md'
+
+Tests:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'test/**'
+      - '**/*_test.go'
 
 Scripts:
   - changed-files:
     - any-glob-to-any-file: ['scripts/**', '.githooks/**']
 
-Documentation:
-  - changed-files:
-    - any-glob-to-any-file: ['docs/**', 'spec/**', '**/*.md']
+# --- BRANCH TYPE LOGIC ---
 
-Tests:
-  - changed-files:
-    - any-glob-to-any-file: ['test/**', '**/*_test.go']
-
-# --- BRANCH & TYPE LOGIC ---
 Feature:
-  - head-branch: ['^feature/.*', '.*feature.*']
+  - head-branch: ['feature/*', 'feat/*', 'feature-*']
 
 Bug:
-  - head-branch: ['^fix/.*', '.*fix.*', '^bug/.*', '.*bug.*']
+  - head-branch: ['bug/*', 'fix/*', 'hotfix/*', 'bug-*', 'fix-*']
+
+Refactor:
+  - head-branch: ['refactor/*', 'chore/*']
 
 Hotfix:
-  - head-branch: ['^hotfix/.*', '.*hotfix.*']
+  - head-branch: ['hotfix/*', 'hotfix-*']
 
 Invalid:
-  - head-branch: ['^temp/.*', '.*test-ignore.*', '^trash/.*']
+  - head-branch: ['temp/*', 'trash/*']
 
 Release:
-  - base-branch: ['main']
+  - head-branch: ['release/*']
