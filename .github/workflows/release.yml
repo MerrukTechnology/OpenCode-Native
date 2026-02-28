@@ -1,12 +1,15 @@
-name: release
+name: Release
 
 on:
   workflow_dispatch:
   push:
     tags:
-      - "*"
+      - "v*"
 
-concurrency: ${{ github.workflow }}-${{ github.ref }}
+# Ensure only one release job runs at a time for the same tag
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -14,20 +17,23 @@ permissions:
 
 jobs:
   goreleaser:
+    name: Build & Publish
     runs-on: ubuntu-latest
+    timeout-minutes: 30 # Safety limit
+
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v6
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # CRITICAL: GoReleaser needs full history to calculate changelogs
           fetch-tags: true # Ensure all tags are fetched for goreleaser to work correctly
 
-      - name: Install dependencies (Ripgrep & FZF)
+      - name: Install System Dependencies (Ripgrep & FZF)
         run: |
           sudo apt-get update
           sudo apt-get install -y ripgrep fzf
 
-      - name: Set up Go
+      - name: Setup Go 1.24.x
         uses: actions/setup-go@v5
         with:
           go-version: '1.24.x'
@@ -39,10 +45,21 @@ jobs:
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@ec59f474b9834571250b370d4735c50f8e2d1e29
         with:
+          category: goreleaser-${{ github.run_id }}
           distribution: goreleaser
           version: latest
           args: release --clean
-          category: goreleaser
         env:
-          GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          # Critical for your macOS Catalina support
+          CGO_ENABLED: 0
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           AUR_KEY: ${{ secrets.AUR_KEY }}
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-dist
+          path: dist/*
+          retention-days: 3
+          if-no-files-found: warn

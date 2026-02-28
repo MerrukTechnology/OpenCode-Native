@@ -592,15 +592,19 @@ func TestListDirectoryWithWalk(t *testing.T) {
 
 		containsPath := func(paths []string, substr string) bool {
 			for _, p := range paths {
-				if strings.Contains(p, substr) {
+				// Handle both absolute and relative paths
+				normalizedPath := filepath.ToSlash(p)
+				if strings.Contains(normalizedPath, substr) {
 					return true
 				}
 			}
 			return false
 		}
 
-		assert.True(t, containsPath(files, "src/main.go"))
-		assert.True(t, containsPath(files, "readme.txt"))
+		// Check that expected files are present (using relative paths for matching)
+		// The function returns absolute paths, but we check for the relative path substring
+		assert.True(t, containsPath(files, "src/main.go"), "Expected src/main.go in results: %v", files)
+		assert.True(t, containsPath(files, "readme.txt"), "Expected readme.txt in results: %v", files)
 		assert.False(t, containsPath(files, "node_modules"), "node_modules should be skipped by commonIgnored")
 		assert.False(t, containsPath(files, "__pycache__"), "__pycache__ should be skipped by commonIgnored")
 		assert.False(t, containsPath(files, ".hidden"), "hidden dirs should be skipped")

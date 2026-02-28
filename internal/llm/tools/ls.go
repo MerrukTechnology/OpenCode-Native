@@ -221,6 +221,11 @@ func listDirectoryWithWalk(initialPath string, ignorePatterns []string, limit in
 		// Clean the path for consistent comparison
 		cleanPath := filepath.Clean(path)
 
+		// Skip the initial directory itself but process its children
+		if cleanPath == initialPath {
+			return nil
+		}
+
 		if shouldSkip(cleanPath, ignorePatterns) {
 			if info.IsDir() {
 				return filepath.SkipDir
@@ -228,14 +233,12 @@ func listDirectoryWithWalk(initialPath string, ignorePatterns []string, limit in
 			return nil
 		}
 
-		if cleanPath != initialPath {
-			if info.IsDir() {
-				path = cleanPath + string(filepath.Separator)
-			} else {
-				path = cleanPath
-			}
-			results = append(results, path)
+		if info.IsDir() {
+			path = cleanPath + string(filepath.Separator)
+		} else {
+			path = cleanPath
 		}
+		results = append(results, path)
 
 		if len(results) >= limit {
 			truncated = true
