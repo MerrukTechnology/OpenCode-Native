@@ -22,9 +22,10 @@ runs:
     - name: Install System Dependencies
       shell: bash
       run: |
-        sudo apt-get update && sudo apt-get install -y ripgrep fzf sqlc
-        # Installation propre de mockgen (plus fiable via Go)
+        sudo apt-get update && sudo apt-get install -y ripgrep fzf
+        # Installation propre de mockgen and sqlc (plus fiable via Go)
         go install github.com/golang/mock/mockgen@latest
+        go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
         echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
     - name: Configure Global Environment
