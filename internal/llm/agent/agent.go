@@ -430,7 +430,7 @@ func (a *agent) processGeneration(ctx context.Context, sessionID, content string
 				toolResults = &emptyToolMsg
 			} else {
 				if structOutput == nil || structOutputIsErr {
-					if s, ok := toolResults.StructOutput(); ok || structOutput == nil {
+					if s, ok := toolResults.StructOutput(); ok && structOutput == nil {
 						structOutput = s
 					}
 				}
