@@ -33,7 +33,7 @@ type File struct {
 
 // Service provides operations for managing file history.
 type Service interface {
-	pubsub.Suscriber[File]
+	pubsub.Subscriber[File]
 	Create(ctx context.Context, sessionID, path, content string) (File, error)
 	CreateVersion(ctx context.Context, sessionID, path, content string) (File, error)
 	Get(ctx context.Context, id string) (File, error)

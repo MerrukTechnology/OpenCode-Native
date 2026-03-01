@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	agentregistry "github.com/MerrukTechnology/OpenCode-Native/internal/agent"
@@ -53,10 +54,75 @@ func (s *stubRegistry) GlobalPermissions() map[string]any {
 
 type stubHistoryService struct {
 	lastContent string
+	mu          sync.Mutex
+	subs        map[chan pubsub.Event[history.File]]struct{}
+	done        chan struct{}
+	bufferSize  int
 }
 
-func (s *stubHistoryService) Subscribe(context.Context) <-chan pubsub.Event[history.File] {
-	return make(chan pubsub.Event[history.File])
+// newStubHistoryService creates a properly initialized stubHistoryService.
+func newStubHistoryService() *stubHistoryService {
+	return &stubHistoryService{
+		subs:       make(map[chan pubsub.Event[history.File]]struct{}),
+		done:       make(chan struct{}),
+		bufferSize: 64,
+	}
+}
+
+func (s *stubHistoryService) Subscribe() (<-chan pubsub.Event[history.File], func()) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// If stubHistoryService is already dead, return a closed channel
+	select {
+	case <-s.done:
+		ch := make(chan pubsub.Event[history.File])
+		close(ch)
+		return ch, func() {}
+	default:
+	}
+
+	// Create the channel with the CORRECT configured buffer size
+	sub := make(chan pubsub.Event[history.File], s.bufferSize)
+	s.subs[sub] = struct{}{}
+
+	// Unsubscribe function to be called by the user (cleaner than context handling inside)
+	unsubscribe := func() {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+
+		// Check if broker is already shutdown (subs map would be nil or empty logic)
+		select {
+		case <-s.done:
+			return // Already cleaned up by Shutdown
+		default:
+		}
+
+		// Only close if it exists in the map (prevents double close)
+		if _, ok := s.subs[sub]; ok {
+			delete(s.subs, sub)
+			close(sub)
+		}
+	}
+
+	return sub, unsubscribe
+}
+
+func (s *stubHistoryService) SubscribeWithContext(ctx context.Context) <-chan pubsub.Event[history.File] {
+	ch, unsub := s.Subscribe()
+	go func() {
+		<-ctx.Done()
+		unsub()
+	}()
+	return ch
+}
+
+func (s *stubHistoryService) Unsubscribe(context.Context) {
+	return
+}
+
+func (s *stubHistoryService) Publish(context.Context, history.File) error {
+	return nil
 }
 
 func (s *stubHistoryService) Create(_ context.Context, _, path, content string) (history.File, error) {
@@ -108,7 +174,7 @@ func setupEditTest(t *testing.T) (context.Context, string, BaseTool) {
 	mockPerms := mock_permission.NewMockService(ctrl)
 	mockPerms.EXPECT().Request(gomock.Any()).Return(true).AnyTimes()
 
-	files := &stubHistoryService{}
+	files := newStubHistoryService()
 	tool := NewEditTool(&noopLspService{}, mockPerms, files, &stubRegistry{})
 
 	tmpFile, err := os.CreateTemp("", "tool_test_*.txt")
@@ -148,7 +214,7 @@ func TestEditTool_Info(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockPerms := mock_permission.NewMockService(ctrl)
-	tool := NewEditTool(&noopLspService{}, mockPerms, &stubHistoryService{}, &stubRegistry{})
+	tool := NewEditTool(&noopLspService{}, mockPerms, newStubHistoryService(), &stubRegistry{})
 	info := tool.Info()
 
 	assert.Equal(t, EditToolName, info.Name)
@@ -264,7 +330,7 @@ func setupMultiEditTest(t *testing.T) (context.Context, string, BaseTool) {
 	mockPerms := mock_permission.NewMockService(ctrl)
 	mockPerms.EXPECT().Request(gomock.Any()).Return(true).AnyTimes()
 
-	files := &stubHistoryService{}
+	files := newStubHistoryService()
 	tool := NewMultiEditTool(&noopLspService{}, mockPerms, files, &stubRegistry{})
 
 	tmpFile, err := os.CreateTemp("", "multiedit_test_*.txt")
@@ -296,7 +362,7 @@ func TestMultiEditTool_Info(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockPerms := mock_permission.NewMockService(ctrl)
-	tool := NewMultiEditTool(&noopLspService{}, mockPerms, &stubHistoryService{}, &stubRegistry{})
+	tool := NewMultiEditTool(&noopLspService{}, mockPerms, newStubHistoryService(), &stubRegistry{})
 	info := tool.Info()
 
 	assert.Equal(t, MultiEditToolName, info.Name)

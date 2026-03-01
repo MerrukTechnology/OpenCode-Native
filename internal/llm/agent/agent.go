@@ -63,7 +63,7 @@ type AgentEvent struct {
 }
 
 type Service interface {
-	pubsub.Suscriber[AgentEvent]
+	pubsub.Subscriber[AgentEvent]
 	AgentID() config.AgentName
 	Model() models.Model
 	Run(ctx context.Context, sessionID string, content string, attachments ...message.Attachment) (<-chan AgentEvent, error)

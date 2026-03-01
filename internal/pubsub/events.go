@@ -8,8 +8,8 @@ const (
 	DeletedEvent EventType = "deleted"
 )
 
-type Suscriber[T any] interface {
-	Subscribe(context.Context) <-chan Event[T]
+type Subscriber[T any] interface {
+	SubscribeWithContext(context.Context) <-chan Event[T]
 }
 
 type (

@@ -99,8 +99,15 @@ func NewWriter() *writer {
 }
 
 // Subscribe returns a channel of log messages for real-time log monitoring.
-func Subscribe(ctx context.Context) <-chan pubsub.Event[LogMessage] {
-	return defaultLogData.Subscribe(ctx)
+// The caller is responsible for managing the subscription lifecycle.
+func Subscribe() (<-chan pubsub.Event[LogMessage], func()) {
+	return defaultLogData.Subscribe()
+}
+
+// SubscribeWithContext returns a channel of log messages that automatically
+// unsubscribes when the context is cancelled.
+func SubscribeWithContext(ctx context.Context) <-chan pubsub.Event[LogMessage] {
+	return defaultLogData.SubscribeWithContext(ctx)
 }
 
 // List returns all log messages from the default LogData.

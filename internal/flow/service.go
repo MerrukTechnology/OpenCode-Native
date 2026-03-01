@@ -47,7 +47,7 @@ type FlowState struct {
 // AgentProvider interface removed — use agentpkg.AgentFactory directly.
 
 type Service interface {
-	pubsub.Suscriber[FlowState]
+	pubsub.Subscriber[FlowState]
 	Run(ctx context.Context, sessionPrefix string, flowID string, args map[string]any, fresh bool) (<-chan agentpkg.AgentEvent, <-chan *FlowState, error)
 }
 

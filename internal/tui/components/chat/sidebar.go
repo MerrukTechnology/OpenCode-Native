@@ -48,7 +48,7 @@ func (m *sidebarCmp) waitForFileEvent() tea.Cmd {
 func (m *sidebarCmp) Init() tea.Cmd {
 	if m.history != nil {
 		ctx := context.Background()
-		m.filesCh = m.history.Subscribe(ctx)
+		m.filesCh = m.history.SubscribeWithContext(ctx)
 
 		m.modFiles = make(map[string]struct {
 			additions int

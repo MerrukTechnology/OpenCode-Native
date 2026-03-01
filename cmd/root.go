@@ -351,12 +351,12 @@ func setupSubscriptions(app *app.App, parentCtx context.Context) (chan tea.Msg, 
 	wg := sync.WaitGroup{}
 	ctx, cancel := context.WithCancel(parentCtx) // Inherit from parent context
 
-	setupSubscriber(ctx, &wg, "logging", logging.Subscribe, ch)
-	setupSubscriber(ctx, &wg, "sessions", app.Sessions.Subscribe, ch)
-	setupSubscriber(ctx, &wg, "messages", app.Messages.Subscribe, ch)
-	setupSubscriber(ctx, &wg, "permissions", app.Permissions.Subscribe, ch)
+	setupSubscriber(ctx, &wg, "logging", logging.SubscribeWithContext, ch)
+	setupSubscriber(ctx, &wg, "sessions", app.Sessions.SubscribeWithContext, ch)
+	setupSubscriber(ctx, &wg, "messages", app.Messages.SubscribeWithContext, ch)
+	setupSubscriber(ctx, &wg, "permissions", app.Permissions.SubscribeWithContext, ch)
 	for name, primaryAgent := range app.PrimaryAgents {
-		setupSubscriber(ctx, &wg, "agent-"+name, primaryAgent.Subscribe, ch)
+		setupSubscriber(ctx, &wg, "agent-"+name, primaryAgent.SubscribeWithContext, ch)
 	}
 
 	cleanupFunc := func() {

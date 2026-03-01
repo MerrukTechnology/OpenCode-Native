@@ -32,7 +32,7 @@ type PermissionRequest struct {
 }
 
 type Service interface {
-	pubsub.Suscriber[PermissionRequest]
+	pubsub.Subscriber[PermissionRequest]
 	GrantPersistant(permission PermissionRequest)
 	Grant(permission PermissionRequest)
 	Deny(permission PermissionRequest)

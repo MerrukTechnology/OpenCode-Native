@@ -118,16 +118,16 @@ func (mr *MockServiceMockRecorder) Request(opts any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Request", reflect.TypeOf((*MockService)(nil).Request), opts)
 }
 
-// Subscribe mocks base method.
-func (m *MockService) Subscribe(arg0 context.Context) <-chan pubsub.Event[permission.PermissionRequest] {
+// SubscribeWithContext mocks base method.
+func (m *MockService) SubscribeWithContext(arg0 context.Context) <-chan pubsub.Event[permission.PermissionRequest] {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Subscribe", arg0)
+	ret := m.ctrl.Call(m, "SubscribeWithContext", arg0)
 	ret0, _ := ret[0].(<-chan pubsub.Event[permission.PermissionRequest])
 	return ret0
 }
 
-// Subscribe indicates an expected call of Subscribe.
-func (mr *MockServiceMockRecorder) Subscribe(arg0 any) *gomock.Call {
+// SubscribeWithContext indicates an expected call of SubscribeWithContext.
+func (mr *MockServiceMockRecorder) SubscribeWithContext(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subscribe", reflect.TypeOf((*MockService)(nil).Subscribe), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeWithContext", reflect.TypeOf((*MockService)(nil).SubscribeWithContext), arg0)
 }

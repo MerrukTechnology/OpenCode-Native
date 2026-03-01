@@ -27,7 +27,7 @@ type Session struct {
 }
 
 type Service interface {
-	pubsub.Suscriber[Session]
+	pubsub.Subscriber[Session]
 	Create(ctx context.Context, title string) (Session, error)
 	CreateWithID(ctx context.Context, id, title string) (Session, error)
 	CreateFlowSession(ctx context.Context, id, rootSessionID, title string) (Session, error)
