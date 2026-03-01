@@ -36,6 +36,10 @@ archives:
 checksum:
   name_template: "checksums.txt"
 
+signs:
+  - artifacts: checksum
+    args: ["--batch", "-u", "CD2C6694D3274AB2", "--output", "${signature}", "--detach-sign", "${artifact}"]
+
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
 

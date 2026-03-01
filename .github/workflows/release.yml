@@ -35,10 +35,10 @@ jobs:
           cache: true
           cache-dependency-path: go.sum
 
-      - name: Install System Dependencies (Ripgrep, FZF and SQLC)
+      - name: Install System Dependencies (Ripgrep and FZF)
         run: |
           sudo apt-get update
-          sudo apt-get install -y ripgrep fzf sqlc
+          sudo apt-get install -y ripgrep fzf
 
       - run: go mod download
 
