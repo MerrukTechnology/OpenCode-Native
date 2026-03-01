@@ -134,6 +134,9 @@ func formatTokensAndCost(tokens, contextWindow int64, cost float64) string {
 	// Format cost with $ symbol and 2 decimal places
 	formattedCost := fmt.Sprintf("$%.2f", cost)
 
+	if contextWindow <= 0 {
+		return fmt.Sprintf("Context: %s, Cost: %s", formattedTokens, formattedCost)
+	}
 	percentage := (float64(tokens) / float64(contextWindow)) * 100
 	if percentage > 80 {
 		// add the warning icon and percentage
@@ -143,11 +146,26 @@ func formatTokensAndCost(tokens, contextWindow int64, cost float64) string {
 	return fmt.Sprintf("Context: %s, Cost: %s", formattedTokens, formattedCost)
 }
 
+func (m statusCmp) resolveModel() models.Model {
+	agentName := m.activeAgentName
+	if agentCfg, ok := config.Get().Agents[agentName]; ok {
+		if model, ok := models.SupportedModels[agentCfg.Model]; ok {
+			return model
+		}
+	}
+	reg := agentregistry.GetRegistry()
+	if info, ok := reg.Get(agentName); ok && info.Model != "" {
+		if model, ok := models.SupportedModels[models.ModelID(info.Model)]; ok {
+			return model
+		}
+	}
+	return models.Model{}
+}
+
 func (m statusCmp) View() string {
 	t := theme.CurrentTheme()
-	agentName := m.activeAgentName
-	agentCfg := config.Get().Agents[agentName]
-	model := models.SupportedModels[agentCfg.Model]
+	model := m.resolveModel()
+	modelWidget := m.renderModelWidget(model)
 
 	status := getHelpWidget()
 	agentHint := getAgentHintWidget()
@@ -160,9 +178,11 @@ func (m statusCmp) View() string {
 		tokensStyle := styles.Padded().
 			Background(t.Text()).
 			Foreground(t.BackgroundSecondary())
-		percentage := (float64(totalTokens) / float64(model.ContextWindow)) * 100
-		if percentage > 80 {
-			tokensStyle = tokensStyle.Background(t.Warning())
+		if model.ContextWindow > 0 {
+			percentage := (float64(totalTokens) / float64(model.ContextWindow)) * 100
+			if percentage > 80 {
+				tokensStyle = tokensStyle.Background(t.Warning())
+			}
 		}
 		tokenInfoWidth = lipgloss.Width(tokens) + 2
 		status += tokensStyle.Render(tokens)
@@ -172,7 +192,7 @@ func (m statusCmp) View() string {
 		Background(t.BackgroundDarker()).
 		Render(m.projectDiagnostics())
 
-	availableWidht := max(0, m.width-lipgloss.Width(helpWidget)-lipgloss.Width(agentHintWidget)-lipgloss.Width(m.model())-lipgloss.Width(diagnostics)-tokenInfoWidth)
+	availableWidht := max(0, m.width-lipgloss.Width(helpWidget)-lipgloss.Width(agentHintWidget)-lipgloss.Width(modelWidget)-lipgloss.Width(diagnostics)-tokenInfoWidth)
 
 	if m.info.Msg != "" {
 		infoStyle := styles.Padded().
@@ -189,7 +209,6 @@ func (m statusCmp) View() string {
 		}
 
 		infoWidth := availableWidht - 10
-		// Truncate message if it's longer than available width
 		msg := m.info.Msg
 		if len(msg) > infoWidth && infoWidth > 0 {
 			msg = msg[:infoWidth] + "..."
@@ -204,7 +223,7 @@ func (m statusCmp) View() string {
 	}
 
 	status += diagnostics
-	status += m.model()
+	status += modelWidget
 	return status
 }
 
@@ -292,24 +311,19 @@ func (m *statusCmp) projectDiagnostics() string {
 	)
 }
 
-func (m statusCmp) model() string {
+func (m statusCmp) renderModelWidget(model models.Model) string {
 	t := theme.CurrentTheme()
-
-	cfg := config.Get()
-
-	agentName := m.activeAgentName
-	agentCfg, ok := cfg.Agents[agentName]
-	if !ok {
-		return "Unknown"
-	}
-	model := models.SupportedModels[agentCfg.Model]
 
 	reg := agentregistry.GetRegistry()
 	primaryAgents := reg.ListByMode(config.AgentModeAgent)
 
 	agentLabel := ""
 	if len(primaryAgents) > 1 {
-		name := agentCfg.Name
+		agentName := m.activeAgentName
+		name := ""
+		if agentCfg, ok := config.Get().Agents[agentName]; ok && agentCfg.Name != "" {
+			name = agentCfg.Name
+		}
 		if name == "" {
 			if info, found := reg.Get(agentName); found {
 				name = info.Name

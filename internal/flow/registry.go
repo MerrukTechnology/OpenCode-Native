@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/format"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
 	"gopkg.in/yaml.v3"
 )
@@ -187,6 +188,18 @@ func parseFlowFile(path string) (*Flow, error) {
 
 	if err := validateFlowID(id); err != nil {
 		return nil, err
+	}
+
+	// Resolve $ref in step output schemas
+	baseDir := filepath.Dir(path)
+	for i, step := range ff.Flow.Steps {
+		if step.Output != nil && step.Output.Schema != nil {
+			resolved, err := format.ResolveSchemaRef(step.Output.Schema, baseDir)
+			if err != nil {
+				return nil, fmt.Errorf("resolving output schema $ref for step %q: %w", step.ID, err)
+			}
+			ff.Flow.Steps[i].Output.Schema = resolved
+		}
 	}
 
 	flow := Flow{
