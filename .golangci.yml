@@ -10,7 +10,7 @@ run:
   # Include test files in linting
   tests: true
   # STRICTLY enforce Go 1.24 semantics
-  go: '1.24'
+  go: '1.24.x'
   # Allow parallel runners (faster on multi-core)
   allow-parallel-runners: true
 
