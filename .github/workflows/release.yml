@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     tags:
-      - 'v*.*.*'
+      - 'v*'
 
 # Ensure only one release job runs at a time for the same tag
 concurrency:
@@ -35,7 +35,7 @@ jobs:
           cache: true
           cache-dependency-path: go.sum
 
-      - name: Install System Dependencies (Ripgrep & FZF)
+      - name: Install System Dependencies (Ripgrep, FZF and SQLC)
         run: |
           sudo apt-get update
           sudo apt-get install -y ripgrep fzf sqlc
@@ -62,4 +62,4 @@ jobs:
           name: release-dist
           path: dist/*
           retention-days: 3
-          if-no-files-found: warn
+          if-no-files-found: error

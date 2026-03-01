@@ -62,10 +62,10 @@ jobs:
           CGO_ENABLED: 0
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      #- name: Upload Binaries
-      #  uses: actions/upload-artifact@v7
-      #  with:
-      #    name: opencode-binaries
-      #    path: dist/*.tar.gz
-      #    retention-days: 5
-      #    if-no-files-found: error
+      - name: Upload Binaries
+        uses: actions/upload-artifact@v7
+        with:
+          name: opencode-binaries
+          path: dist/*.tar.gz
+          retention-days: 5
+          if-no-files-found: warn
