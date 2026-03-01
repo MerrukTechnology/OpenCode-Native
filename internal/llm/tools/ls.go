@@ -227,7 +227,10 @@ func listDirectoryWithWalk(initialPath string, ignorePatterns []string, limit in
 			return nil
 		}
 
-		if shouldSkip(cleanPath, ignorePatterns) {
+		// Don't apply hidden/ignored filters to paths within the initial search directory
+		// The user explicitly asked to list this directory, so we should show its contents
+		// even if it's in a location like /tmp that would normally be ignored
+		if shouldSkip(cleanPath, ignorePatterns, initialPath) {
 			if info.IsDir() {
 				return filepath.SkipDir
 			}
@@ -255,15 +258,27 @@ func listDirectoryWithWalk(initialPath string, ignorePatterns []string, limit in
 	return results, truncated, nil
 }
 
-func shouldSkip(path string, ignorePatterns []string) bool {
+func shouldSkip(path string, ignorePatterns []string, rootPath string) bool {
+	// If the path is within the root search directory, only check the relative path segments
+	// This prevents paths like /tmp/test/dir1 from being filtered due to "tmp" being ignored
+	var checkPath string
+	if rootPath != "" && strings.HasPrefix(path, rootPath) {
+		// Get the relative path from root
+		relPath := strings.TrimPrefix(path, rootPath)
+		// Remove leading separator
+		checkPath = strings.TrimPrefix(relPath, string(filepath.Separator))
+	} else {
+		checkPath = path
+	}
+
 	// Check custom ignore patterns
-	base := filepath.Base(path)
+	base := filepath.Base(checkPath)
 	// Use fileutil.SkipHidden for consistent hidden/ignored detection
-	if fileutil.SkipHidden(path) {
+	if fileutil.SkipHidden(checkPath) {
 		return true
 	}
 
-	if strings.Contains(path, filepath.Join("__pycache__", "")) {
+	if strings.Contains(checkPath, filepath.Join("__pycache__", "")) {
 		return true
 	}
 
