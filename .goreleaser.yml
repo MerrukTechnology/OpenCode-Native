@@ -62,7 +62,10 @@ aurs:
       install -Dm755 ./opencode "${pkgdir}/usr/bin/opencode"
 
 homebrew_casks:
-  - repository:
+  - name: opencode-tap
+    ids:
+      - opencode-cli # Indique à Brew de ne prendre QUE l'archive tar.gz
+    repository:
       owner: "MerrukTechnology"
       name: homebrew-tap
     directory: Formula
