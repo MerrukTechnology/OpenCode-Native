@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Entrypoint for opencode agent Docker container.
 # All arguments are forwarded directly to the opencode binary.
@@ -13,8 +14,16 @@
 #     -v /path/to/.opencode.json:/workspace/.opencode.json
 
 cd /workspace || {
-	echo "Error: Cannot change to /workspace directory"
-	exit 1
+    echo "Error: Cannot change to /workspace directory" >&2
+    exit 1
 }
+
+exec opencode "$@"
+
+# Verify binary exists before exec
+if ! command -v opencode &>/dev/null; then
+    echo "Error: 'opencode' binary not found in PATH (${PATH})" >&2
+    exit 127
+fi
 
 exec opencode "$@"

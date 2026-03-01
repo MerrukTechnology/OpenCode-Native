@@ -64,7 +64,51 @@ linters:
     - usestdlibvars
     - whitespace
 
+linters-settings:
+  revive:
+    rules:
+      - name: exported
+        severity: warning
+      - name: unused-parameter
+        severity: warning
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+    disabled-checks:
+      - hugeParam  # too noisy for this codebase
+
+  sloglint:
+    no-mixed-args: true
+    kv-only: true
+
+  gci:
+    sections:
+      - standard
+      - default
+      - prefix(github.com/MerrukTechnology/OpenCode-Native)
+
+  gofumpt:
+    module-path: github.com/MerrukTechnology/OpenCode-Native
+    extra-rules: true
+
 # Issues Configuration
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
+  exclude-rules:
+    # Relax error checking in tests — test helpers often intentionally ignore errors
+    - path: "_test\\.go"
+      linters:
+        - errcheck
+        - contextcheck
+        - noctx
+        - bodyclose
+
+    # Allow unkeyed struct literals in tests
+    - path: "_test\\.go"
+      linters:
+        - govet
+      text: "composites"
