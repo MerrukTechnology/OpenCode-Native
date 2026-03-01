@@ -45,7 +45,6 @@ jobs:
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@ec59f474b9834571250b370d4735c50f8e2d1e29
         with:
-          category: goreleaser-${{ github.run_id }}
           distribution: goreleaser
           version: latest
           args: release --clean
