@@ -294,7 +294,7 @@ func (e *editTool) deleteContent(ctx context.Context, filePath, oldString string
 		return NewEmptyResponse(), fmt.Errorf("failed to read file: %w", err)
 	}
 
-	oldContent := strings.ReplaceAll(string(content), "\r\n", "\n")
+	oldContent := strings.ReplaceAll(content, "\r\n", "\n")
 	normalizedOldString := strings.ReplaceAll(oldString, "\r\n", "\n")
 
 	index := strings.Index(oldContent, normalizedOldString)
@@ -331,7 +331,7 @@ func (e *editTool) deleteContent(ctx context.Context, filePath, oldString string
 	if strings.HasPrefix(filePath, rootDir) {
 		permissionPath = rootDir
 	}
-	action := e.registry.EvaluatePermission(string(GetAgentID(ctx)), EditToolName, filePath)
+	action := e.registry.EvaluatePermission(GetAgentID(ctx), EditToolName, filePath)
 	switch action {
 	case permission.ActionAllow:
 		// Allowed by config
@@ -426,7 +426,7 @@ func (e *editTool) replaceContent(ctx context.Context, filePath, oldString, newS
 		return NewEmptyResponse(), fmt.Errorf("failed to read file: %w", err)
 	}
 
-	oldContent := strings.ReplaceAll(string(content), "\r\n", "\n")
+	oldContent := strings.ReplaceAll(content, "\r\n", "\n")
 	normalizedOldString := strings.ReplaceAll(oldString, "\r\n", "\n")
 	normalizedNewString := strings.ReplaceAll(newString, "\r\n", "\n")
 
@@ -465,7 +465,7 @@ func (e *editTool) replaceContent(ctx context.Context, filePath, oldString, newS
 	if strings.HasPrefix(filePath, rootDir) {
 		permissionPath = rootDir
 	}
-	action := e.registry.EvaluatePermission(string(GetAgentID(ctx)), EditToolName, filePath)
+	action := e.registry.EvaluatePermission(GetAgentID(ctx), EditToolName, filePath)
 	switch action {
 	case permission.ActionAllow:
 		// Allowed by config

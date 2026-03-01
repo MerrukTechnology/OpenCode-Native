@@ -257,7 +257,7 @@ func (g *geminiClient) send(ctx context.Context, messages []message.Message, too
 			for _, part := range resp.Candidates[0].Content.Parts {
 				switch {
 				case part.Text != "":
-					content = string(part.Text)
+					content = part.Text
 				case part.FunctionCall != nil:
 					id := "call_" + uuid.New().String()
 					args, _ := json.Marshal(part.FunctionCall.Args)
@@ -382,7 +382,7 @@ func (g *geminiClient) stream(ctx context.Context, messages []message.Message, t
 					for _, part := range resp.Candidates[0].Content.Parts {
 						switch {
 						case part.Text != "":
-							delta := string(part.Text)
+							delta := part.Text
 							if delta != "" {
 								eventChan <- ProviderEvent{
 									Type:    EventContentDelta,

@@ -141,7 +141,7 @@ func (m *multiEditTool) Info() ToolInfo {
 func (m *multiEditTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error) {
 	var params MultiEditParams
 	if err := json.Unmarshal([]byte(call.Input), &params); err != nil {
-		return NewTextErrorResponse("invalid parameters"), nil
+		return NewTextErrorResponse("invalid parameters"), err
 	}
 
 	if params.FilePath == "" {
@@ -246,7 +246,7 @@ func (m *multiEditTool) Run(ctx context.Context, call ToolCall) (ToolResponse, e
 	if strings.HasPrefix(params.FilePath, rootDir) {
 		permissionPath = rootDir
 	}
-	action := m.registry.EvaluatePermission(string(GetAgentID(ctx)), MultiEditToolName, params.FilePath)
+	action := m.registry.EvaluatePermission(GetAgentID(ctx), MultiEditToolName, params.FilePath)
 	switch action {
 	case permission.ActionAllow:
 		// Allowed by config

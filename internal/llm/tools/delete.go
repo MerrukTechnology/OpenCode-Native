@@ -224,10 +224,10 @@ func (d *deleteTool) Run(ctx context.Context, call ToolCall) (ToolResponse, erro
 		return nil
 	})
 	if err != nil {
-		return NewTextErrorResponse("directory contains more than 500 files. Use bash rm -rf for large directory deletions, or delete subdirectories individually"), nil
+		return NewTextErrorResponse("directory contains more than 500 files. Use bash rm -rf for large directory deletions, or delete subdirectories individually"), err
 	}
 
-	action := d.registry.EvaluatePermission(string(GetAgentID(ctx)), DeleteToolName, absPath)
+	action := d.registry.EvaluatePermission(GetAgentID(ctx), DeleteToolName, absPath)
 	switch action {
 	case permission.ActionAllow:
 	case permission.ActionDeny:

@@ -161,11 +161,11 @@ Key Features:
 
 		// Set active agent if specified
 		if agentID != "" {
-			if _err := app.SetActiveAgent(config.AgentName(agentID)); _err != nil {
+			if activeAgentErr := app.SetActiveAgent(agentID); activeAgentErr != nil {
 				if spinner != nil {
 					spinner.Stop()
 				}
-				return fmt.Errorf("invalid agent: %w", _err)
+				return fmt.Errorf("invalid agent: %w", activeAgentErr)
 			}
 		}
 

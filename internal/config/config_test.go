@@ -323,12 +323,12 @@ func TestTypeConstants(t *testing.T) {
 		{"ProviderType SQLite", string(ProviderSQLite), "sqlite"},
 		{"ProviderType MySQL", string(ProviderMySQL), "mysql"},
 		// AgentName constants
-		{"AgentName Coder", string(AgentCoder), "coder"},
-		{"AgentName Summarizer", string(AgentSummarizer), "summarizer"},
-		{"AgentName Explorer", string(AgentExplorer), "explorer"},
-		{"AgentName Descriptor", string(AgentDescriptor), "descriptor"},
-		{"AgentName Workhorse", string(AgentWorkhorse), "workhorse"},
-		{"AgentName Hivemind", string(AgentHivemind), "hivemind"},
+		{"AgentName Coder", AgentCoder, "coder"},
+		{"AgentName Summarizer", AgentSummarizer, "summarizer"},
+		{"AgentName Explorer", AgentExplorer, "explorer"},
+		{"AgentName Descriptor", AgentDescriptor, "descriptor"},
+		{"AgentName Workhorse", AgentWorkhorse, "workhorse"},
+		{"AgentName Hivemind", AgentHivemind, "hivemind"},
 	}
 
 	for _, tt := range tests {

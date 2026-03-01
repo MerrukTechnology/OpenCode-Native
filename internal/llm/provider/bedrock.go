@@ -23,6 +23,7 @@ type bedrockClient struct {
 	childProvider   ProviderClient
 }
 
+// BedrockClient is the interface for the Bedrock client
 type BedrockClient ProviderClient
 
 func newBedrockClient(opts providerClientOptions) BedrockClient {

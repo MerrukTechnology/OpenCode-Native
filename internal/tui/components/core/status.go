@@ -316,7 +316,7 @@ func (m statusCmp) model() string {
 			}
 		}
 		if name == "" {
-			name = string(agentName)
+			name = agentName
 		}
 		agentLabel = " ▶ " + name
 	}

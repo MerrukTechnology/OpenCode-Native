@@ -201,17 +201,17 @@ func WithBorderStyle(style lipgloss.Border) ContainerOption {
 	}
 }
 
-// WithBorderStyle sets the style of the border.
+// WithRoundedBorder sets the style of the border to RoundedBorder.
 func WithRoundedBorder() ContainerOption {
 	return WithBorderStyle(lipgloss.RoundedBorder())
 }
 
-// WithBorderStyle sets the style of the border.
+// WithThickBorder sets the style of the border to ThickBorder.
 func WithThickBorder() ContainerOption {
 	return WithBorderStyle(lipgloss.ThickBorder())
 }
 
-// WithBorderStyle sets the style of the border.
+// WithDoubleBorder sets the style of the border to DoubleBorder.
 func WithDoubleBorder() ContainerOption {
 	return WithBorderStyle(lipgloss.DoubleBorder())
 }

@@ -114,7 +114,7 @@ func (f *agentFactory) InitPrimaryAgents(ctx context.Context, outputSchema map[s
 	}
 	res := make([]Service, 0, len(primaryAgents))
 	for _, agentInfo := range primaryAgents {
-		primaryAgent, err := f.NewAgent(ctx, string(agentInfo.ID), outputSchema, "")
+		primaryAgent, err := f.NewAgent(ctx, agentInfo.ID, outputSchema, "")
 		if err != nil {
 			logging.Error("Failed to create agent", "agent", agentInfo.ID, "error", err)
 			continue

@@ -350,7 +350,7 @@ func (d *deepSeekClient) shouldRetry(attempts int, err error) (bool, int64, erro
 	retryMs = backoffMs + jitterMs
 	if len(retryAfterValues) > 0 {
 		if _, err := fmt.Sscanf(retryAfterValues[0], "%d", &retryMs); err == nil {
-			retryMs = retryMs * 1000
+			retryMs *= 1000
 		}
 	}
 	return true, int64(retryMs), nil
@@ -378,13 +378,13 @@ func (d *deepSeekClient) toolCalls(completion openai.ChatCompletion) []message.T
 func (d *deepSeekClient) usage(completion openai.ChatCompletion) TokenUsage {
 	cachedTokens := int64(0)
 	if completion.Usage.PromptTokensDetails.CachedTokens != 0 {
-		cachedTokens = int64(completion.Usage.PromptTokensDetails.CachedTokens)
+		cachedTokens = completion.Usage.PromptTokensDetails.CachedTokens
 	}
-	inputTokens := int64(completion.Usage.PromptTokens) - cachedTokens
+	inputTokens := completion.Usage.PromptTokens - cachedTokens
 
 	return TokenUsage{
 		InputTokens:         inputTokens,
-		OutputTokens:        int64(completion.Usage.CompletionTokens),
+		OutputTokens:        completion.Usage.CompletionTokens,
 		CacheCreationTokens: 0,
 		CacheReadTokens:     cachedTokens,
 	}

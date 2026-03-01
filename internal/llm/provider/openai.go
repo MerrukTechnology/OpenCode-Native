@@ -244,7 +244,7 @@ func (o *openaiClient) send(ctx context.Context, messages []message.Message, too
 		}
 
 		toolCalls := o.toolCalls(*openaiResponse)
-		finishReason := o.finishReason(string(openaiResponse.Choices[0].FinishReason))
+		finishReason := o.finishReason(openaiResponse.Choices[0].FinishReason)
 
 		if len(toolCalls) > 0 {
 			finishReason = message.FinishReasonToolUse
@@ -385,7 +385,7 @@ func (o *openaiClient) shouldRetry(attempts int, err error) (bool, int64, error)
 	retryMs = backoffMs + jitterMs
 	if len(retryAfterValues) > 0 {
 		if _, err := fmt.Sscanf(retryAfterValues[0], "%d", &retryMs); err == nil {
-			retryMs = retryMs * 1000
+			retryMs *= 1000
 		}
 	}
 	return true, int64(retryMs), nil

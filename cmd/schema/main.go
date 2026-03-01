@@ -328,12 +328,12 @@ func generateSchema() map[string]any {
 	// Add specific agent properties
 	agentProperties := map[string]any{}
 	knownAgents := []string{
-		string(config.AgentCoder),
-		string(config.AgentExplorer),
-		string(config.AgentDescriptor),
-		string(config.AgentSummarizer),
-		string(config.AgentWorkhorse),
-		string(config.AgentHivemind),
+		config.AgentCoder,
+		config.AgentExplorer,
+		config.AgentDescriptor,
+		config.AgentSummarizer,
+		config.AgentWorkhorse,
+		config.AgentHivemind,
 	}
 
 	for _, agentName := range knownAgents {

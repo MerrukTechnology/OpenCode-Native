@@ -54,7 +54,7 @@ func (s *skillTool) Info() ToolInfo {
 func (s *skillTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error) {
 	var params SkillParams
 	if err := json.Unmarshal([]byte(call.Input), &params); err != nil {
-		return NewTextErrorResponse("invalid parameters"), nil
+		return NewTextErrorResponse("invalid parameters"), err
 	}
 
 	if params.Name == "" {
@@ -78,7 +78,7 @@ func (s *skillTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 
 	sessionID, _ := GetContextValues(ctx)
 	agentName := GetAgentID(ctx)
-	if !s.checkPermission(sessionID, string(agentName), params.Name, skillInfo.Description) {
+	if !s.checkPermission(sessionID, agentName, params.Name, skillInfo.Description) {
 		return NewTextErrorResponse(fmt.Sprintf("Permission denied for skill %q", params.Name)), nil
 	}
 

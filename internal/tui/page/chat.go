@@ -1,3 +1,6 @@
+// page package: This file defines the ChatPage, which is the main interface for users to interact with chat sessions,
+// send messages, and view message history. It manages the layout of the chat interface, handles user input,
+// and coordinates with the app's session and agent management to facilitate conversations.
 package page
 
 import (

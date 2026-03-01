@@ -173,7 +173,7 @@ func (w *writeTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 	if strings.HasPrefix(filePath, rootDir) {
 		permissionPath = rootDir
 	}
-	action := w.registry.EvaluatePermission(string(GetAgentID(ctx)), WriteToolName, filePath)
+	action := w.registry.EvaluatePermission(GetAgentID(ctx), WriteToolName, filePath)
 	switch action {
 	case permission.ActionAllow:
 		// Allowed by config

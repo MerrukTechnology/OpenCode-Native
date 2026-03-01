@@ -218,7 +218,7 @@ func (b *bashTool) Info() ToolInfo {
 func (b *bashTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error) {
 	var params BashParams
 	if err := json.Unmarshal([]byte(call.Input), &params); err != nil {
-		return NewTextErrorResponse("invalid parameters"), nil
+		return NewTextErrorResponse("invalid parameters"), err
 	}
 
 	if params.Timeout > MaxTimeout {
@@ -253,7 +253,7 @@ func (b *bashTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error)
 		return NewEmptyResponse(), errors.New("session ID and message ID are required for creating a new file")
 	}
 	if !isSafeReadOnly {
-		action := b.registry.EvaluatePermission(string(GetAgentID(ctx)), BashToolName, params.Command)
+		action := b.registry.EvaluatePermission(GetAgentID(ctx), BashToolName, params.Command)
 		switch action {
 		case permission.ActionAllow:
 			// Allowed by config, skip interactive permission
