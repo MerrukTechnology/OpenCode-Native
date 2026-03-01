@@ -61,7 +61,7 @@ func TestPatchTool_Run(t *testing.T) {
 				}
 			}
 
-			response, err := tool.Run(nil, call)
+			response, err := tool.Run(t.Context(), call)
 			require.NoError(t, err)
 			tt.assertResult(t, response, err)
 		})

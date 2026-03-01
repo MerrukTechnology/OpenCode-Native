@@ -53,19 +53,19 @@ jobs:
       - name: Build Snapshot
         uses: goreleaser/goreleaser-action@ec59f474b9834571250b370d4735c50f8e2d1e29
         with:
-          category: goreleaser-${{ github.run_id }}
           distribution: goreleaser
           version: 2.13.3
+          install-only: true
           args: build --snapshot --clean
         env:
           # Critical for your macOS Catalina support
           CGO_ENABLED: 0
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Binaries
-        uses: actions/upload-artifact@v7
-        with:
-          name: opencode-binaries
-          path: dist/*.tar.gz
-          retention-days: 5
-          if-no-files-found: error
+      #- name: Upload Binaries
+      #  uses: actions/upload-artifact@v7
+      #  with:
+      #    name: opencode-binaries
+      #    path: dist/*.tar.gz
+      #    retention-days: 5
+      #    if-no-files-found: error

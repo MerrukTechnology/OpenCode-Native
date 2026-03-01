@@ -8,6 +8,11 @@ on:
   schedule:
     - cron: '41 14 * * 3'
 
+# Cancel previous runs if a new commit is pushed to main (saves money/time)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   actions: read
   contents: read

@@ -1,5 +1,10 @@
 name: Go
 
+# Cancel previous runs if a new commit is pushed to main (saves money/time)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 

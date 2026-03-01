@@ -363,7 +363,7 @@ export LOCAL_ENDPOINT_API_KEY=secret
 
 OpenCode is organized into several key packages that work together to provide a seamless AI coding experience:
 
-```
+``` mermid
 internal/
 ├── agent/           # Agent registry and management
 ├── app/             # Application setup and LSP integration
