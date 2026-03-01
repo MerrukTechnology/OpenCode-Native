@@ -617,6 +617,13 @@ func resolveSessionPrefix(specPrefix string, args map[string]any) (string, error
 		if !ok {
 			return "", fmt.Errorf("session prefix references undefined arg %q", key)
 		}
+		switch val.(type) {
+		case string, int, int64, float64, bool:
+			// allowed primitive types
+			break
+		default:
+			return "", fmt.Errorf("session prefix arg %q must be a primitive type, got %T", key, val)
+		}
 		return fmt.Sprintf("%v", val), nil
 	}
 
@@ -741,7 +748,8 @@ func validateArgs(args map[string]any, schema map[string]any) error {
 		if !ok {
 			continue
 		}
-		if _, exists := args[key]; !exists {
+		val, exists := args[key]
+		if !exists || val == nil {
 			return fmt.Errorf("missing required argument %q", key)
 		}
 	}

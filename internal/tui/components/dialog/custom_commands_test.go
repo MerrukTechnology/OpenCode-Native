@@ -162,6 +162,13 @@ func TestParseCommandMarkdown(t *testing.T) {
 			wantDesc:  "",
 			wantBody:  "Body after blank lines",
 		},
+		{
+			name:      "empty input",
+			input:     "",
+			wantTitle: "",
+			wantDesc:  "",
+			wantBody:  "",
+		},
 	}
 
 	for _, tt := range tests {

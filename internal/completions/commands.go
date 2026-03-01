@@ -1,6 +1,7 @@
 package completions
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/components/dialog"
@@ -44,6 +45,7 @@ func (p *commandCompletionProvider) GetChildEntries(query string) ([]dialog.Comp
 
 	q := strings.ToLower(query)
 	ranks := fuzzy.RankFind(q, titles)
+	sort.Sort(ranks)
 
 	matched := make(map[int]bool, len(ranks))
 	for _, r := range ranks {

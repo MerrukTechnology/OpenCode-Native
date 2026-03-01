@@ -1,4 +1,4 @@
-commit and push using conventional commits specification
+Commit and push using conventional commits specification
 
 # Commit format
 The commit message should be structured as follows:
@@ -49,10 +49,10 @@ Refs: #123
 - prefer to explain WHY something was done from an end user perspective instead of WHAT was done
 - do not do generic messages like "improved user experience" be very specific about what user facing changes were made
 - if there are conflicts DO NOT FIX THEM. notify me and I will fix them
-- if changes related only to 
+- if changes related only to
    - markdown (.md .mdx) files, then always use `docs` commit type
    - .github workflows or .gitlab-ci or any other known ci tools, then use `ci` commit type
-   - test files, then use `test` commit tyoe
+   - test files, then use `test` commit type
 
 ## GIT DIFF
 

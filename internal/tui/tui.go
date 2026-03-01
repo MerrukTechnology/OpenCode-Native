@@ -1079,7 +1079,7 @@ func buildCommands() []dialog.Command {
 		{
 			ID:          "review",
 			Title:       "Review code",
-			Description: "Review a given work using provided commit hash or branch)",
+			Description: "Review a given work using a provided commit hash or branch",
 			Handler: func(cmd dialog.Command) tea.Cmd {
 				prompt, err := dialog.CommandPrompts.ReadFile("commands/review.md")
 				if err != nil {
@@ -1106,7 +1106,7 @@ func buildCommands() []dialog.Command {
 			Handler: func(cmd dialog.Command) tea.Cmd {
 				prompt, err := dialog.CommandPrompts.ReadFile("commands/commit.md")
 				if err != nil {
-					logging.Error("Failed to load init command", "error", err)
+					logging.Error("Failed to load commit command", "error", err)
 					return util.ReportError(err)
 				}
 				return tea.Batch(

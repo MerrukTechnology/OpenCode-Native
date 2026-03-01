@@ -5,6 +5,7 @@ package page
 
 import (
 	"context"
+	"sort"
 	"strings"
 
 	"github.com/MerrukTechnology/OpenCode-Native/internal/app"
@@ -121,7 +122,16 @@ func (p *chatPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		content := msg.Content
 		if msg.Args != nil {
-			for name, value := range msg.Args {
+			// Sort keys by length (longest first) to avoid partial replacements
+			keys := make([]string, 0, len(msg.Args))
+			for name := range msg.Args {
+				keys = append(keys, name)
+			}
+			sort.Slice(keys, func(i, j int) bool {
+				return len(keys[i]) > len(keys[j])
+			})
+			for _, name := range keys {
+				value := msg.Args[name]
 				placeholder := "$" + name
 				content = strings.ReplaceAll(content, placeholder, value)
 			}

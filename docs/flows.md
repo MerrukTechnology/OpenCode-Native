@@ -206,7 +206,7 @@ flow:
   steps: [...]
 ```
 
-When `prefix` references an arg variable (e.g. `${args.jira_issue_id}`), the variable must exist in the provided args or the flow will return an error.
+When `prefix` references an arg variable (e.g. `${args.jira_issue_id}`), the variable must exist in the provided args. If the referenced variable is missing, the flow will return an error before executing any steps.
 
 A `--session` flag on the CLI always overrides the spec value:
 

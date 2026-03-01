@@ -5,7 +5,7 @@ description: Extract non-obvious learnings from session to AGENTS.md files to bu
 
 Analyze this session and extract non-obvious learnings to add to AGENTS.md files.
 
-AGENTS.md files can exist at any directory level, not just the project root. When an agent reads a file, any AGENTS.md in parent directories are automatically loaded into the context of the tool read. Place learnings as close to the relevant code as possible:
+AGENTS.md files can exist at any directory level, not just the project root. When an agent reads a file, all AGENTS.md files in parent directories are automatically loaded into the context of the tool read. Place learnings as close to the relevant code as possible:
 
 - Project-wide learnings → root AGENTS.md
 - Package/module-specific → packages/foo/AGENTS.md
@@ -26,13 +26,13 @@ What NOT to include:
 
 - Obvious facts from documentation
 - Standard language/framework behavior
-- Things already in an AGENTS.md
+- Things already in any AGENTS.md files
 - Verbose explanations
 - Session-specific details
 
 Process:
 
-1. Review session for discoveries, errors that took multiple attempts, unexpected connections
+1. Review the session for discoveries, errors that took multiple attempts, unexpected connections
 2. Determine scope - what directory does each learning apply to?
 3. Read existing AGENTS.md files at relevant levels
 4. Create or update AGENTS.md at the appropriate level
