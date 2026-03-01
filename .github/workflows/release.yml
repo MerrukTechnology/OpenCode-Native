@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     tags:
-      - "v*"
+      - 'v*.*.*'
 
 # Ensure only one release job runs at a time for the same tag
 concurrency:
@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   goreleaser:
-    name: Build & Publish
+    name: GoReleaser Build & Publish
     runs-on: ubuntu-latest
     timeout-minutes: 30 # Safety limit
 
@@ -28,17 +28,17 @@ jobs:
           fetch-depth: 0 # CRITICAL: GoReleaser needs full history to calculate changelogs
           fetch-tags: true # Ensure all tags are fetched for goreleaser to work correctly
 
-      - name: Install System Dependencies (Ripgrep & FZF)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ripgrep fzf
-
       - name: Setup Go 1.24.x
         uses: actions/setup-go@v6
         with:
           go-version: '1.24.x'
           cache: true
           cache-dependency-path: go.sum
+
+      - name: Install System Dependencies (Ripgrep & FZF)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ripgrep fzf sqlc
 
       - run: go mod download
 
