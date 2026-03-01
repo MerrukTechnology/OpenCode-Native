@@ -37,8 +37,7 @@ checksum:
   name_template: "checksums.txt"
 
 snapshot:
-  # 'name_template' is deprecated in v2 for snapshots
-  version_template: "{{ .Tag }}-next"
+  version_template: "{{ incpatch .Version }}-next"
 
 release:
   github:
@@ -61,7 +60,7 @@ aurs:
     package: |-
       install -Dm755 ./opencode "${pkgdir}/usr/bin/opencode"
 
-homebrew_casks:
+brews:
   - repository:
       owner: "MerrukTechnology"
       name: homebrew-tap
@@ -69,6 +68,10 @@ homebrew_casks:
     license: "MIT"
     homepage: "https://github.com/MerrukTechnology/homebrew-tap"
     description: "Lightweight, native AI coding agent optimized for performance."
+    install: |
+      bin.install "opencode"
+    test: |
+      system "#{bin}/opencode", "--version"
 
 nfpms:
   - maintainer: "MerrukTechnology"

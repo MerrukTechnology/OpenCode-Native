@@ -259,8 +259,8 @@ func listDirectoryWithWalk(initialPath string, ignorePatterns []string, limit in
 }
 
 func shouldSkip(path string, ignorePatterns []string, rootPath string) bool {
-	// If the path is within the root search directory, only check the relative path segments
-	// This prevents paths like /tmp/test/dir1 from being filtered due to "tmp" being ignored
+	// If rootPath is not provided (empty), use the path as-is
+	// If rootPath is provided, only check the relative path from root
 	var checkPath string
 	if rootPath != "" && strings.HasPrefix(path, rootPath) {
 		// Get the relative path from root

@@ -273,7 +273,7 @@ func TestShouldSkip(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := shouldSkip(tc.path, tc.ignorePatterns)
+			result := shouldSkip(tc.path, tc.ignorePatterns, "")
 			assert.Equal(t, tc.expected, result)
 		})
 	}
