@@ -168,7 +168,7 @@ func loadCommandsFromDir(commandsDir string, prefix string) ([]Command, error) {
 
 		description := fm.Description
 		if description == "" {
-			description = fmt.Sprintf("Custom command from %s", relPath)
+			description = "Custom command from " + relPath
 		}
 
 		commandContent := body

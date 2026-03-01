@@ -607,7 +607,7 @@ var argsVarRegex = regexp.MustCompile(`^\$\{args\.([^}]+)\}$`)
 // If the spec prefix references an arg variable (e.g. ${args.foo}), the variable must exist in args.
 func resolveSessionPrefix(specPrefix string, args map[string]any) (string, error) {
 	if specPrefix == "" {
-		return fmt.Sprintf("%d", time.Now().Unix()), nil
+		return strconv.FormatInt(time.Now().Unix(), 10), nil
 	}
 
 	matches := argsVarRegex.FindStringSubmatch(specPrefix)

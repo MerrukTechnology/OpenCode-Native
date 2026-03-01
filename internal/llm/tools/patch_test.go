@@ -49,12 +49,13 @@ func TestPatchTool_Run(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var call ToolCall
 
-			if tt.name == "returns error for empty patch_text" {
+			switch tt.name {
+			case "returns error for empty patch_text":
 				call = ToolCall{
 					Name:  PatchToolName,
 					Input: `{"patch_text": ""}`,
 				}
-			} else if tt.name == "handles invalid JSON parameters" {
+			case "handles invalid JSON parameters":
 				call = ToolCall{
 					Name:  PatchToolName,
 					Input: "invalid json",
