@@ -281,6 +281,28 @@ func createFileTree(sortedPaths []string) []*TreeNode {
 	root := []*TreeNode{}
 	pathMap := make(map[string]*TreeNode)
 
+	// Build a set of all paths for efficient directory detection
+	// A path is a directory if it's a prefix of any other path
+	pathSet := make(map[string]bool)
+	for _, p := range sortedPaths {
+		pathSet[p] = true
+	}
+
+	// Helper to check if a path is a directory (has children)
+	isDirectory := func(p string) bool {
+		// Check if path has trailing separator (from filepath.Walk)
+		if strings.HasSuffix(p, string(filepath.Separator)) {
+			return true
+		}
+		// Check if any other path has this path as a prefix
+		for other := range pathSet {
+			if other != p && strings.HasPrefix(other, p+string(filepath.Separator)) {
+				return true
+			}
+		}
+		return false
+	}
+
 	for _, path := range sortedPaths {
 		parts := strings.Split(path, string(filepath.Separator))
 		currentPath := ""
@@ -311,7 +333,7 @@ func createFileTree(sortedPaths []string) []*TreeNode {
 			}
 
 			isLastPart := i == len(parts)-1
-			isDir := !isLastPart || strings.HasSuffix(path, string(filepath.Separator))
+			isDir := !isLastPart || isDirectory(currentPath)
 			nodeType := "file"
 			if isDir {
 				nodeType = "directory"
