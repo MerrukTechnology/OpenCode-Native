@@ -1,3 +1,6 @@
+// Package dialog provides various dialog components for the OpenCode TUI,
+// including dialogs for arguments, commands, completion, file picking, help, initialization,
+// model selection, permissions, quitting, sessions, and theme switching.
 package dialog
 
 import (
@@ -12,6 +15,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// argumentsDialogKeyMap defines the keybindings for the arguments dialog.
 type argumentsDialogKeyMap struct {
 	Enter  key.Binding
 	Escape key.Binding

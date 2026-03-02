@@ -39,6 +39,7 @@ type PermissionDialogCmp interface {
 	SetPermissions(permission permission.PermissionRequest) tea.Cmd
 }
 
+// permissionsMapping defines the keybindings for the permission dialog
 type permissionsMapping struct {
 	Left         key.Binding
 	Right        key.Binding
@@ -49,6 +50,7 @@ type permissionsMapping struct {
 	Tab          key.Binding
 }
 
+// permissionsKeys is the actual keybindings used in the permission dialog
 var permissionsKeys = permissionsMapping{
 	Left: key.NewBinding(
 		key.WithKeys("left"),

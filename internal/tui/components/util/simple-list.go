@@ -1,3 +1,5 @@
+// Package utilComponents provides reusable UI components for the OpenCode TUI,
+// including a simple list component for displaying selectable items.
 package utilComponents
 
 import (
@@ -9,10 +11,12 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// SimpleListItem is an interface that types must implement to be displayed in a SimpleList.
 type SimpleListItem interface {
 	Render(selected bool, width int) string
 }
 
+// SimpleList is a generic interface for a list component that displays selectable items.
 type SimpleList[T SimpleListItem] interface {
 	tea.Model
 	layout.Bindings

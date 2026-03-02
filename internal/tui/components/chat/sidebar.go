@@ -1,3 +1,5 @@
+// Package chat provides UI components for rendering chat messages and managing
+// the chat interface in the OpenCode TUI.
 package chat
 
 import (
@@ -19,6 +21,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// sidebarCmp displays the sidebar with project, session, and modified file information.
 type sidebarCmp struct {
 	width, height int
 	session       session.Session
@@ -32,6 +35,7 @@ type sidebarCmp struct {
 	filesCh         <-chan pubsub.Event[history.File]
 }
 
+// waitForFileEvent returns a tea.Cmd that waits for the next file event from the history service.
 func (m *sidebarCmp) waitForFileEvent() tea.Cmd {
 	if m.filesCh == nil {
 		return nil
@@ -45,6 +49,7 @@ func (m *sidebarCmp) waitForFileEvent() tea.Cmd {
 	}
 }
 
+// Init initializes the sidebar component. It subscribes to file events from the history service and loads the initial modified files.
 func (m *sidebarCmp) Init() tea.Cmd {
 	if m.history != nil {
 		ctx := context.Background()
@@ -62,6 +67,7 @@ func (m *sidebarCmp) Init() tea.Cmd {
 	return nil
 }
 
+// Update handles messages for the sidebar component. It listens for session selection changes and file events to update the displayed information accordingly.
 func (m *sidebarCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case SessionSelectedMsg:
@@ -95,6 +101,7 @@ func (m *sidebarCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// View renders the sidebar component. It displays the project information, session details, LSP configuration status, and modified files.
 func (m *sidebarCmp) View() string {
 	baseStyle := styles.BaseStyle()
 
@@ -120,6 +127,7 @@ func (m *sidebarCmp) View() string {
 		)
 }
 
+// projectSection generates the project section of the sidebar. It retrieves the current project ID and formats it for display.
 func (m *sidebarCmp) projectSection() string {
 	t := theme.CurrentTheme()
 	baseStyle := styles.BaseStyle()
@@ -144,6 +152,8 @@ func (m *sidebarCmp) projectSection() string {
 	)
 }
 
+// sessionSection generates the session section of the sidebar. It displays the session title and provider information.
+// It determines the session provider type (local or remote) and formats the display accordingly.
 func (m *sidebarCmp) sessionSection() string {
 	t := theme.CurrentTheme()
 	baseStyle := styles.BaseStyle()
@@ -204,6 +214,7 @@ func (m *sidebarCmp) sessionSection() string {
 	)
 }
 
+// modifiedFile generates a string representation of a modified file with its addition and removal statistics. It formats the file path and the stats for additions and removals, applying appropriate colors and spacing.
 func (m *sidebarCmp) modifiedFile(filePath string, additions, removals int) string {
 	t := theme.CurrentTheme()
 	baseStyle := styles.BaseStyle()
@@ -249,6 +260,7 @@ func (m *sidebarCmp) modifiedFile(filePath string, additions, removals int) stri
 		)
 }
 
+// modifiedFiles generates a string representation of all modified files in the sidebar. It lists each file with its addition and removal statistics, sorted alphabetically. If there are no modified files, it displays a message indicating that there are no modified files.
 func (m *sidebarCmp) modifiedFiles() string {
 	t := theme.CurrentTheme()
 	baseStyle := styles.BaseStyle()
@@ -302,16 +314,19 @@ func (m *sidebarCmp) modifiedFiles() string {
 		)
 }
 
+// SetSize sets the dimensions of the sidebar.
 func (m *sidebarCmp) SetSize(width, height int) tea.Cmd {
 	m.width = width
 	m.height = height
 	return nil
 }
 
+// GetSize returns the current dimensions of the sidebar.
 func (m *sidebarCmp) GetSize() (int, int) {
 	return m.width, m.height
 }
 
+// NewSidebarCmp creates a new sidebar component.
 func NewSidebarCmp(s session.Session, sessions session.Service, history history.Service) tea.Model {
 	return &sidebarCmp{
 		session:  s,
@@ -320,6 +335,7 @@ func NewSidebarCmp(s session.Session, sessions session.Service, history history.
 	}
 }
 
+// loadModifiedFiles loads the modified files for the current session. It retrieves the latest files from the session tree and compares them with their initial versions to determine the number of additions and removals for each modified file. The results are stored in the modFiles map for display in the sidebar.
 func (m *sidebarCmp) loadModifiedFiles(ctx context.Context) {
 	if m.history == nil || m.session.ID == "" {
 		return
@@ -388,6 +404,7 @@ func (m *sidebarCmp) loadModifiedFiles(ctx context.Context) {
 	}
 }
 
+// buildChildSessionCache builds a cache of child session IDs for the given root session ID. This cache is used to efficiently determine if a file event belongs to the current session tree when processing file changes.
 func (m *sidebarCmp) buildChildSessionCache(ctx context.Context, rootSessionID string) {
 	m.childSessionIDs = make(map[string]bool)
 	m.childSessionIDs[m.session.ID] = true
@@ -405,6 +422,7 @@ func (m *sidebarCmp) buildChildSessionCache(ctx context.Context, rootSessionID s
 	}
 }
 
+// isInSessionTree checks if the given session ID is part of the current session tree. It uses the childSessionIDs cache to determine if the session ID belongs to the current session or any of its child sessions.
 func (m *sidebarCmp) isInSessionTree(sessionID string) bool {
 	if m.childSessionIDs == nil {
 		return sessionID == m.session.ID
@@ -412,6 +430,7 @@ func (m *sidebarCmp) isInSessionTree(sessionID string) bool {
 	return m.childSessionIDs[sessionID]
 }
 
+// processFileChanges processes file changes and updates the modified files cache. It compares the content of the file with its initial version to determine if there are any additions or removals.
 func (m *sidebarCmp) processFileChanges(ctx context.Context, file history.File) {
 	if file.Version == history.InitialVersion {
 		return
@@ -445,6 +464,7 @@ func (m *sidebarCmp) processFileChanges(ctx context.Context, file history.File) 
 	}
 }
 
+// findInitialVersion finds the initial version of a file in the session tree. It first tries to find the initial version in the session tree, and if not found, it tries to find it in the current session.
 func (m *sidebarCmp) findInitialVersion(ctx context.Context, path string) (history.File, error) {
 	rootSessionID := m.session.RootSessionID
 	if rootSessionID == "" {
@@ -468,6 +488,7 @@ func (m *sidebarCmp) findInitialVersion(ctx context.Context, path string) (histo
 	return history.File{}, errors.New("initial version not found")
 }
 
+// getDisplayPath returns the display path for a given file path. It removes the working directory prefix from the path.
 func getDisplayPath(path string) string {
 	workingDir := config.WorkingDirectory()
 	displayPath := strings.TrimPrefix(path, workingDir)

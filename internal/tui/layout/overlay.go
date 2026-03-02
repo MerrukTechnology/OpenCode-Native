@@ -1,3 +1,11 @@
+// Package layout provides responsive layout calculations for the OpenCode TUI.
+// This file contains overlay placement functions for rendering content on top of backgrounds.
+//
+// The overlay functionality is borrowed and modified from the lipgloss library
+// (https://github.com/charmbracelet/lipgloss/pull/102) to support:
+//   - Placing foreground content over background content
+//   - Optional shadow rendering
+//   - Precise x, y coordinate placement
 package layout
 
 import (
@@ -13,12 +21,8 @@ import (
 	"github.com/muesli/termenv"
 )
 
-// Most of this code is borrowed from
-// https://github.com/charmbracelet/lipgloss/pull/102
-// as well as the lipgloss library, with some modification for what I needed.
-
-// Split a string into lines, additionally returning the size of the widest
-// line.
+// getLines splits a string into lines and calculates the widest line width.
+// This is used internally for overlay positioning calculations.
 func getLines(s string) (lines []string, widest int) {
 	lines = strings.Split(s, "\n")
 
@@ -32,7 +36,12 @@ func getLines(s string) (lines []string, widest int) {
 	return lines, widest
 }
 
-// PlaceOverlay places fg on top of bg.
+// PlaceOverlay places fg (foreground) on top of bg (background) at position (x, y).
+// The shadow parameter enables a drop shadow effect behind the foreground.
+// Additional WhitespaceOption parameters can customize the placement behavior.
+//
+// This function is useful for rendering dialogs, tooltips, or other overlay content
+// on top of the main UI background.
 func PlaceOverlay(
 	x, y int,
 	fg, bg string,
@@ -126,6 +135,7 @@ func cutLeft(s string, cutWidth int) string {
 	return chAnsi.Cut(s, cutWidth, lipgloss.Width(s))
 }
 
+// whitespace is a style for whitespace. It allows you to specify a string of characters to use for filling in gaps,
 type whitespace struct {
 	style termenv.Style
 	chars string

@@ -1,3 +1,5 @@
+// Package chat provides UI components for rendering chat messages and managing
+// the chat interface in the OpenCode TUI.
 package chat
 
 import (
@@ -24,16 +26,119 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
+// MessageRole represents the role of a message sender.
+type MessageRole string
+
+// Message role constants.
+const (
+	RoleUser      MessageRole = "user"
+	RoleAssistant MessageRole = "assistant"
+	RoleSystem    MessageRole = "system"
+	RoleTool      MessageRole = "tool"
+)
+
+// Message represents a chat message in the UI layer.
+// This is a lightweight representation for rendering purposes.
+type Message struct {
+	ID             string
+	Role           MessageRole
+	Content        string
+	Timestamp      time.Time
+	IsStreaming    bool
+	PartialContent string
+}
+
+// NewMessage creates a new Message with the given role and content.
+func NewMessage(role MessageRole, content string) *Message {
+	return &Message{
+		Role:      role,
+		Content:   content,
+		Timestamp: time.Now(),
+	}
+}
+
+// NewUserMessage creates a new user message.
+func NewUserMessage(content string) *Message {
+	return NewMessage(RoleUser, content)
+}
+
+// NewAssistantMessage creates a new assistant message.
+func NewAssistantMessage(content string) *Message {
+	return NewMessage(RoleAssistant, content)
+}
+
+// RenderMarkdown renders the message content as markdown using the glamour renderer.
+func (m *Message) RenderMarkdown(width int) string {
+	r := styles.GetMarkdownRenderer(width)
+	rendered, _ := r.Render(m.Content)
+	return strings.TrimSuffix(rendered, "\n")
+}
+
+// RenderPartialMarkdown renders partial content for streaming messages.
+func (m *Message) RenderPartialMarkdown(width int) string {
+	content := m.PartialContent
+	if content == "" {
+		content = m.Content
+	}
+	r := styles.GetMarkdownRenderer(width)
+	rendered, _ := r.Render(content)
+	return strings.TrimSuffix(rendered, "\n")
+}
+
+// UpdateContent updates the message content (for streaming).
+func (m *Message) UpdateContent(content string) {
+	m.Content = content
+	m.PartialContent = content
+}
+
+// AppendContent appends content to the message (for streaming).
+func (m *Message) AppendContent(content string) {
+	m.PartialContent += content
+}
+
+// Finalize marks the message as complete (not streaming anymore).
+func (m *Message) Finalize() {
+	m.IsStreaming = false
+	m.Content = m.PartialContent
+}
+
+// IsUser returns true if the message is from the user.
+func (m *Message) IsUser() bool {
+	return m.Role == RoleUser
+}
+
+// IsAssistant returns true if the message is from the assistant.
+func (m *Message) IsAssistant() bool {
+	return m.Role == RoleAssistant
+}
+
+// IsSystem returns true if the message is a system message.
+func (m *Message) IsSystem() bool {
+	return m.Role == RoleSystem
+}
+
+// IsTool returns true if the message is a tool message.
+func (m *Message) IsTool() bool {
+	return m.Role == RoleTool
+}
+
+// uiMessageType represents the type of chat message being rendered.
 type uiMessageType int
 
+// Message type constants for UI rendering.
 const (
+	// userMessageType represents a message from the user
 	userMessageType uiMessageType = iota
+	// assistantMessageType represents a message from the AI assistant
 	assistantMessageType
+	// toolMessageType represents a tool call or result
 	toolMessageType
 
+	// maxResultHeight is the maximum height for tool results in lines
 	maxResultHeight = 10
 )
 
+// uiMessage represents a rendered message in the chat UI.
 type uiMessage struct {
 	ID          string
 	messageType uiMessageType
@@ -42,12 +147,14 @@ type uiMessage struct {
 	content     string
 }
 
+// toMarkdown converts the given content to markdown using the glamour renderer.
 func toMarkdown(content string, focused bool, width int) string {
 	r := styles.GetMarkdownRenderer(width)
 	rendered, _ := r.Render(content)
 	return rendered
 }
 
+// renderMessage renders a message with the given content, style, and width.
 func renderMessage(msg string, isUser bool, isFocused bool, width int, info ...string) string {
 	t := theme.CurrentTheme()
 
@@ -83,6 +190,7 @@ func renderMessage(msg string, isUser bool, isFocused bool, width int, info ...s
 	return rendered
 }
 
+// renderUserMessage renders a user message with the given content, style, and width. It also handles attachments if present in the message.
 func renderUserMessage(msg message.Message, isFocused bool, width int, position int) uiMessage {
 	var styledAttachments []string
 	t := theme.CurrentTheme()
@@ -214,6 +322,7 @@ func renderAssistantMessage(
 	return messages
 }
 
+// findToolResponse finds the tool response for a given tool call ID in the future messages. This is necessary because the tool response may not be in the same message as the tool call, especially for long-running tools. We need to look ahead in the future messages to find the corresponding tool result.
 func findToolResponse(toolCallID string, futureMessages []message.Message) *message.ToolResult {
 	for _, msg := range futureMessages {
 		for _, result := range msg.ToolResults() {
@@ -225,6 +334,7 @@ func findToolResponse(toolCallID string, futureMessages []message.Message) *mess
 	return nil
 }
 
+// toolName returns the display name for a given tool name. This is used to map internal tool names to user-friendly names for display in the UI.
 func toolName(name string) string {
 	switch name {
 	case agent.TaskToolName:
@@ -267,6 +377,7 @@ func toolName(name string) string {
 	return name
 }
 
+// getToolAction returns the action description for a given tool name. This is used to provide a more descriptive action for the tool in the UI.
 func getToolAction(name string) string {
 	switch name {
 	case agent.TaskToolName:
@@ -354,6 +465,7 @@ func renderParams(paramsWidth int, params ...string) string {
 	return ansi.Truncate(mainParam, paramsWidth, "...")
 }
 
+// removeWorkingDirPrefix removes the working directory prefix from a given path. This is used to make file paths more concise in the UI by removing the common working directory prefix.
 func removeWorkingDirPrefix(path string) string {
 	wd := config.WorkingDirectory()
 	path = strings.TrimPrefix(path, wd)
@@ -364,6 +476,8 @@ func removeWorkingDirPrefix(path string) string {
 	return path
 }
 
+// renderToolParams renders the parameters of a tool call in a specific format. It handles different tool types and formats their parameters accordingly for display in the UI.
+// It returns a string representation of the tool parameters.
 func renderToolParams(paramWidth int, toolCall message.ToolCall) string {
 	params := ""
 	switch toolCall.Name {
@@ -517,6 +631,7 @@ func renderToolParams(paramWidth int, toolCall message.ToolCall) string {
 	return params
 }
 
+// truncateHeight truncates the content to the specified height. If the content is longer than the specified height, it appends "..." to the truncated content.
 func truncateHeight(content string, height int) string {
 	lines := strings.Split(content, "\n")
 	if len(lines) > height {
@@ -526,6 +641,7 @@ func truncateHeight(content string, height int) string {
 	return content
 }
 
+// renderToolResponse renders the response of a tool call. It formats the response based on the tool name and the response content. It also handles error responses by displaying an error message. The rendered response is returned as a string that can be displayed in the UI.
 func renderToolResponse(toolCall message.ToolCall, response message.ToolResult, width int) string {
 	t := theme.CurrentTheme()
 	baseStyle := styles.BaseStyle()
@@ -657,6 +773,7 @@ func renderToolResponse(toolCall message.ToolCall, response message.ToolResult, 
 	}
 }
 
+// renderToolMessage renders a tool call message. It formats the tool call message based on the tool name and the tool call parameters. It also handles nested tool calls by rendering them with a different style. The rendered tool call message is returned as a string that can be displayed in the UI.
 func renderToolMessage(
 	toolCall message.ToolCall,
 	allMessages []message.Message,
@@ -803,6 +920,7 @@ func renderToolMessage(
 	return toolMsg
 }
 
+// subagentBadge returns a badge for a subagent. It formats the badge based on the agent type and the title of the task. The badge is returned as a string that can be displayed in the UI.
 func subagentBadge(agentType string, title string, isResumed bool) string {
 	t := theme.CurrentTheme()
 

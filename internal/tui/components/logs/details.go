@@ -1,3 +1,5 @@
+// Package logs provides UI components for displaying application logs in the TUI.
+// It includes components for viewing log details and log tables.
 package logs
 
 import (

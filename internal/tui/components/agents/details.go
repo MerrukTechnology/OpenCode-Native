@@ -1,3 +1,5 @@
+// agent details component, shows information about the selected agent, such as name, description, model, tools, etc.
+// It listens for selectedAgentMsg to update the displayed information when a new agent is selected from the list.
 package agents
 
 import (
@@ -15,22 +17,26 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// DetailComponent is the interface for the agent details component.
 type DetailComponent interface {
 	tea.Model
 	layout.Sizeable
 	layout.Bindings
 }
 
+// detailCmp is the implementation of DetailComponent that displays information about the selected agent.
 type detailCmp struct {
 	width, height int
 	current       agentregistry.AgentInfo
 	viewport      viewport.Model
 }
 
+// Init initializes the detail component.
 func (d *detailCmp) Init() tea.Cmd {
 	return nil
 }
 
+// Update updates the detail component. It listens for selectedAgentMsg to update the displayed information when a new agent is selected from the list.
 func (d *detailCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case selectedAgentMsg:
@@ -43,6 +49,8 @@ func (d *detailCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return d, cmd
 }
 
+// updateContent updates the content of the viewport with the information about the selected agent. It formats the information using lipgloss styles and handles wrapping for long descriptions.
+// It displays the agent's name, type, description, model, tools, permissions, and location in a structured format.
 func (d *detailCmp) updateContent() {
 	var content strings.Builder
 	t := theme.CurrentTheme()
@@ -126,15 +134,18 @@ func (d *detailCmp) updateContent() {
 	d.viewport.SetContent(content.String())
 }
 
+// View renders the detail component. It returns the content of the viewport as a string. It applies a style to replace the background with the theme's background color to ensure it blends seamlessly with the overall UI.
 func (d *detailCmp) View() string {
 	t := theme.CurrentTheme()
 	return styles.ForceReplaceBackgroundWithLipgloss(d.viewport.View(), t.Background())
 }
 
+// GetSize returns the current width and height of the detail component.
 func (d *detailCmp) GetSize() (int, int) {
 	return d.width, d.height
 }
 
+// SetSize updates the width and height of the detail component and its viewport. It also triggers an update of the content to reflect the new dimensions.
 func (d *detailCmp) SetSize(width int, height int) tea.Cmd {
 	d.width = width
 	d.height = height
@@ -144,10 +155,12 @@ func (d *detailCmp) SetSize(width int, height int) tea.Cmd {
 	return nil
 }
 
+// BindingKeys returns the key bindings for the detail component.
 func (d *detailCmp) BindingKeys() []key.Binding {
 	return layout.KeyMapToSlice(d.viewport.KeyMap)
 }
 
+// NewAgentsDetails creates a new instance of the detail component. It initializes the viewport and returns the component ready for use in the TUI.
 func NewAgentsDetails() DetailComponent {
 	return &detailCmp{
 		viewport: viewport.New(0, 0),

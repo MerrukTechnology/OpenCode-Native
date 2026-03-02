@@ -1,3 +1,5 @@
+// Package layout provides layout components for the OpenCode TUI, including
+// containers, splits, overlays, and other UI layout utilities.
 package layout
 
 import (
@@ -7,11 +9,15 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// Container is a UI component that can contain other tea.Model components
+// with optional padding and borders.
 type Container interface {
 	tea.Model
 	Sizeable
 	Bindings
 }
+
+// container is the internal implementation of Container.
 type container struct {
 	width  int
 	height int
@@ -31,16 +37,19 @@ type container struct {
 	borderStyle  lipgloss.Border
 }
 
+// Init implements tea.Model. It initializes the container's content and returns any commands.
 func (c *container) Init() tea.Cmd {
 	return c.content.Init()
 }
 
+// Update implements tea.Model. It updates the container's content and returns the updated container and any commands.
 func (c *container) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	u, cmd := c.content.Update(msg)
 	c.content = u
 	return c, cmd
 }
 
+// View implements tea.Model. It renders the container with its content, applying padding and borders as configured.
 func (c *container) View() string {
 	t := theme.CurrentTheme()
 	style := lipgloss.NewStyle()
@@ -78,6 +87,7 @@ func (c *container) View() string {
 	return style.Render(c.content.View())
 }
 
+// SetSize implements Sizeable. It sets the size of the container and adjusts the content size if it implements Sizeable.
 func (c *container) SetSize(width, height int) tea.Cmd {
 	c.width = width
 	c.height = height
@@ -110,10 +120,12 @@ func (c *container) SetSize(width, height int) tea.Cmd {
 	return nil
 }
 
+// GetSize implements Sizeable. It returns the current size of the container.
 func (c *container) GetSize() (int, int) {
 	return c.width, c.height
 }
 
+// BindingKeys implements Bindings. It returns the key bindings of the content if it implements Bindings, otherwise it returns an empty slice.
 func (c *container) BindingKeys() []key.Binding {
 	if b, ok := c.content.(Bindings); ok {
 		return b.BindingKeys()
@@ -121,8 +133,11 @@ func (c *container) BindingKeys() []key.Binding {
 	return []key.Binding{}
 }
 
+// ContainerOption is a function that configures a Container.
 type ContainerOption func(*container)
 
+// NewContainer creates a new Container with the given content and options.
+// It initializes the container with default values and applies any provided options.
 func NewContainer(content tea.Model, options ...ContainerOption) Container {
 	c := &container{
 		content:     content,

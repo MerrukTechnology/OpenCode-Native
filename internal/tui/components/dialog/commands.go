@@ -24,6 +24,7 @@ type Command struct {
 	Handler     func(cmd Command) tea.Cmd
 }
 
+// Render renders the command as a list item, with the title and description styled appropriately based on whether it is selected or not.
 func (ci Command) Render(selected bool, width int) string {
 	t := theme.CurrentTheme()
 	baseStyle := styles.BaseStyle()
@@ -66,17 +67,20 @@ type CommandDialog interface {
 	SetCommands(commands []Command)
 }
 
+// commandDialogCmp is the component for the command selection dialog
 type commandDialogCmp struct {
 	listView utilComponents.SimpleList[Command]
 	width    int
 	height   int
 }
 
+// commandKeyMap defines the keybindings for the command dialog
 type commandKeyMap struct {
 	Enter  key.Binding
 	Escape key.Binding
 }
 
+// commandKeys is the instance of commandKeyMap with the actual keybindings
 var commandKeys = commandKeyMap{
 	Enter: key.NewBinding(
 		key.WithKeys("enter"),
@@ -88,10 +92,12 @@ var commandKeys = commandKeyMap{
 	),
 }
 
+// Init initializes the command dialog component. It initializes the list view and returns any initial commands.
 func (c *commandDialogCmp) Init() tea.Cmd {
 	return c.listView.Init()
 }
 
+// Update handles messages for the command dialog component. It updates the list view and handles key presses.
 func (c *commandDialogCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	switch msg := msg.(type) {
@@ -119,6 +125,8 @@ func (c *commandDialogCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return c, tea.Batch(cmds...)
 }
 
+// View renders the command dialog component. It displays the list of commands and their descriptions.
+// It calculates the maximum width needed for the dialog based on the command titles and descriptions.
 func (c *commandDialogCmp) View() string {
 	t := theme.CurrentTheme()
 	baseStyle := styles.BaseStyle()
@@ -163,10 +171,12 @@ func (c *commandDialogCmp) View() string {
 		Render(content)
 }
 
+// BindingKeys returns the key bindings for the command dialog component.
 func (c *commandDialogCmp) BindingKeys() []key.Binding {
 	return layout.KeyMapToSlice(commandKeys)
 }
 
+// SetCommands sets the commands to be displayed in the dialog.
 func (c *commandDialogCmp) SetCommands(commands []Command) {
 	c.listView.SetItems(commands)
 }

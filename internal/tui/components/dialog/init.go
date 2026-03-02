@@ -24,6 +24,7 @@ func NewInitDialogCmp() InitDialogCmp {
 	}
 }
 
+// initDialogKeyMap defines the keybindings for the InitDialogCmp.
 type initDialogKeyMap struct {
 	Tab    key.Binding
 	Left   key.Binding

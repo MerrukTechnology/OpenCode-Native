@@ -10,14 +10,17 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// AgentsPage is the page ID for the agents page.
 var AgentsPage PageID = "agents"
 
+// agentsPage is the implementation of the agents page.
 type agentsPage struct {
 	width, height int
 	table         layout.Container
 	details       layout.Container
 }
 
+// Init implements tea.Model.
 func (p *agentsPage) Init() tea.Cmd {
 	return tea.Batch(
 		p.table.Init(),
@@ -25,6 +28,7 @@ func (p *agentsPage) Init() tea.Cmd {
 	)
 }
 
+// Update implements tea.Model.
 func (p *agentsPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	switch msg := msg.(type) {
@@ -44,6 +48,7 @@ func (p *agentsPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return p, tea.Batch(cmds...)
 }
 
+// View implements tea.Model.
 func (p *agentsPage) View() string {
 	style := styles.BaseStyle().Width(p.width).Height(p.height)
 	return style.Render(lipgloss.JoinVertical(lipgloss.Top,
@@ -52,14 +57,17 @@ func (p *agentsPage) View() string {
 	))
 }
 
+// BindingKeys implements Bindings.
 func (p *agentsPage) BindingKeys() []key.Binding {
 	return p.table.BindingKeys()
 }
 
+// GetSize implements Sizeable.
 func (p *agentsPage) GetSize() (int, int) {
 	return p.width, p.height
 }
 
+// SetSize implements Sizeable.
 func (p *agentsPage) SetSize(width int, height int) tea.Cmd {
 	p.width = width
 	p.height = height
@@ -69,6 +77,7 @@ func (p *agentsPage) SetSize(width int, height int) tea.Cmd {
 	)
 }
 
+// NewAgentsPage creates a new agents page.
 func NewAgentsPage(registry agentregistry.Registry) tea.Model {
 	return &agentsPage{
 		table:   layout.NewContainer(agents.NewAgentsTable(registry), layout.WithBorderAll()),

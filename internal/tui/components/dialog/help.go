@@ -10,20 +10,24 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// helpCmp is a component that displays help information.
 type helpCmp struct {
 	width  int
 	height int
 	keys   []key.Binding
 }
 
+// Init implements tea.Model.
 func (h *helpCmp) Init() tea.Cmd {
 	return nil
 }
 
+// SetBindings sets the key bindings to be displayed in the help component.
 func (h *helpCmp) SetBindings(k []key.Binding) {
 	h.keys = k
 }
 
+// Update implements tea.Model.
 func (h *helpCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -33,6 +37,7 @@ func (h *helpCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return h, nil
 }
 
+// removeDuplicateBindings removes duplicate key bindings from the list.
 func removeDuplicateBindings(bindings []key.Binding) []key.Binding {
 	seen := make(map[string]struct{})
 	result := make([]key.Binding, 0, len(bindings))
@@ -53,6 +58,7 @@ func removeDuplicateBindings(bindings []key.Binding) []key.Binding {
 	return result
 }
 
+// render renders the help component, returning the string to be displayed in the terminal.
 func (h *helpCmp) render() string {
 	t := theme.CurrentTheme()
 	baseStyle := styles.BaseStyle()
@@ -165,6 +171,7 @@ func (h *helpCmp) render() string {
 	return content
 }
 
+// View renders the help component. It includes a header and a bordered box containing the key bindings and their descriptions.
 func (h *helpCmp) View() string {
 	t := theme.CurrentTheme()
 	baseStyle := styles.BaseStyle()
@@ -190,11 +197,13 @@ func (h *helpCmp) View() string {
 		)
 }
 
+// HelpCmp defines the interface for the help component, which includes methods for rendering the component and setting key bindings.
 type HelpCmp interface {
 	tea.Model
 	SetBindings([]key.Binding)
 }
 
+// NewHelpCmp creates a new help component.
 func NewHelpCmp() HelpCmp {
 	return &helpCmp{}
 }

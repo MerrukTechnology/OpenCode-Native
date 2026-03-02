@@ -1,3 +1,6 @@
+// Package chat provides UI components for rendering chat messages and managing
+// the chat interface in the OpenCode TUI. It includes components for viewing
+// messages, editing input, displaying diffs, and navigating the chat sidebar.
 package chat
 
 import (
@@ -15,17 +18,22 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
+// SendMsg is a message sent when the user submits a message in the chat.
 type SendMsg struct {
 	Text        string
 	Attachments []message.Attachment
 }
 
+// SessionSelectedMsg is a message sent when a session is selected.
 type SessionSelectedMsg = session.Session
 
+// SessionClearedMsg is a message sent when the current session is cleared.
 type SessionClearedMsg struct{}
 
+// EditorFocusMsg is a message sent to focus or unfocus the editor.
 type EditorFocusMsg bool
 
+// header generates the header string for the chat page, including the logo and current working directory.
 func header(width int) string {
 	return lipgloss.JoinVertical(
 		lipgloss.Top,
@@ -35,6 +43,7 @@ func header(width int) string {
 	)
 }
 
+// lspsConfigured generates a string listing the configured LSP servers.
 func lspsConfigured(width int) string {
 	cfg := config.Get()
 	servers := install.ResolveServers(cfg)
@@ -102,6 +111,7 @@ func lspsConfigured(width int) string {
 		)
 }
 
+// logo generates the logo string for the chat page.
 func logo(width int) string {
 	logo := fmt.Sprintf("%s %s", styles.OpenCodeIcon, "OpenCode")
 	t := theme.CurrentTheme()
@@ -124,6 +134,7 @@ func logo(width int) string {
 		)
 }
 
+// cwd generates the current working directory string.
 func cwd(width int) string {
 	cwd := "cwd: " + config.WorkingDirectory()
 	t := theme.CurrentTheme()

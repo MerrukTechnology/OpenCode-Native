@@ -1,3 +1,5 @@
+// Package page provides page components for the OpenCode TUI, including
+// the main chat page, logs page, and page management utilities.
 package page
 
 // PageID is a unique identifier for a page

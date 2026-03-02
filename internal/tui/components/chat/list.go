@@ -1,3 +1,5 @@
+// Package chat provides UI components for rendering chat messages and managing
+// the chat interface in the OpenCode TUI.
 package chat
 
 import (
@@ -19,10 +21,13 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// cacheItem is a cached rendering of chat messages at a specific width.
 type cacheItem struct {
 	width   int
 	content []uiMessage
 }
+
+// messagesCmp is the main component for displaying chat messages.
 type messagesCmp struct {
 	app           *app.App
 	width, height int
@@ -38,6 +43,7 @@ type messagesCmp struct {
 }
 type renderFinishedMsg struct{}
 
+// MessageKeys defines the key bindings for the messages component.
 type MessageKeys struct {
 	PageDown     key.Binding
 	PageUp       key.Binding
@@ -45,6 +51,7 @@ type MessageKeys struct {
 	HalfPageDown key.Binding
 }
 
+// MessageKeys is the set of key bindings for the messages component.
 var messageKeys = MessageKeys{
 	PageDown: key.NewBinding(
 		key.WithKeys("pgdown"),
@@ -64,10 +71,13 @@ var messageKeys = MessageKeys{
 	),
 }
 
+// Init initializes the messages component, starting the viewport and spinner.
 func (m *messagesCmp) Init() tea.Cmd {
 	return tea.Batch(m.viewport.Init(), m.spinner.Tick)
 }
 
+// Update handles messages and user input for the messages component.
+// It manages session changes, message updates, and pagination through the chat history.
 func (m *messagesCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	switch msg := msg.(type) {
@@ -163,10 +173,12 @@ func (m *messagesCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
+// IsAgentWorking returns true if the agent is currently working on the session.
 func (m *messagesCmp) IsAgentWorking() bool {
 	return m.app.ActiveAgent().IsSessionBusy(m.session.ID)
 }
 
+// renderView renders the messages component view. It processes the messages, applies caching for performance, and updates the viewport content.
 func (m *messagesCmp) renderView() {
 	m.uiMessages = make([]uiMessage, 0)
 	pos := 0
@@ -245,6 +257,7 @@ func (m *messagesCmp) renderView() {
 	)
 }
 
+// View renders the messages component. It displays the initial screen if there are no messages, otherwise it shows the messages in the viewport.
 func (m *messagesCmp) View() string {
 	baseStyle := styles.BaseStyle()
 
@@ -292,6 +305,7 @@ func (m *messagesCmp) View() string {
 		)
 }
 
+// hasToolsWithoutResponse checks if there are any tool calls that have not been responded to.
 func hasToolsWithoutResponse(messages []message.Message) bool {
 	toolCalls := make([]message.ToolCall, 0)
 	toolResults := make([]message.ToolResult, 0)
@@ -315,6 +329,7 @@ func hasToolsWithoutResponse(messages []message.Message) bool {
 	return false
 }
 
+// hasUnfinishedToolCalls checks if there are any tool calls that have not been finished.
 func hasUnfinishedToolCalls(messages []message.Message) bool {
 	toolCalls := make([]message.ToolCall, 0)
 	for _, m := range messages {
@@ -328,6 +343,7 @@ func hasUnfinishedToolCalls(messages []message.Message) bool {
 	return false
 }
 
+// working generates the working string.
 func (m *messagesCmp) working() string {
 	text := ""
 	if m.IsAgentWorking() && len(m.messages) > 0 {
@@ -354,6 +370,7 @@ func (m *messagesCmp) working() string {
 	return text
 }
 
+// help generates the help string.
 func (m *messagesCmp) help() string {
 	t := theme.CurrentTheme()
 	baseStyle := styles.BaseStyle()
@@ -386,6 +403,7 @@ func (m *messagesCmp) help() string {
 		Render(text)
 }
 
+// initialScreen generates the initial screen string.
 func (m *messagesCmp) initialScreen() string {
 	baseStyle := styles.BaseStyle()
 
@@ -399,6 +417,7 @@ func (m *messagesCmp) initialScreen() string {
 	)
 }
 
+// rerender clears the cached content and re-renders the view.
 func (m *messagesCmp) rerender() {
 	for _, msg := range m.messages {
 		delete(m.cachedContent, msg.ID)
@@ -406,6 +425,7 @@ func (m *messagesCmp) rerender() {
 	m.renderView()
 }
 
+// SetSize sets the size of the messages component and updates the viewport and attachments dimensions accordingly. It also triggers a re-render if the size has changed.
 func (m *messagesCmp) SetSize(width, height int) tea.Cmd {
 	if m.width == width && m.height == height {
 		return nil
@@ -420,10 +440,12 @@ func (m *messagesCmp) SetSize(width, height int) tea.Cmd {
 	return nil
 }
 
+// GetSize returns the current width and height of the messages component.
 func (m *messagesCmp) GetSize() (int, int) {
 	return m.width, m.height
 }
 
+// SetSession sets the current session and updates the messages list. It also triggers a re-render if the session has changed.
 func (m *messagesCmp) SetSession(session session.Session) tea.Cmd {
 	if m.session.ID == session.ID {
 		return nil
@@ -445,6 +467,7 @@ func (m *messagesCmp) SetSession(session session.Session) tea.Cmd {
 	}
 }
 
+// BindingKeys returns the key bindings for the messages component.
 func (m *messagesCmp) BindingKeys() []key.Binding {
 	return []key.Binding{
 		m.viewport.KeyMap.PageDown,
@@ -454,6 +477,7 @@ func (m *messagesCmp) BindingKeys() []key.Binding {
 	}
 }
 
+// NewMessagesCmp creates a new instance of the messages component. It initializes the spinner and viewport, sets up key bindings for pagination, and returns the component ready for use in the TUI.
 func NewMessagesCmp(app *app.App) tea.Model {
 	s := spinner.New()
 	s.Spinner = spinner.Points

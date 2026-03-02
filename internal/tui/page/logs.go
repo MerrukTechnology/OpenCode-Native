@@ -12,17 +12,22 @@ import (
 // LogsPage is the page for viewing logs.
 var LogsPage PageID = "logs"
 
+// LogPage defines the interface for the logs page.
 type LogPage interface {
 	tea.Model
 	layout.Sizeable
 	layout.Bindings
 }
+
+// logsPage implements the LogPage interface.
+// It displays diagnostic logs in a table view with details panel.
 type logsPage struct {
 	width, height int
 	table         layout.Container
 	details       layout.Container
 }
 
+// Init implements tea.Model.
 func (p *logsPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	switch msg := msg.(type) {
@@ -42,6 +47,7 @@ func (p *logsPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return p, tea.Batch(cmds...)
 }
 
+// View implements tea.Model.
 func (p *logsPage) View() string {
 	style := styles.BaseStyle().Width(p.width).Height(p.height)
 	return style.Render(lipgloss.JoinVertical(lipgloss.Top,
@@ -50,6 +56,7 @@ func (p *logsPage) View() string {
 	))
 }
 
+// BindingKeys implements LogPage.
 func (p *logsPage) BindingKeys() []key.Binding {
 	return p.table.BindingKeys()
 }
@@ -69,6 +76,7 @@ func (p *logsPage) SetSize(width int, height int) tea.Cmd {
 	)
 }
 
+// Init implements tea.Model.
 func (p *logsPage) Init() tea.Cmd {
 	return tea.Batch(
 		p.table.Init(),
@@ -76,6 +84,7 @@ func (p *logsPage) Init() tea.Cmd {
 	)
 }
 
+// NewLogsPage creates a new logs page.
 func NewLogsPage() LogPage {
 	return &logsPage{
 		table:   layout.NewContainer(logs.NewLogsTable(), layout.WithBorderAll()),

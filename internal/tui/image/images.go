@@ -1,3 +1,12 @@
+// Package image provides image processing utilities for the OpenCode TUI.
+//
+// This package includes functions for:
+//   - Validating image file sizes before display
+//   - Converting images to ANSI-art string representations for terminal display
+//   - Image resizing using Lanczos algorithm for quality downscaling
+//
+// The package uses the lipgloss library for terminal styling and the
+// disintegration/imaging library for image processing.
 package image
 
 import (
@@ -11,6 +20,9 @@ import (
 	"github.com/lucasb-eyer/go-colorful"
 )
 
+// ValidateFileSize checks if a file exceeds a given size limit.
+// Returns true if the file is too large, along with any error encountered.
+// This is useful for preventing memory issues when loading large images.
 func ValidateFileSize(filePath string, sizeLimit int64) (bool, error) {
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
@@ -24,6 +36,11 @@ func ValidateFileSize(filePath string, sizeLimit int64) (bool, error) {
 	return false, nil
 }
 
+// ToString converts an image to an ANSI-art string representation.
+// The image is first resized to the given width using Lanczos algorithm,
+// then converted to a string using Unicode block characters (▀) with
+// foreground and background colors to simulate the image in terminal.
+// Each pair of vertical pixels is rendered as one block character.
 func ToString(width int, img image.Image) string {
 	img = imaging.Resize(img, width, 0, imaging.Lanczos)
 	b := img.Bounds()
@@ -54,6 +71,9 @@ func ToString(width int, img image.Image) string {
 	return str.String()
 }
 
+// ImagePreview loads an image file and converts it to an ANSI-art string.
+// The image is resized to fit the specified width and rendered using
+// ToString function. Returns the ANSI string or an error if loading fails.
 func ImagePreview(width int, filename string) (string, error) {
 	imageContent, err := os.Open(filename)
 	if err != nil {

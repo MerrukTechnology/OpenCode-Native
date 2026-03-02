@@ -8,8 +8,11 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// ansiEscape is a regex pattern to match ANSI escape sequences.
 var ansiEscape = regexp.MustCompile("\x1b\\[[0-9;]*m")
 
+// getColorRGB extracts RGB values from a lipgloss.TerminalColor.
+// It handles alpha premultiplication and converts from 16-bit to 8-bit color.
 func getColorRGB(c lipgloss.TerminalColor) (uint8, uint8, uint8) {
 	r, g, b, a := c.RGBA()
 

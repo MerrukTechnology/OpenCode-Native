@@ -1,3 +1,5 @@
+// Package chat provides UI components for rendering chat messages and managing
+// the chat interface in the OpenCode TUI.
 package chat
 
 import (
@@ -23,6 +25,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// editorCmp is the main editor component for composing chat messages.
 type editorCmp struct {
 	width       int
 	height      int
@@ -33,14 +36,21 @@ type editorCmp struct {
 	deleteMode  bool
 }
 
+// EditorKeyMaps defines key bindings for the message editor.
 type EditorKeyMaps struct {
-	Send       key.Binding
+	// Send binds to keys that send the message (Enter, Ctrl+S)
+	Send key.Binding
+	// OpenEditor binds to keys that open external editor (Ctrl+E)
 	OpenEditor key.Binding
 }
 
+// DeleteAttachmentKeyMaps defines key bindings for managing attachments.
 type DeleteAttachmentKeyMaps struct {
+	// AttachmentDeleteMode enters delete mode to remove attachments
 	AttachmentDeleteMode key.Binding
-	Escape               key.Binding
+	// Escape cancels delete mode
+	Escape key.Binding
+	// DeleteAllAttachments removes all attachments
 	DeleteAllAttachments key.Binding
 }
 
@@ -70,10 +80,10 @@ var DeleteKeyMaps = DeleteAttachmentKeyMaps{
 	),
 }
 
-const (
-	maxAttachments = 5
-)
+// maxAttachments is the maximum number of file attachments allowed per message.
+const maxAttachments = 5
 
+// openEditor opens the system's default editor for composing messages.
 func (m *editorCmp) openEditor() tea.Cmd {
 	editor := os.Getenv("EDITOR")
 	if editor == "" {
@@ -110,10 +120,12 @@ func (m *editorCmp) openEditor() tea.Cmd {
 	})
 }
 
+// Init initializes the editor component and returns a command to start blinking the cursor.
 func (m *editorCmp) Init() tea.Cmd {
 	return textarea.Blink
 }
 
+// send sends the current message if the agent is not busy. It retrieves the text from the textarea, resets it, and sends a SendMsg command with the text and attachments.
 func (m *editorCmp) send() tea.Cmd {
 	if m.app.ActiveAgent().IsSessionBusy(m.session.ID) {
 		return util.ReportWarn("Agent is working, please wait...")
@@ -135,6 +147,7 @@ func (m *editorCmp) send() tea.Cmd {
 	)
 }
 
+// Update handles incoming messages and updates the editor component accordingly. It processes theme changes, completion selections, session changes, attachment additions, and key presses for sending messages and managing attachments.
 func (m *editorCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
@@ -217,6 +230,7 @@ func (m *editorCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+// View renders the editor component, displaying the text area and any attachments. It styles the prompt and attachments using the current theme and lipgloss for layout.
 func (m *editorCmp) View() string {
 	t := theme.CurrentTheme()
 
@@ -237,6 +251,8 @@ func (m *editorCmp) View() string {
 	)
 }
 
+// SetSize sets the dimensions of the editor component.
+// It adjusts the width and height of the text area to fit within the given dimensions.
 func (m *editorCmp) SetSize(width, height int) tea.Cmd {
 	m.width = width
 	m.height = height
@@ -246,10 +262,14 @@ func (m *editorCmp) SetSize(width, height int) tea.Cmd {
 	return nil
 }
 
+// GetSize returns the current dimensions of the editor component.
+// It returns the width and height of the text area.
 func (m *editorCmp) GetSize() (int, int) {
 	return m.textarea.Width(), m.textarea.Height()
 }
 
+// attachmentsContent returns the styled display of attached files.
+// It formats each attachment's filename and applies styling based on the current theme.
 func (m *editorCmp) attachmentsContent() string {
 	var styledAttachments []string
 	t := theme.CurrentTheme()
@@ -273,6 +293,7 @@ func (m *editorCmp) attachmentsContent() string {
 	return content
 }
 
+// BindingKeys returns the key bindings for the editor component.
 func (m *editorCmp) BindingKeys() []key.Binding {
 	bindings := []key.Binding{}
 	bindings = append(bindings, layout.KeyMapToSlice(editorMaps)...)
@@ -280,6 +301,9 @@ func (m *editorCmp) BindingKeys() []key.Binding {
 	return bindings
 }
 
+// CreateTextArea creates a new text area component with the given theme and existing text area.
+// It sets the text area's properties such as prompt, line numbers, and character limit.
+// It also applies the theme's styles to the text area.
 func CreateTextArea(existing *textarea.Model) textarea.Model {
 	t := theme.CurrentTheme()
 	bgColor := t.Background()
@@ -310,6 +334,7 @@ func CreateTextArea(existing *textarea.Model) textarea.Model {
 	return ta
 }
 
+// NewEditorCmp creates a new instance of the editor component.
 func NewEditorCmp(app *app.App) tea.Model {
 	ta := CreateTextArea(nil)
 	return &editorCmp{

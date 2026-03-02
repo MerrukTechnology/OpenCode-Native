@@ -7,19 +7,31 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// SplitPaneLayout is an interface for a split pane layout that divides
+// the terminal into left/right panels and optionally a bottom panel.
+// It implements tea.Model, Sizeable, and Bindings interfaces.
 type SplitPaneLayout interface {
 	tea.Model
 	Sizeable
 	Bindings
+	// SetLeftPanel sets the left panel of the split pane.
 	SetLeftPanel(panel Container) tea.Cmd
+	// SetRightPanel sets the right panel of the split pane.
 	SetRightPanel(panel Container) tea.Cmd
+	// SetBottomPanel sets the bottom panel of the split pane.
 	SetBottomPanel(panel Container) tea.Cmd
 
+	// ClearLeftPanel removes the left panel.
 	ClearLeftPanel() tea.Cmd
+	// ClearRightPanel removes the right panel.
 	ClearRightPanel() tea.Cmd
+	// ClearBottomPanel removes the bottom panel.
 	ClearBottomPanel() tea.Cmd
 }
 
+// splitPaneLayout is the internal implementation of SplitPaneLayout.
+// It manages up to three panels: left, right (horizontal split),
+// and bottom (vertical split).
 type splitPaneLayout struct {
 	width         int
 	height        int
@@ -31,9 +43,11 @@ type splitPaneLayout struct {
 	bottomPanel Container
 }
 
+// SplitPaneOption is a functional option for configuring a SplitPaneLayout.
 type SplitPaneOption func(*splitPaneLayout)
 
 func (s *splitPaneLayout) Init() tea.Cmd {
+	// Init initializes all child panels.
 	var cmds []tea.Cmd
 
 	if s.leftPanel != nil {
@@ -51,6 +65,7 @@ func (s *splitPaneLayout) Init() tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
+// Update handles messages and updates child panels.
 func (s *splitPaneLayout) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	switch msg := msg.(type) {
@@ -85,6 +100,7 @@ func (s *splitPaneLayout) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return s, tea.Batch(cmds...)
 }
 
+// View renders the split pane layout.
 func (s *splitPaneLayout) View() string {
 	var topSection string
 
@@ -125,6 +141,9 @@ func (s *splitPaneLayout) View() string {
 	return finalView
 }
 
+// SetSize sets the dimensions of the split pane and all child panels.
+// It calculates the appropriate sizes for left/right and top/bottom panels
+// based on the configured ratios.
 func (s *splitPaneLayout) SetSize(width, height int) tea.Cmd {
 	s.width = width
 	s.height = height
@@ -168,10 +187,12 @@ func (s *splitPaneLayout) SetSize(width, height int) tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
+// GetSize returns the current dimensions of the split pane.
 func (s *splitPaneLayout) GetSize() (int, int) {
 	return s.width, s.height
 }
 
+// SetLeftPanel sets the left panel of the split pane.
 func (s *splitPaneLayout) SetLeftPanel(panel Container) tea.Cmd {
 	s.leftPanel = panel
 	if s.width > 0 && s.height > 0 {
@@ -180,6 +201,7 @@ func (s *splitPaneLayout) SetLeftPanel(panel Container) tea.Cmd {
 	return nil
 }
 
+// SetRightPanel sets the right panel of the split pane.
 func (s *splitPaneLayout) SetRightPanel(panel Container) tea.Cmd {
 	s.rightPanel = panel
 	if s.width > 0 && s.height > 0 {
@@ -188,6 +210,7 @@ func (s *splitPaneLayout) SetRightPanel(panel Container) tea.Cmd {
 	return nil
 }
 
+// SetBottomPanel sets the bottom panel of the split pane.
 func (s *splitPaneLayout) SetBottomPanel(panel Container) tea.Cmd {
 	s.bottomPanel = panel
 	if s.width > 0 && s.height > 0 {
@@ -196,6 +219,7 @@ func (s *splitPaneLayout) SetBottomPanel(panel Container) tea.Cmd {
 	return nil
 }
 
+// ClearLeftPanel removes the left panel.
 func (s *splitPaneLayout) ClearLeftPanel() tea.Cmd {
 	s.leftPanel = nil
 	if s.width > 0 && s.height > 0 {
@@ -204,6 +228,7 @@ func (s *splitPaneLayout) ClearLeftPanel() tea.Cmd {
 	return nil
 }
 
+// ClearRightPanel removes the right panel.
 func (s *splitPaneLayout) ClearRightPanel() tea.Cmd {
 	s.rightPanel = nil
 	if s.width > 0 && s.height > 0 {
@@ -212,6 +237,7 @@ func (s *splitPaneLayout) ClearRightPanel() tea.Cmd {
 	return nil
 }
 
+// ClearBottomPanel removes the bottom panel.
 func (s *splitPaneLayout) ClearBottomPanel() tea.Cmd {
 	s.bottomPanel = nil
 	if s.width > 0 && s.height > 0 {
@@ -220,6 +246,7 @@ func (s *splitPaneLayout) ClearBottomPanel() tea.Cmd {
 	return nil
 }
 
+// BindingKeys returns keyboard bindings from all child panels.
 func (s *splitPaneLayout) BindingKeys() []key.Binding {
 	keys := []key.Binding{}
 	if s.leftPanel != nil {
@@ -240,6 +267,9 @@ func (s *splitPaneLayout) BindingKeys() []key.Binding {
 	return keys
 }
 
+// NewSplitPane creates a new SplitPaneLayout with optional configuration.
+// The default horizontal ratio is 0.7 (70% left, 30% right)
+// and vertical ratio is 0.9 (90% top, 10% bottom).
 func NewSplitPane(options ...SplitPaneOption) SplitPaneLayout {
 	layout := &splitPaneLayout{
 		ratio:         0.7,
@@ -251,30 +281,37 @@ func NewSplitPane(options ...SplitPaneOption) SplitPaneLayout {
 	return layout
 }
 
+// WithLeftPanel sets the initial left panel for the split pane.
 func WithLeftPanel(panel Container) SplitPaneOption {
 	return func(s *splitPaneLayout) {
 		s.leftPanel = panel
 	}
 }
 
+// WithRightPanel sets the initial right panel for the split pane.
 func WithRightPanel(panel Container) SplitPaneOption {
 	return func(s *splitPaneLayout) {
 		s.rightPanel = panel
 	}
 }
 
+// WithRatio sets the horizontal split ratio.
+// A ratio of 0.7 means 70% for left panel, 30% for right.
 func WithRatio(ratio float64) SplitPaneOption {
 	return func(s *splitPaneLayout) {
 		s.ratio = ratio
 	}
 }
 
+// WithBottomPanel sets the initial bottom panel for the split pane.
 func WithBottomPanel(panel Container) SplitPaneOption {
 	return func(s *splitPaneLayout) {
 		s.bottomPanel = panel
 	}
 }
 
+// WithVerticalRatio sets the vertical split ratio.
+// A ratio of 0.9 means 90% for top section, 10% for bottom panel.
 func WithVerticalRatio(ratio float64) SplitPaneOption {
 	return func(s *splitPaneLayout) {
 		s.verticalRatio = ratio

@@ -1,4 +1,4 @@
-// page package: This file defines the ChatPage, which is the main interface for users to interact with chat sessions,
+// page chat.go: This file defines the ChatPage, which is the main interface for users to interact with chat sessions,
 // send messages, and view message history. It manages the layout of the chat interface, handles user input,
 // and coordinates with the app's session and agent management to facilitate conversations.
 package page
@@ -24,6 +24,9 @@ import (
 // ChatPage is the main page for interacting with chat sessions, sending messages, and viewing message history.
 var ChatPage PageID = "chat"
 
+// chatPage is the main chat page implementation.
+// It provides the chat interface with message display, input editor,
+// and optional sidebar for session management.
 type chatPage struct {
 	app                         *app.App
 	editor                      layout.Container
@@ -37,13 +40,15 @@ type chatPage struct {
 	commands                    []dialog.Command
 }
 
+// ChatKeyMap defines keyboard shortcuts for the chat page.
 type ChatKeyMap struct {
-	ShowCompletionDialog        key.Binding
+	ShowCompletionDialog        key.Binding // Show completion dialog (@)
 	ShowCommandCompletionDialog key.Binding
-	NewSession                  key.Binding
-	Cancel                      key.Binding
+	NewSession                  key.Binding // Create new session (ctrl+n)
+	Cancel                      key.Binding // Cancel current operation (esc)
 }
 
+// keyMap contains the default key bindings for the chat page.
 var keyMap = ChatKeyMap{
 	ShowCompletionDialog: key.NewBinding(
 		key.WithKeys("@"),
@@ -63,6 +68,8 @@ var keyMap = ChatKeyMap{
 	),
 }
 
+// Init initializes the chat page and its components.
+// It sets up the layout, initializes the completion dialog, and loads the session if one is selected.
 func (p *chatPage) Init() tea.Cmd {
 	cmds := []tea.Cmd{
 		p.layout.Init(),
@@ -76,6 +83,7 @@ func (p *chatPage) Init() tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
+// findCommand searches for a command by its ID.
 func (p *chatPage) findCommand(id string) (dialog.Command, bool) {
 	for _, cmd := range p.commands {
 		if cmd.ID == id {
@@ -85,6 +93,8 @@ func (p *chatPage) findCommand(id string) (dialog.Command, bool) {
 	return dialog.Command{}, false
 }
 
+// Update handles messages for the chat page.
+// It processes various messages such as window size changes, completion dialog actions, and command execution.
 func (p *chatPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	switch msg := msg.(type) {
@@ -205,6 +215,9 @@ func (p *chatPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return p, tea.Batch(cmds...)
 }
 
+// setSidebar creates and sets the sidebar panel for session management.
+// It creates a new sidebar component with the current session and app sessions,
+// then sets it as the right panel of the layout.
 func (p *chatPage) setSidebar() tea.Cmd {
 	sidebarContainer := layout.NewContainer(
 		chat.NewSidebarCmp(p.session, p.app.Sessions, p.app.History),
@@ -213,10 +226,13 @@ func (p *chatPage) setSidebar() tea.Cmd {
 	return tea.Batch(p.layout.SetRightPanel(sidebarContainer), sidebarContainer.Init())
 }
 
+// clearSidebar removes the sidebar panel.
 func (p *chatPage) clearSidebar() tea.Cmd {
 	return p.layout.ClearRightPanel()
 }
 
+// sendMessage sends a message to the active agent for processing.
+// If no session is active, it creates a new session and updates the sidebar.
 func (p *chatPage) sendMessage(text string, attachments []message.Attachment) tea.Cmd {
 	var cmds []tea.Cmd
 	if p.session.ID == "" {
@@ -247,14 +263,17 @@ func (p *chatPage) sendMessage(text string, attachments []message.Attachment) te
 	return tea.Batch(cmds...)
 }
 
+// SetSize sets the dimensions of the chat page layout.
 func (p *chatPage) SetSize(width, height int) tea.Cmd {
 	return p.layout.SetSize(width, height)
 }
 
+// GetSize returns the current dimensions of the chat page.
 func (p *chatPage) GetSize() (int, int) {
 	return p.layout.GetSize()
 }
 
+// View renders the chat page.
 func (p *chatPage) View() string {
 	layoutView := p.layout.View()
 
@@ -278,6 +297,7 @@ func (p *chatPage) View() string {
 	return layoutView
 }
 
+// activeCompletionDialog returns the active completion dialog if any.
 func (p *chatPage) activeCompletionDialog() dialog.CompletionDialog {
 	if p.showCommandCompletionDialog {
 		return p.commandCompletionDialog
@@ -288,10 +308,12 @@ func (p *chatPage) activeCompletionDialog() dialog.CompletionDialog {
 	return nil
 }
 
+// HasActiveOverlay returns true if the chat page has an active overlay.
 func (p *chatPage) HasActiveOverlay() bool {
 	return p.showCompletionDialog || p.showCommandCompletionDialog
 }
 
+// BindingKeys returns keyboard bindings for the chat page.
 func (p *chatPage) BindingKeys() []key.Binding {
 	bindings := layout.KeyMapToSlice(keyMap)
 	bindings = append(bindings, p.messages.BindingKeys()...)
@@ -299,6 +321,7 @@ func (p *chatPage) BindingKeys() []key.Binding {
 	return bindings
 }
 
+// NewChatPage creates a new chat page with the given application.
 func NewChatPage(app *app.App, commands []dialog.Command) tea.Model {
 	cg := completions.NewFileAndFolderContextGroup()
 	completionDialog := dialog.NewCompletionDialogCmp(cg)
