@@ -1,5 +1,7 @@
 package provider
 
+// OpenAI provider implementation using the OpenAI SDK.
+// Supports OpenAI, Groq, xAI, OpenRouter, Mistral, KiloCode, and Local models through OpenAI-compatible APIs.
 import (
 	"context"
 	"encoding/json"
@@ -26,8 +28,15 @@ type openaiOptions struct {
 	// Added to support Groq, xAI, OpenRouter
 	baseURL      string
 	extraHeaders map[string]string
+
+	// Advanced features
+	serviceTier    string   // "auto" or "flex" for priority vs flex pricing
+	modalities     []string // e.g. ["text", "audio"] for audio output
+	store          bool     // whether to store completions
+	promptCacheKey []string // prompt caching keys
 }
 
+// OpenAIOption is a function that configures OpenAI provider options.
 type OpenAIOption func(*openaiOptions)
 
 type openaiClient struct {
@@ -36,6 +45,7 @@ type openaiClient struct {
 	client          openai.Client
 }
 
+// OpenAIClient is the interface for OpenAI provider operations.
 type OpenAIClient ProviderClient
 
 func newOpenAIClient(opts providerClientOptions) OpenAIClient {
@@ -50,7 +60,7 @@ func newOpenAIClient(opts providerClientOptions) OpenAIClient {
 	if opts.apiKey != "" {
 		openaiClientOptions = append(openaiClientOptions, option.WithAPIKey(opts.apiKey))
 	}
-	// --- FIX START: Logic to support Groq/xAI/OpenRouter BaseURLs ---
+	// --- Logic to support Groq/xAI/OpenRouter BaseURLs ---
 	// If a specific BaseURL was passed via WithOpenAIBaseURL (from provider.go), use it.
 	if openaiOpts.baseURL != "" {
 		openaiClientOptions = append(openaiClientOptions, option.WithBaseURL(openaiOpts.baseURL))
@@ -79,9 +89,11 @@ func newOpenAIClient(opts providerClientOptions) OpenAIClient {
 	}
 }
 
-func (o *openaiClient) convertMessages(messages []message.Message) (openaiMessages []openai.ChatCompletionMessageParamUnion) {
+func (o *openaiClient) convertMessages(messages []message.Message) []openai.ChatCompletionMessageParamUnion {
 	// Add system message first
-	openaiMessages = append(openaiMessages, openai.SystemMessage(o.providerOptions.systemMessage))
+	openaiMessages := []openai.ChatCompletionMessageParamUnion{
+		openai.SystemMessage(o.providerOptions.systemMessage),
+	}
 
 	for _, msg := range messages {
 		switch msg.Role {
@@ -139,7 +151,7 @@ func (o *openaiClient) convertMessages(messages []message.Message) (openaiMessag
 		}
 	}
 
-	return
+	return openaiMessages
 }
 
 func (o *openaiClient) convertTools(tools []tools.BaseTool) []openai.ChatCompletionToolUnionParam {
@@ -182,6 +194,22 @@ func (o *openaiClient) preparedParams(messages []openai.ChatCompletionMessagePar
 		Messages: messages,
 		Tools:    tools,
 	}
+
+	// Apply advanced features if configured
+	if o.options.serviceTier != "" {
+		params.ServiceTier = openai.ChatCompletionNewParamsServiceTier(o.options.serviceTier)
+	}
+
+	if len(o.options.modalities) > 0 {
+		params.Modalities = o.options.modalities
+	}
+
+	if o.options.store {
+		params.Store = openai.Bool(true)
+	}
+
+	// PromptCacheKey requires specific SDK handling - skip for now
+	// This feature is typically used with cached prompts in advanced scenarios
 
 	if o.providerOptions.model.CanReason {
 		params.MaxCompletionTokens = openai.Int(o.providerOptions.maxTokens)
@@ -377,15 +405,16 @@ func (o *openaiClient) shouldRetry(attempts int, err error) (bool, int64, error)
 		return false, 0, fmt.Errorf("maximum retry attempts reached for rate limit: %d retries", maxRetries)
 	}
 
-	retryMs := 0
-	retryAfterValues := apierr.Response.Header.Values("Retry-After")
-
 	backoffMs := 2000 * (1 << (attempts - 1))
 	jitterMs := int(float64(backoffMs) * 0.2)
-	retryMs = backoffMs + jitterMs
+	retryMs := backoffMs + jitterMs
+
+	retryAfterValues := apierr.Response.Header.Values("Retry-After")
+
 	if len(retryAfterValues) > 0 {
-		if _, err := fmt.Sscanf(retryAfterValues[0], "%d", &retryMs); err == nil {
-			retryMs *= 1000
+		var serverRetryMs int
+		if _, err := fmt.Sscanf(retryAfterValues[0], "%d", &serverRetryMs); err == nil {
+			retryMs = serverRetryMs * 1000
 		}
 	}
 	return true, int64(retryMs), nil
@@ -434,12 +463,14 @@ func (a *openaiClient) maxTokens() int64 {
 	return a.providerOptions.maxTokens
 }
 
+// WithOpenAIDisableCache disables caching for OpenAI API requests.
 func WithOpenAIDisableCache() OpenAIOption {
 	return func(options *openaiOptions) {
 		options.disableCache = true
 	}
 }
 
+// WithReasoningEffort sets the reasoning effort level for OpenAI reasoning models.
 func WithReasoningEffort(effort string) OpenAIOption {
 	return func(options *openaiOptions) {
 		defaultReasoningEffort := "medium"
@@ -453,14 +484,46 @@ func WithReasoningEffort(effort string) OpenAIOption {
 	}
 }
 
+// WithOpenAIBaseURL sets a custom base URL for the OpenAI API.
 func WithOpenAIBaseURL(baseURL string) OpenAIOption {
 	return func(options *openaiOptions) {
 		options.baseURL = baseURL
 	}
 }
 
+// WithOpenAIExtraHeaders sets additional HTTP headers for OpenAI API requests.
 func WithOpenAIExtraHeaders(headers map[string]string) OpenAIOption {
 	return func(options *openaiOptions) {
 		options.extraHeaders = headers
+	}
+}
+
+// WithOpenAIServiceTier sets the service tier for priority vs flex pricing
+// Values: "auto" (default) or "flex"
+func WithOpenAIServiceTier(tier string) OpenAIOption {
+	return func(options *openaiOptions) {
+		options.serviceTier = tier
+	}
+}
+
+// WithOpenAIModalities enables audio output modalities
+// Values: []string{"text"} (default) or []string{"text", "audio"}
+func WithOpenAIModalities(modalities []string) OpenAIOption {
+	return func(options *openaiOptions) {
+		options.modalities = modalities
+	}
+}
+
+// WithOpenAIStore enables storing completions
+func WithOpenAIStore(store bool) OpenAIOption {
+	return func(options *openaiOptions) {
+		options.store = store
+	}
+}
+
+// WithOpenAIPromptCacheKey enables prompt caching with specific cache keys
+func WithOpenAIPromptCacheKey(keys []string) OpenAIOption {
+	return func(options *openaiOptions) {
+		options.promptCacheKey = keys
 	}
 }

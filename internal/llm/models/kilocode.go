@@ -6,8 +6,7 @@ const (
 	KiloCodeAuto ModelID = "kilo.auto"
 )
 
-var KiloCodeModels = map[ModelID]Model{
-	KiloCodeAuto: {
+var KiloCodeModels = map[ModelID]Model{	KiloCodeAuto: {
 		ID:                 KiloCodeAuto,
 		Name:               "KiloCode Auto",
 		Provider:           ProviderKiloCode,

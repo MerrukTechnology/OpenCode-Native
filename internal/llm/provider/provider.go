@@ -1,5 +1,48 @@
 package provider
 
+// Package provider provides LLM provider implementations supporting multiple backends.
+//
+// Supported Providers:
+//   - OpenAI: OpenAI API with support for o1, o3, GPT-4, GPT-4o models
+//   - Anthropic: Anthropic API with Claude models via anthropic-sdk-go
+//   - Google Gemini: Gemini models via Google genai SDK
+//   - AWS Bedrock: Claude models on AWS Bedrock
+//   - Google Vertex AI: Claude models on Google Cloud Vertex AI
+//   - DeepSeek: DeepSeek API via OpenAI-compatible SDK
+//   - OpenRouter: Multi-provider aggregation via OpenRouter.ai
+//   - Groq: Fast inference via GroqCloud
+//   - xAI: Grok models via xAI API
+//   - Mistral: Mistral models via Mistral API
+//   - KiloCode: KiloCode's API gateway
+//   - Local: Self-hosted OpenAI-compatible endpoints
+//
+// The package uses a generic baseProvider[C ProviderClient] pattern to share common
+// logic across different provider implementations while allowing provider-specific clients.
+//
+// Key Features:
+//   - Sentinel errors for clear error handling
+//   - Automatic token counting with fallback estimation
+//   - Dynamic max_tokens adjustment based on context window
+//   - Message sanitization and tool pair validation
+//   - Streaming support with proper event handling
+//
+// Usage:
+//
+//	p, err := provider.NewProvider(models.ProviderOpenAI,
+//		provider.WithAPIKey("sk-..."),
+//		provider.WithModel(models.Model{...}),
+//	)
+//	if err != nil {
+//		// handle error
+//	}
+//	resp, err := p.SendMessages(ctx, messages, tools)
+//
+// For streaming:
+//
+//	events := p.StreamResponse(ctx, messages, tools)
+//	for event := range events {
+//		// handle event
+//	}
 import (
 	"context"
 	"errors"
@@ -14,23 +57,42 @@ import (
 	"github.com/MerrukTechnology/OpenCode-Native/internal/message"
 )
 
+// EventType represents the type of event during streaming.
 type EventType string
 
 const maxRetries = 8
 
-const (
-	EventContentStart  EventType = "content_start"
-	EventToolUseStart  EventType = "tool_use_start"
-	EventToolUseDelta  EventType = "tool_use_delta"
-	EventToolUseStop   EventType = "tool_use_stop"
-	EventContentDelta  EventType = "content_delta"
-	EventThinkingDelta EventType = "thinking_delta"
-	EventContentStop   EventType = "content_stop"
-	EventComplete      EventType = "complete"
-	EventError         EventType = "error"
-	EventWarning       EventType = "warning"
+// Sentinel errors for provider operations.
+var (
+	ErrProviderNotSupported = errors.New("provider not supported")
+	ErrModelNotFound        = errors.New("model not found")
+	ErrAPIKeyMissing        = errors.New("API key missing")
 )
 
+const (
+	// EventContentStart indicates the start of content generation.
+	EventContentStart EventType = "content_start"
+	// EventToolUseStart indicates the start of a tool use.
+	EventToolUseStart EventType = "tool_use_start"
+	// EventToolUseDelta indicates a delta update for a tool use.
+	EventToolUseDelta EventType = "tool_use_delta"
+	// EventToolUseStop indicates the end of a tool use.
+	EventToolUseStop EventType = "tool_use_stop"
+	// EventContentDelta indicates a delta update for content.
+	EventContentDelta EventType = "content_delta"
+	// EventThinkingDelta indicates a delta update for thinking content.
+	EventThinkingDelta EventType = "thinking_delta"
+	// EventContentStop indicates the end of content generation.
+	EventContentStop EventType = "content_stop"
+	// EventComplete indicates the completion of the response.
+	EventComplete EventType = "complete"
+	// EventError indicates an error occurred.
+	EventError EventType = "error"
+	// EventWarning indicates a warning.
+	EventWarning EventType = "warning"
+)
+
+// TokenUsage represents token consumption for a provider request.
 type TokenUsage struct {
 	InputTokens         int64
 	OutputTokens        int64
@@ -38,6 +100,7 @@ type TokenUsage struct {
 	CacheReadTokens     int64
 }
 
+// ProviderResponse represents a complete response from a provider.
 type ProviderResponse struct {
 	Content      string
 	ToolCalls    []message.ToolCall
@@ -45,6 +108,7 @@ type ProviderResponse struct {
 	FinishReason message.FinishReason
 }
 
+// ProviderEvent represents an event during streaming response.
 type ProviderEvent struct {
 	Type EventType
 
@@ -55,19 +119,23 @@ type ProviderEvent struct {
 	Error    error
 }
 
+// Provider defines the interface for LLM providers.
 type Provider interface {
+	// SendMessages sends a list of messages to the provider and returns a response.
 	SendMessages(ctx context.Context, messages []message.Message, tools []tools.BaseTool) (*ProviderResponse, error)
 
+	// StreamResponse streams a response from the provider.
 	StreamResponse(ctx context.Context, messages []message.Message, tools []tools.BaseTool) <-chan ProviderEvent
 
+	// Model returns the current model being used.
 	Model() models.Model
 
-	// Counts tokens for provided messages using underlying client OR fallback to default estimation strategy,
+	// CountTokens counts tokens for provided messages using underlying client OR fallback to default estimation strategy,
 	// returns tokens count and whether a threshold has been hit based on the model context size,
 	// threshold can be used to track an approaching limit to trigger compaction or other activities
 	CountTokens(ctx context.Context, threshold float64, messages []message.Message, tools []toolsPkg.BaseTool) (tokens int64, hit bool)
 
-	// Calculates and sets new max_tokens if needed to be used by underlying client
+	// AdjustMaxTokens calculates and sets new max_tokens if needed to be used by underlying client
 	AdjustMaxTokens(estimatedTokens int64) int64
 }
 
@@ -97,8 +165,10 @@ func (opts *providerClientOptions) asHeader() *http.Header {
 	return &header
 }
 
+// ProviderClientOption is a function that configures provider client options.
 type ProviderClientOption func(*providerClientOptions)
 
+// ProviderClient is the interface for provider-specific clients.
 type ProviderClient interface {
 	send(ctx context.Context, messages []message.Message, tools []tools.BaseTool) (*ProviderResponse, error)
 	stream(ctx context.Context, messages []message.Message, tools []tools.BaseTool) <-chan ProviderEvent
@@ -110,8 +180,10 @@ type ProviderClient interface {
 type baseProvider[C ProviderClient] struct {
 	options providerClientOptions
 	client  C
+	name    models.ModelProvider // cached provider name for ListModels caching
 }
 
+// NewProvider creates a new provider instance for the given provider name.
 func NewProvider(providerName models.ModelProvider, opts ...ProviderClientOption) (Provider, error) {
 	clientOptions := providerClientOptions{}
 	for _, o := range opts {
@@ -122,26 +194,31 @@ func NewProvider(providerName models.ModelProvider, opts ...ProviderClientOption
 		return &baseProvider[VertexAIClient]{
 			options: clientOptions,
 			client:  newVertexAIClient(clientOptions),
+			name:    providerName,
 		}, nil
 	case models.ProviderAnthropic:
 		return &baseProvider[AnthropicClient]{
 			options: clientOptions,
 			client:  newAnthropicClient(clientOptions),
+			name:    providerName,
 		}, nil
 	case models.ProviderOpenAI:
 		return &baseProvider[OpenAIClient]{
 			options: clientOptions,
 			client:  newOpenAIClient(clientOptions),
+			name:    providerName,
 		}, nil
 	case models.ProviderGemini:
 		return &baseProvider[GeminiClient]{
 			options: clientOptions,
 			client:  newGeminiClient(clientOptions),
+			name:    providerName,
 		}, nil
 	case models.ProviderBedrock:
 		return &baseProvider[BedrockClient]{
 			options: clientOptions,
 			client:  newBedrockClient(clientOptions),
+			name:    providerName,
 		}, nil
 	case models.ProviderGroq:
 		clientOptions.openaiOptions = append(clientOptions.openaiOptions,
@@ -150,6 +227,7 @@ func NewProvider(providerName models.ModelProvider, opts ...ProviderClientOption
 		return &baseProvider[OpenAIClient]{
 			options: clientOptions,
 			client:  newOpenAIClient(clientOptions),
+			name:    providerName,
 		}, nil
 	case models.ProviderOpenRouter:
 		clientOptions.openaiOptions = append(clientOptions.openaiOptions,
@@ -162,6 +240,7 @@ func NewProvider(providerName models.ModelProvider, opts ...ProviderClientOption
 		return &baseProvider[OpenAIClient]{
 			options: clientOptions,
 			client:  newOpenAIClient(clientOptions),
+			name:    providerName,
 		}, nil
 	case models.ProviderXAI:
 		clientOptions.openaiOptions = append(clientOptions.openaiOptions,
@@ -170,6 +249,7 @@ func NewProvider(providerName models.ModelProvider, opts ...ProviderClientOption
 		return &baseProvider[OpenAIClient]{
 			options: clientOptions,
 			client:  newOpenAIClient(clientOptions),
+			name:    providerName,
 		}, nil
 	case models.ProviderMistral:
 		clientOptions.openaiOptions = append(clientOptions.openaiOptions,
@@ -178,6 +258,7 @@ func NewProvider(providerName models.ModelProvider, opts ...ProviderClientOption
 		return &baseProvider[OpenAIClient]{
 			options: clientOptions,
 			client:  newOpenAIClient(clientOptions),
+			name:    providerName,
 		}, nil
 	case models.ProviderKiloCode:
 		clientOptions.openaiOptions = append(clientOptions.openaiOptions,
@@ -190,6 +271,7 @@ func NewProvider(providerName models.ModelProvider, opts ...ProviderClientOption
 		return &baseProvider[OpenAIClient]{
 			options: clientOptions,
 			client:  newOpenAIClient(clientOptions),
+			name:    providerName,
 		}, nil
 	case models.ProviderLocal:
 		if clientOptions.baseURL == "" {
@@ -198,15 +280,18 @@ func NewProvider(providerName models.ModelProvider, opts ...ProviderClientOption
 		return &baseProvider[OpenAIClient]{
 			options: clientOptions,
 			client:  newOpenAIClient(clientOptions),
+			name:    providerName,
 		}, nil
 	case models.ProviderDeepSeek:
 		return &baseProvider[DeepSeekClient]{
 			options: clientOptions,
 			client:  newDeepSeekClient(clientOptions),
+			name:    providerName,
 		}, nil
 	case models.ProviderMock:
-		// TODO: implement mock client for test
-		panic("not implemented")
+		// Mock provider is not supported for direct instantiation
+		// TODO: Impliment a mock provider that can be used for testing and local development without special setup
+		return nil, fmt.Errorf("%w: mock provider requires special setup", ErrProviderNotSupported)
 	}
 	return nil, fmt.Errorf("provider not supported: %s", providerName)
 }
@@ -435,66 +520,77 @@ func (p *baseProvider[C]) AdjustMaxTokens(estimatedTokens int64) int64 {
 	return newMaxTokens
 }
 
+// WithBaseURL sets the base URL for the provider.
 func WithBaseURL(baseURL string) ProviderClientOption {
 	return func(options *providerClientOptions) {
 		options.baseURL = baseURL
 	}
 }
 
+// WithHeaders sets custom headers for the provider.
 func WithHeaders(headers map[string]string) ProviderClientOption {
 	return func(options *providerClientOptions) {
 		options.headers = headers
 	}
 }
 
+// WithAPIKey sets the API key for the provider.
 func WithAPIKey(apiKey string) ProviderClientOption {
 	return func(options *providerClientOptions) {
 		options.apiKey = apiKey
 	}
 }
 
+// WithModel sets the model for the provider.
 func WithModel(model models.Model) ProviderClientOption {
 	return func(options *providerClientOptions) {
 		options.model = model
 	}
 }
 
+// WithMaxTokens sets the maximum tokens for the provider.
 func WithMaxTokens(maxTokens int64) ProviderClientOption {
 	return func(options *providerClientOptions) {
 		options.maxTokens = maxTokens
 	}
 }
 
+// WithSystemMessage sets the system message for the provider.
 func WithSystemMessage(systemMessage string) ProviderClientOption {
 	return func(options *providerClientOptions) {
 		options.systemMessage = systemMessage
 	}
 }
 
-func WithAnthropicOptions(anthropicOptions ...AnthropicOption) ProviderClientOption {
-	return func(options *providerClientOptions) {
-		options.anthropicOptions = anthropicOptions
-	}
-}
-
+// WithOpenAIOptions sets OpenAI-specific options.
 func WithOpenAIOptions(openaiOptions ...OpenAIOption) ProviderClientOption {
 	return func(options *providerClientOptions) {
 		options.openaiOptions = openaiOptions
 	}
 }
 
+// WithAnthropicOptions sets Anthropic-specific options.
+func WithAnthropicOptions(anthropicOptions ...AnthropicOption) ProviderClientOption {
+	return func(options *providerClientOptions) {
+		options.anthropicOptions = anthropicOptions
+	}
+}
+
+// WithGeminiOptions sets Gemini-specific options.
 func WithGeminiOptions(geminiOptions ...GeminiOption) ProviderClientOption {
 	return func(options *providerClientOptions) {
 		options.geminiOptions = geminiOptions
 	}
 }
 
+// WithBedrockOptions sets Bedrock-specific options.
 func WithBedrockOptions(bedrockOptions ...BedrockOption) ProviderClientOption {
 	return func(options *providerClientOptions) {
 		options.bedrockOptions = bedrockOptions
 	}
 }
 
+// WithDeepSeekOptions sets DeepSeek-specific options.
 func WithDeepSeekOptions(deepSeekOptions ...DeepSeekOption) ProviderClientOption {
 	return func(options *providerClientOptions) {
 		options.deepSeekOptions = deepSeekOptions

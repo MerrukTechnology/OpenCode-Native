@@ -1,5 +1,7 @@
 package provider
 
+// Bedrock provider implementation for AWS Bedrock models.
+// Delegates to child providers (Anthropic or others) for actual API calls.
 import (
 	"context"
 	"errors"
@@ -15,6 +17,7 @@ type bedrockOptions struct {
 	// Bedrock specific options can be added here
 }
 
+// BedrockOption is a function that configures Bedrock provider options.
 type BedrockOption func(*bedrockOptions)
 
 type bedrockClient struct {

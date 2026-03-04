@@ -1,4 +1,8 @@
+// Package provider implements LLM provider clients for various AI services.
 package provider
+
+// Anthropic provider implementation using the Anthropic SDK.
+// Supports Anthropic API, AWS Bedrock, and Google Vertex AI through the Anthropic SDK.
 
 import (
 	"context"
@@ -30,6 +34,7 @@ type anthropicOptions struct {
 	reasoningEffort string
 }
 
+// AnthropicOption is a function that configures Anthropic provider options.
 type AnthropicOption func(*anthropicOptions)
 
 type anthropicClient struct {
@@ -38,6 +43,7 @@ type anthropicClient struct {
 	client          anthropic.Client
 }
 
+// AnthropicClient is the interface for Anthropic provider operations.
 type AnthropicClient ProviderClient
 
 func newAnthropicClient(opts providerClientOptions) AnthropicClient {
@@ -474,15 +480,16 @@ func (a *anthropicClient) shouldRetry(attempts int, err error) (bool, int64, err
 		return false, 0, fmt.Errorf("maximum retry attempts reached for rate limit: %d retries", maxRetries)
 	}
 
-	retryMs := 0
-	retryAfterValues := apierr.Response.Header.Values("Retry-After")
-
 	backoffMs := 2000 * (1 << (attempts - 1))
 	jitterMs := int(float64(backoffMs) * 0.2)
-	retryMs = backoffMs + jitterMs
+	retryMs := backoffMs + jitterMs
+
+	retryAfterValues := apierr.Response.Header.Values("Retry-After")
+
 	if len(retryAfterValues) > 0 {
-		if _, err := fmt.Sscanf(retryAfterValues[0], "%d", &retryMs); err == nil {
-			retryMs = retryMs * 1000
+		var serverRetryMs int
+		if _, err := fmt.Sscanf(retryAfterValues[0], "%d", &serverRetryMs); err == nil {
+			retryMs = serverRetryMs * 1000
 		}
 	}
 	return true, int64(retryMs), nil
@@ -517,6 +524,7 @@ func (a *anthropicClient) usage(msg anthropic.Message) TokenUsage {
 	}
 }
 
+// WithAnthropicBedrock configures the Anthropic provider to use AWS Bedrock.
 func WithAnthropicBedrock(useBedrock bool) AnthropicOption {
 	return func(options *anthropicOptions) {
 		if useBedrock {
@@ -526,28 +534,33 @@ func WithAnthropicBedrock(useBedrock bool) AnthropicOption {
 	}
 }
 
+// WithAnthropicDisableCache disables caching for Anthropic API requests.
 func WithAnthropicDisableCache() AnthropicOption {
 	return func(options *anthropicOptions) {
 		options.disableCache = true
 	}
 }
 
+// DefaultShouldThinkFn returns a default function that determines if thinking should be enabled.
 func DefaultShouldThinkFn(s string) bool {
 	return strings.Contains(strings.ToLower(s), "think")
 }
 
+// WithAnthropicShouldThinkFn sets a custom function to determine if thinking should be enabled.
 func WithAnthropicShouldThinkFn(fn func(string) bool) AnthropicOption {
 	return func(options *anthropicOptions) {
 		options.shouldThink = fn
 	}
 }
 
+// WithAnthropicReasoningEffort sets the reasoning effort level for Anthropic models.
 func WithAnthropicReasoningEffort(effort string) AnthropicOption {
 	return func(options *anthropicOptions) {
 		options.reasoningEffort = effort
 	}
 }
 
+// WithVertexAI configures the Anthropic provider to use Google Vertex AI.
 func WithVertexAI(projectID, localtion string, localForCounting string) AnthropicOption {
 	return func(options *anthropicOptions) {
 		options.useVertex = true

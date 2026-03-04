@@ -1,5 +1,7 @@
 package provider
 
+// DeepSeek provider implementation using the OpenAI SDK with DeepSeek API.
+// Uses OpenAI-compatible API endpoints for DeepSeek models.
 import (
 	"context"
 	"encoding/json"
@@ -20,11 +22,60 @@ import (
 )
 
 type deepSeekOptions struct {
-	baseURL      string
-	extraHeaders map[string]string
+	baseURL         string
+	extraHeaders    map[string]string
+	reasoningEffort string   // low, medium, high for reasoning models
+	serviceTier     string   // auto, flex for pricing
+	modalities      []string // text, audio for output
+	store           bool     // store completions
+	promptCacheKey  []string // prompt caching keys
 }
 
+// DeepSeekOption is a function that configures DeepSeek provider options.
 type DeepSeekOption func(*deepSeekOptions)
+
+// WithDeepSeekReasoningEffort sets the reasoning effort for DeepSeek reasoning models.
+// Values: "low", "medium", "high". Only applies to reasoning models like deepseek-reasoner.
+func WithDeepSeekReasoningEffort(effort string) DeepSeekOption {
+	return func(opts *deepSeekOptions) {
+		defaultEffort := "medium"
+		switch effort {
+		case "low", "medium", "high":
+			defaultEffort = effort
+		}
+		opts.reasoningEffort = defaultEffort
+	}
+}
+
+// WithDeepSeekServiceTier sets the service tier for pricing.
+// Values: "auto" (default), "flex"
+func WithDeepSeekServiceTier(tier string) DeepSeekOption {
+	return func(opts *deepSeekOptions) {
+		opts.serviceTier = tier
+	}
+}
+
+// WithDeepSeekModalities sets the output modalities.
+// Values: []string{"text"} (default) or []string{"text", "audio"}
+func WithDeepSeekModalities(modalities []string) DeepSeekOption {
+	return func(opts *deepSeekOptions) {
+		opts.modalities = modalities
+	}
+}
+
+// WithDeepSeekStore enables storing completions.
+func WithDeepSeekStore(store bool) DeepSeekOption {
+	return func(opts *deepSeekOptions) {
+		opts.store = store
+	}
+}
+
+// WithDeepSeekPromptCacheKey enables prompt caching with specific cache keys.
+func WithDeepSeekPromptCacheKey(keys []string) DeepSeekOption {
+	return func(opts *deepSeekOptions) {
+		opts.promptCacheKey = keys
+	}
+}
 
 type deepSeekClient struct {
 	providerOptions providerClientOptions
@@ -32,6 +83,7 @@ type deepSeekClient struct {
 	client          openai.Client
 }
 
+// DeepSeekClient is the interface for DeepSeek provider operations.
 type DeepSeekClient ProviderClient
 
 func newDeepSeekClient(opts providerClientOptions) DeepSeekClient {
@@ -175,6 +227,21 @@ func (d *deepSeekClient) preparedParams(messages []openai.ChatCompletionMessageP
 	// Only add tools if they exist (DeepSeek doesn't like empty tools array)
 	if len(tools) > 0 {
 		params.Tools = tools
+	}
+
+	// Apply service tier if set
+	if d.options.serviceTier != "" {
+		params.ServiceTier = openai.ChatCompletionNewParamsServiceTier(d.options.serviceTier)
+	}
+
+	// Apply modalities if set
+	if len(d.options.modalities) > 0 {
+		params.Modalities = d.options.modalities
+	}
+
+	// Apply store if enabled
+	if d.options.store {
+		params.Store = openai.Bool(true)
 	}
 
 	return params
@@ -342,12 +409,12 @@ func (d *deepSeekClient) shouldRetry(attempts int, err error) (bool, int64, erro
 		return false, 0, fmt.Errorf("DeepSeek: maximum retry attempts reached: %d retries", maxRetries)
 	}
 
-	retryMs := 0
-	retryAfterValues := apierr.Response.Header.Values("Retry-After")
-
 	backoffMs := 2000 * (1 << (attempts - 1))
 	jitterMs := int(float64(backoffMs) * 0.2)
-	retryMs = backoffMs + jitterMs
+	retryMs := backoffMs + jitterMs
+
+	retryAfterValues := apierr.Response.Header.Values("Retry-After")
+
 	if len(retryAfterValues) > 0 {
 		if _, err := fmt.Sscanf(retryAfterValues[0], "%d", &retryMs); err == nil {
 			retryMs *= 1000
@@ -402,12 +469,14 @@ func (d *deepSeekClient) maxTokens() int64 {
 	return d.providerOptions.maxTokens
 }
 
+// WithDeepSeekBaseURL sets a custom base URL for the DeepSeek API.
 func WithDeepSeekBaseURL(baseURL string) DeepSeekOption {
 	return func(options *deepSeekOptions) {
 		options.baseURL = baseURL
 	}
 }
 
+// WithDeepSeekExtraHeaders sets additional HTTP headers for DeepSeek API requests.
 func WithDeepSeekExtraHeaders(headers map[string]string) DeepSeekOption {
 	return func(options *deepSeekOptions) {
 		options.extraHeaders = headers

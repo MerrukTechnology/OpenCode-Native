@@ -1,5 +1,7 @@
 package provider
 
+// VertexAI provider implementation using Anthropic SDK with Vertex AI backend.
+// Supports Claude models running on Google Cloud Vertex AI.
 import (
 	"bytes"
 	"context"
@@ -20,6 +22,7 @@ import (
 	"google.golang.org/genai"
 )
 
+// VertexAIClient is the interface for Vertex AI provider operations.
 type VertexAIClient ProviderClient
 
 type vertexOptions struct {

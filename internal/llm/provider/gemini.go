@@ -1,5 +1,7 @@
 package provider
 
+// Gemini provider implementation using Google Gemini API via genai SDK.
+// Supports Google Gemini models for text generation and vision.
 import (
 	"context"
 	"encoding/json"
@@ -22,6 +24,7 @@ type geminiOptions struct {
 	disableCache bool
 }
 
+// GeminiOption is a function that configures Gemini provider options.
 type GeminiOption func(*geminiOptions)
 
 type geminiClient struct {
@@ -30,6 +33,7 @@ type geminiClient struct {
 	client          *genai.Client
 }
 
+// GeminiClient is the interface for Gemini provider operations.
 type GeminiClient ProviderClient
 
 type tokenProvider struct {
@@ -535,6 +539,7 @@ func (a *geminiClient) maxTokens() int64 {
 	return a.providerOptions.maxTokens
 }
 
+// WithGeminiDisableCache disables caching for Gemini API requests.
 func WithGeminiDisableCache() GeminiOption {
 	return func(options *geminiOptions) {
 		options.disableCache = true

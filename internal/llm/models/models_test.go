@@ -12,7 +12,7 @@ func TestModelID_String(t *testing.T) {
 	}{
 		{
 			name:     "KiloCode Auto model ID",
-			modelID:  KiloCodeAuto,
+			modelID:  KiloCodeMiniMaxM2_5Free,
 			expected: "kilo.auto",
 		},
 		{
