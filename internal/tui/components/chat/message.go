@@ -20,6 +20,7 @@ import (
 	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/tools"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/message"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/components/shared"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/styles"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/theme"
 	"github.com/charmbracelet/lipgloss"
@@ -201,14 +202,16 @@ func renderUserMessage(msg message.Message, isFocused bool, width int, position 
 	for _, attachment := range msg.BinaryContent() {
 		file := filepath.Base(attachment.Path)
 		var filename string
+		icon := shared.GetFileIcon(file)
+		iconStyle := lipgloss.NewStyle().MarginRight(1)
 		if len(file) > 10 {
-			filename = fmt.Sprintf(" %s %s...", styles.DocumentIcon, file[0:7])
+			filename = fmt.Sprintf(" %s %s...", iconStyle.Render(icon), file[0:7])
 		} else {
-			filename = fmt.Sprintf(" %s %s", styles.DocumentIcon, file)
+			filename = fmt.Sprintf(" %s %s", iconStyle.Render(icon), file)
 		}
 		styledAttachments = append(styledAttachments, attachmentStyles.Render(filename))
 	}
-	content := ""
+	var content string
 	if len(styledAttachments) > 0 {
 		attachmentContent := styles.BaseStyle().Width(width).Render(lipgloss.JoinHorizontal(lipgloss.Left, styledAttachments...))
 		content = renderMessage(msg.Content().String(), true, isFocused, width, attachmentContent)
@@ -479,7 +482,7 @@ func removeWorkingDirPrefix(path string) string {
 // renderToolParams renders the parameters of a tool call in a specific format. It handles different tool types and formats their parameters accordingly for display in the UI.
 // It returns a string representation of the tool parameters.
 func renderToolParams(paramWidth int, toolCall message.ToolCall) string {
-	params := ""
+	var params string
 	switch toolCall.Name {
 	case agent.TaskToolName:
 		var params agent.TaskParams
@@ -847,7 +850,7 @@ func renderToolMessage(
 	}
 
 	params := renderToolParams(paramWidth, toolCall)
-	responseContent := ""
+	var responseContent string
 	if response != nil {
 		responseContent = renderToolResponse(toolCall, *response, width-2)
 		responseContent = strings.TrimSuffix(responseContent, "\n")
@@ -1016,13 +1019,13 @@ func renderDiagnosticsSummary(content string, width int) string {
 	if totalErrors > 0 {
 		errText := baseStyle.
 			Foreground(t.Error()).
-			Render(fmt.Sprintf("%s %d", styles.ErrorIcon, totalErrors))
+			Render(fmt.Sprintf("%s %d", shared.GetIcon("error"), totalErrors))
 		parts = append(parts, errText)
 	}
 	if totalWarnings > 0 {
 		warnText := baseStyle.
 			Foreground(t.Warning()).
-			Render(fmt.Sprintf("%s %d", styles.WarningIcon, totalWarnings))
+			Render(fmt.Sprintf("%s %d", shared.GetIcon("warning"), totalWarnings))
 		parts = append(parts, warnText)
 	}
 

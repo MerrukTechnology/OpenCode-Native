@@ -2,21 +2,22 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
 	"time"
 
+	"github.com/MerrukTechnology/OpenCode-Native/internal/app"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/db"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/format"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/pubsub"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/version"
 	tea "github.com/charmbracelet/bubbletea"
 	zone "github.com/lrstanley/bubblezone"
-	"github.com/opencode-ai/opencode/internal/app"
-	"github.com/opencode-ai/opencode/internal/config"
-	"github.com/opencode-ai/opencode/internal/db"
-	"github.com/opencode-ai/opencode/internal/format"
-	"github.com/opencode-ai/opencode/internal/logging"
-	"github.com/opencode-ai/opencode/internal/pubsub"
-	"github.com/opencode-ai/opencode/internal/tui"
-	"github.com/opencode-ai/opencode/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -25,7 +26,13 @@ var rootCmd = &cobra.Command{
 	Short: "Terminal-based AI assistant for software development",
 	Long: `OpenCode is a powerful terminal-based AI assistant that helps with software development tasks.
 It provides an interactive chat interface with AI capabilities, code analysis, and LSP integration
-to assist developers in writing, debugging, and understanding code directly from the terminal.`,
+to assist developers in writing, debugging, and understanding code directly from the terminal.
+Key Features:
+- Interactive AI chat with multiple model providers (OpenAI, Anthropic, xAI, etc.)
+- Code analysis and editing capabilities
+- LSP (Language Server Protocol) integration
+- File system operations and project navigation
+- Multi-turn conversations with context retention`,
 	Example: `
   # Run in interactive mode
   opencode
@@ -83,7 +90,17 @@ to assist developers in writing, debugging, and understanding code directly from
 		timeoutStr, _ := cmd.Flags().GetString("timeout")
 
 		if deleteSession && sessionID == "" && flowID == "" {
-			return fmt.Errorf("--delete requires --session/-s or --flow/-F to be specified")
+			return errors.New("--delete requires --session/-s or --flow/-F to be specified")
+		}
+
+		if flowID == "" && len(flowArgs) > 0 {
+			return errors.New("--arg/-A requires --flow/-F to be specified")
+		}
+		if flowID == "" && argsFile != "" {
+			return errors.New("--args-file requires --flow/-F to be specified")
+		}
+		if len(flowArgs) > 0 && argsFile != "" {
+			return errors.New("--arg/-A and --args-file are mutually exclusive; use only one")
 		}
 
 		// Parse format option (may include schema)
@@ -95,13 +112,13 @@ to assist developers in writing, debugging, and understanding code directly from
 		if cwd != "" {
 			err := os.Chdir(cwd)
 			if err != nil {
-				return fmt.Errorf("failed to change directory: %v", err)
+				return fmt.Errorf("failed to change directory: %w", err)
 			}
 		}
 		if cwd == "" {
 			c, err := os.Getwd()
 			if err != nil {
-				return fmt.Errorf("failed to get current working directory: %v", err)
+				return fmt.Errorf("failed to get current working directory: %w", err)
 			}
 			cwd = c
 		}
@@ -144,11 +161,11 @@ to assist developers in writing, debugging, and understanding code directly from
 
 		// Set active agent if specified
 		if agentID != "" {
-			if _err := app.SetActiveAgent(config.AgentName(agentID)); _err != nil {
+			if agentIDError := app.SetActiveAgent(agentID); agentIDError != nil {
 				if spinner != nil {
 					spinner.Stop()
 				}
-				return fmt.Errorf("invalid agent: %w", _err)
+				return fmt.Errorf("invalid agent: %w", agentIDError)
 			}
 		}
 
@@ -276,7 +293,7 @@ to assist developers in writing, debugging, and understanding code directly from
 
 		if err != nil {
 			logging.Error("TUI error: %v", err)
-			return fmt.Errorf("TUI error: %v", err)
+			return fmt.Errorf("TUI error: %w", err)
 		}
 
 		logging.Info("TUI exited with result: %v", result)
@@ -303,7 +320,7 @@ func setupSubscriber[T any](
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		defer logging.RecoverPanic(fmt.Sprintf("subscription-%s", name), nil)
+		defer logging.RecoverPanic("subscription-"+name, nil)
 
 		subCh := subscriber(ctx)
 
@@ -339,12 +356,12 @@ func setupSubscriptions(app *app.App, parentCtx context.Context) (chan tea.Msg, 
 	wg := sync.WaitGroup{}
 	ctx, cancel := context.WithCancel(parentCtx) // Inherit from parent context
 
-	setupSubscriber(ctx, &wg, "logging", logging.Subscribe, ch)
-	setupSubscriber(ctx, &wg, "sessions", app.Sessions.Subscribe, ch)
-	setupSubscriber(ctx, &wg, "messages", app.Messages.Subscribe, ch)
-	setupSubscriber(ctx, &wg, "permissions", app.Permissions.Subscribe, ch)
+	setupSubscriber(ctx, &wg, "logging", logging.SubscribeWithContext, ch)
+	setupSubscriber(ctx, &wg, "sessions", app.Sessions.SubscribeWithContext, ch)
+	setupSubscriber(ctx, &wg, "messages", app.Messages.SubscribeWithContext, ch)
+	setupSubscriber(ctx, &wg, "permissions", app.Permissions.SubscribeWithContext, ch)
 	for name, primaryAgent := range app.PrimaryAgents {
-		setupSubscriber(ctx, &wg, fmt.Sprintf("agent-%s", name), primaryAgent.Subscribe, ch)
+		setupSubscriber(ctx, &wg, "agent-"+name, primaryAgent.SubscribeWithContext, ch)
 	}
 
 	cleanupFunc := func() {

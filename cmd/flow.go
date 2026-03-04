@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
 	"os"
 	"strings"
 	"sync"
@@ -33,7 +32,13 @@ func runNonInteractive(ctx context.Context, a *app.App, prompt string, outputFor
 	var titleSuffix string
 
 	if len(prompt) > maxPromptLengthForTitle {
-		titleSuffix = prompt[:maxPromptLengthForTitle] + "..."
+		// Truncate at a rune boundary
+		runes := []rune(prompt)
+		if len(runes) > maxPromptLengthForTitle {
+			titleSuffix = string(runes[:maxPromptLengthForTitle]) + "..."
+		} else {
+			titleSuffix = prompt
+		}
 	} else {
 		titleSuffix = prompt
 	}
@@ -85,8 +90,8 @@ func runNonInteractive(ctx context.Context, a *app.App, prompt string, outputFor
 		if result.StructOutput != nil {
 			content = result.StructOutput.Content
 		} else {
-			logging.Error("Failed to get structured output response for a provided schema", "error", content)
-			content = `{"error": "no structured output result foind"}`
+			logging.Error("Failed to get structured output response for a provided schema", "error", "result.StructOutput is nil")
+			content = `{"error": "no structured output result found"}`
 		}
 	} else if result.Message.Content().String() != "" {
 		content = result.Message.Content().String()
@@ -132,7 +137,11 @@ func runFlowNonInteractive(ctx context.Context, a *app.App, flowID, prompt, sess
 		if err := json.Unmarshal(data, &fileArgs); err != nil {
 			return fmt.Errorf("parsing args file: %w", err)
 		}
-		maps.Copy(args, fileArgs)
+		for k, v := range fileArgs {
+			if _, exists := args[k]; !exists {
+				args[k] = v
+			}
+		}
 	}
 
 	agentEvents, flowStates, err := a.Flows.Run(ctx, sessionID, flowID, args, fresh)

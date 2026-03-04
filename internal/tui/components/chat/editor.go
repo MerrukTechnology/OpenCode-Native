@@ -15,6 +15,7 @@ import (
 	"github.com/MerrukTechnology/OpenCode-Native/internal/message"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/session"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/components/dialog"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/components/shared"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/layout"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/styles"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/theme"
@@ -151,6 +152,11 @@ func (m *editorCmp) send() tea.Cmd {
 func (m *editorCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		// Also call SetSize for backward compatibility
+		m.SetSize(msg.Width, msg.Height)
 	case dialog.ThemeChangedMsg:
 		m.textarea = CreateTextArea(&m.textarea)
 	case dialog.CompletionSelectedMsg:
@@ -256,9 +262,8 @@ func (m *editorCmp) View() string {
 func (m *editorCmp) SetSize(width, height int) tea.Cmd {
 	m.width = width
 	m.height = height
-	m.textarea.SetWidth(width - 3) // account for the prompt and padding right
+	m.textarea.SetWidth(width - 2) // account for the prompt and padding right
 	m.textarea.SetHeight(height)
-	m.textarea.SetWidth(width)
 	return nil
 }
 
@@ -279,13 +284,15 @@ func (m *editorCmp) attachmentsContent() string {
 		Foreground(t.Text())
 	for i, attachment := range m.attachments {
 		var filename string
+		icon := shared.GetFileIcon(attachment.FileName)
+		iconStyle := lipgloss.NewStyle().MarginRight(1)
 		if len(attachment.FileName) > 10 {
-			filename = fmt.Sprintf(" %s %s...", styles.DocumentIcon, attachment.FileName[0:7])
+			filename = fmt.Sprintf(" %s %s...", iconStyle.Render(icon), attachment.FileName[0:7])
 		} else {
-			filename = fmt.Sprintf(" %s %s", styles.DocumentIcon, attachment.FileName)
+			filename = fmt.Sprintf(" %s %s", iconStyle.Render(icon), attachment.FileName)
 		}
 		if m.deleteMode {
-			filename = fmt.Sprintf("%d%s", i, filename)
+			filename = fmt.Sprintf("%d%s %s", i, iconStyle.Render(icon), filename)
 		}
 		styledAttachments = append(styledAttachments, attachmentStyles.Render(filename))
 	}

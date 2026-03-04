@@ -70,6 +70,11 @@ func (m *sidebarCmp) Init() tea.Cmd {
 // Update handles messages for the sidebar component. It listens for session selection changes and file events to update the displayed information accordingly.
 func (m *sidebarCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		// Also call SetSize for backward compatibility
+		m.SetSize(msg.Width, msg.Height)
 	case SessionSelectedMsg:
 		if msg.ID != m.session.ID {
 			m.session = msg

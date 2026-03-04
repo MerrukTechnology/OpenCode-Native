@@ -14,9 +14,9 @@ import (
 	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/components/chat"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/components/core"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/components/dialog"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/components/shared"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/layout"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/page"
-	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/theme"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/util"
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -115,6 +115,8 @@ var logsKeyReturnKey = key.NewBinding(
 
 type appModel struct {
 	width, height   int
+	layoutEngine    *layout.LayoutEngine
+	renderer        *layout.Renderer // New modular renderer
 	currentPage     page.PageID
 	previousPage    page.PageID
 	pages           map[page.PageID]tea.Model
@@ -159,6 +161,8 @@ type appModel struct {
 
 	isCompacting      bool
 	compactingMessage string
+	// New modular components
+	compactingSpinner shared.SpinnerModel
 }
 
 func (a appModel) Init() tea.Cmd {
@@ -186,6 +190,8 @@ func (a appModel) Init() tea.Cmd {
 	cmds = append(cmds, cmd)
 	cmd = a.deleteSessionDialog.Init()
 	cmds = append(cmds, cmd)
+	// Initialize the compacting spinner
+	cmds = append(cmds, a.compactingSpinner.Init())
 
 	// Check if we should show the init dialog
 	cmds = append(cmds, func() tea.Msg {
@@ -208,7 +214,22 @@ func (a appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		msg.Height-- // Make space for the status bar
+
+		// Store the original dimensions for layout calculations
+		// Note: Bubble Tea's WindowSizeMsg provides pixel dimensions
+		// We use these directly for the main app dimensions
+		// to ensure compatibility with all UI components
 		a.width, a.height = msg.Width, msg.Height
+
+		// Also update the layout engine for responsive component calculations
+		if a.layoutEngine != nil {
+			a.layoutEngine.CalculateFromPixels(msg.Width, msg.Height)
+		}
+
+		// Update renderer with new theme (in case theme changed)
+		if a.renderer != nil {
+			a.renderer = layout.NewRenderer(a.layoutEngine)
+		}
 
 		s, _ := a.status.Update(msg)
 		a.status = s.(core.StatusCmp)
@@ -235,13 +256,19 @@ func (a appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.filepicker = filepicker.(dialog.FilepickerCmp)
 		cmds = append(cmds, filepickerCmd)
 
-		a.initDialog.SetSize(msg.Width, msg.Height)
+		// Initialize the init dialog with the window dimensions
+		a.initDialog.SetSize(a.width, a.height)
 
 		if a.showMultiArgumentsDialog {
-			a.multiArgumentsDialog.SetSize(msg.Width, msg.Height)
+			a.multiArgumentsDialog.SetSize(a.width, a.height)
 			args, argsCmd := a.multiArgumentsDialog.Update(msg)
 			a.multiArgumentsDialog = args.(dialog.MultiArgumentsDialogCmp)
 			cmds = append(cmds, argsCmd, a.multiArgumentsDialog.Init())
+		}
+
+		// Update spinner size if compacting
+		if a.isCompacting {
+			a.compactingSpinner.SetMessage(a.compactingMessage)
 		}
 
 		return a, tea.Batch(cmds...)
@@ -332,9 +359,12 @@ func (a appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Start compacting the current session
 		a.isCompacting = true
 		a.compactingMessage = "Starting summarization..."
+		a.compactingSpinner.SetMessage(a.compactingMessage)
+		a.compactingSpinner.Start()
 
 		if a.selectedSession.ID == "" {
 			a.isCompacting = false
+			a.compactingSpinner.Stop()
 			return a, util.ReportWarn("No active session to summarize")
 		}
 
@@ -349,13 +379,16 @@ func (a appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		payload := msg.Payload
 		if payload.Error != nil {
 			a.isCompacting = false
+			a.compactingSpinner.Stop()
 			return a, util.ReportError(payload.Error)
 		}
 
 		a.compactingMessage = payload.Progress
+		a.compactingSpinner.SetMessage(payload.Progress)
 
 		if payload.Done && payload.Type == agent.AgentEventTypeSummarize {
 			a.isCompacting = false
+			a.compactingSpinner.Stop()
 			return a, util.ReportInfo("Session summarization complete")
 		} else if payload.Done && payload.Type == agent.AgentEventTypeResponse && a.selectedSession.ID != "" {
 			model := a.app.ActiveAgent().Model()
@@ -665,6 +698,15 @@ func (a appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 	default:
+		// Handle spinner tick messages
+		switch msg.(type) {
+		case shared.SpinnerTickMsg:
+			if a.isCompacting {
+				spinner, spinnerCmd := a.compactingSpinner.Update(msg)
+				a.compactingSpinner = spinner.(shared.SpinnerModel)
+				cmds = append(cmds, spinnerCmd)
+			}
+		}
 		f, filepickerCmd := a.filepicker.Update(msg)
 		a.filepicker = f.(dialog.FilepickerCmp)
 		cmds = append(cmds, filepickerCmd)
@@ -791,6 +833,11 @@ func (a *appModel) findCommand(id string) (dialog.Command, bool) {
 	return dialog.Command{}, false
 }
 
+// GetLayoutEngine returns the layout engine for dimension calculations.
+func (a *appModel) GetLayoutEngine() *layout.LayoutEngine {
+	return a.layoutEngine
+}
+
 func (a *appModel) moveToPage(pageID page.PageID) tea.Cmd {
 	if a.app.ActiveAgent().IsBusy() {
 		// For now we don't move to any page if the agent is busy
@@ -814,6 +861,8 @@ func (a *appModel) moveToPage(pageID page.PageID) tea.Cmd {
 }
 
 func (a appModel) View() string {
+	// Build the main content - page view + status bar
+	// This is a simple vertical stack, matching the original behavior
 	components := []string{
 		a.pages[a.currentPage].View(),
 	}
@@ -852,18 +901,9 @@ func (a appModel) View() string {
 		)
 	}
 
-	// Show compacting status overlay
+	// Show compacting status overlay using spinner
 	if a.isCompacting {
-		t := theme.CurrentTheme()
-		style := lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(t.BorderFocused()).
-			BorderBackground(t.Background()).
-			Padding(1, 2).
-			Background(t.Background()).
-			Foreground(t.Text())
-
-		overlay := style.Render("Summarizing\n" + a.compactingMessage)
+		overlay := a.compactingSpinner.View()
 		row := lipgloss.Height(appView) / 2
 		row -= lipgloss.Height(overlay) / 2
 		col := lipgloss.Width(appView) / 2
@@ -984,9 +1024,13 @@ func (a appModel) View() string {
 
 	if a.showInitDialog {
 		overlay := a.initDialog.View()
+		row := lipgloss.Height(appView) / 2
+		row -= lipgloss.Height(overlay) / 2
+		col := lipgloss.Width(appView) / 2
+		col -= lipgloss.Width(overlay) / 2
 		appView = layout.PlaceOverlay(
-			a.width/2-lipgloss.Width(overlay)/2,
-			a.height/2-lipgloss.Height(overlay)/2,
+			col,
+			row,
 			overlay,
 			appView,
 			true,
@@ -1032,9 +1076,17 @@ func New(app *app.App) tea.Model {
 	// Build commands list before creating pages so chatPage can use it for slash completions
 	commands := buildCommands()
 
+	// Initialize layout engine for responsive dimensions
+	layoutEngine := layout.NewLayoutEngine()
+
+	// Initialize the modular renderer
+	renderer := layout.NewRenderer(layoutEngine)
+
 	model := &appModel{
 		currentPage:         startPage,
 		loadedPages:         make(map[page.PageID]bool),
+		layoutEngine:        layoutEngine,
+		renderer:            renderer,
 		status:              core.NewStatusCmp(app.LspService),
 		help:                dialog.NewHelpCmp(),
 		quit:                dialog.NewQuitCmp(),
@@ -1052,7 +1104,8 @@ func New(app *app.App) tea.Model {
 			page.LogsPage:   page.NewLogsPage(),
 			page.AgentsPage: page.NewAgentsPage(app.Registry),
 		},
-		filepicker: dialog.NewFilepickerCmp(app),
+		filepicker:        dialog.NewFilepickerCmp(app),
+		compactingSpinner: shared.NewSpinnerModel("Summarizing..."),
 	}
 
 	return model

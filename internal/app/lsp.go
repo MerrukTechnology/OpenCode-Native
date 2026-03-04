@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"maps"
 	"os"
 	"path/filepath"
@@ -12,12 +11,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/opencode-ai/opencode/internal/config"
-	"github.com/opencode-ai/opencode/internal/logging"
-	"github.com/opencode-ai/opencode/internal/lsp"
-	"github.com/opencode-ai/opencode/internal/lsp/install"
-	"github.com/opencode-ai/opencode/internal/lsp/protocol"
-	"github.com/opencode-ai/opencode/internal/lsp/watcher"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp/install"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp/protocol"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp/watcher"
 )
 
 type serverNameContextKey string
@@ -41,19 +40,19 @@ func NewLspService() lsp.LspService {
 	}
 }
 
-func (s *lspService) Init(ctx context.Context) {
+func (s *lspService) Init(ctx context.Context) error {
 	cfg := config.Get()
 	wg := sync.WaitGroup{}
 	for name, server := range install.ResolveServers(cfg) {
 		wg.Add(1)
-		go func() {
-			lspName := "LSP-" + name
+		go func(nm string, srv install.ResolvedServer) {
+			lspName := "LSP-" + nm
 			defer logging.RecoverPanic(lspName, func() {
-				logging.ErrorPersist(fmt.Sprintf("Panic while starting %s", lspName))
+				logging.ErrorPersist("Panic while starting " + lspName)
 			})
 			defer wg.Done()
-			s.startLSPServer(ctx, name, server)
-		}()
+			s.startLSPServer(ctx, nm, srv)
+		}(name, server)
 	}
 	go func() {
 		wg.Wait()
@@ -61,9 +60,17 @@ func (s *lspService) Init(ctx context.Context) {
 		close(s.clientsCh)
 	}()
 	logging.Info("LSP clients initialization started in background")
+
+	// Note: We intentionally do not return an error if an LSP server fails to start during initialization.
+	// This is because we want the app to be resilient to LSP startup failures and to allow the app to start
+	// even if some LSP servers fail to start. The LSP clients will continue to run in the background and
+	// will be restarted automatically if they crash, so we can afford to be lenient during initialization.
+	// TODO: handle this return value in the app startup logic to show a warning if some LSP servers failed to start.
+	// we need to return an error here if the initialization fails.
+	return nil
 }
 
-func (s *lspService) Shutdown(ctx context.Context) {
+func (s *lspService) Shutdown(ctx context.Context) error {
 	s.cancelMu.Lock()
 	for _, cancel := range s.watcherCancelFuncs {
 		cancel()
@@ -76,21 +83,36 @@ func (s *lspService) Shutdown(ctx context.Context) {
 	maps.Copy(clients, s.clients)
 	s.mu.RUnlock()
 
+	// Shutdown LSP clients concurrently for faster shutdown
+	// Each client gets 3 seconds to gracefully shutdown
 	var wg sync.WaitGroup
 	for name, client := range clients {
 		wg.Add(1)
-		go func() {
+		go func(nm string, c *lsp.Client) {
 			defer wg.Done()
 			shutdownCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
-			if err := client.Shutdown(shutdownCtx); err != nil {
-				logging.Error("Failed to shutdown LSP client", "name", name, "error", err)
+
+			// Try graceful shutdown first
+			if err := c.Shutdown(shutdownCtx); err != nil {
+				logging.Warn("LSP client graceful shutdown failed, forcing close", "client", nm, "error", err)
 			}
-			_ = client.Exit(shutdownCtx)
-			client.Close()
-		}()
+
+			// Send exit notification
+			if err := c.Exit(shutdownCtx); err != nil {
+				logging.Warn("Failed to send LSP exit notification", "client", nm, "error", err)
+			}
+
+			// Always close the client to clean up resources
+			if err := c.Close(); err != nil {
+				logging.Warn("Failed to close LSP client", "client", nm, "error", err)
+			}
+		}(name, client)
 	}
 	wg.Wait()
+
+	logging.Info("All LSP clients shutdown completed")
+	return nil
 }
 
 func (s *lspService) ForceShutdown() {
@@ -146,17 +168,21 @@ func (s *lspService) NotifyOpenFile(ctx context.Context, filePath string) {
 	}
 }
 
-func (s *lspService) WaitForDiagnostics(ctx context.Context, filePath string) {
+func (s *lspService) WaitForDiagnostics(ctx context.Context, filePath string) error {
 	clients := s.Clients()
 	if len(clients) == 0 {
-		return
+		// TODO: This is a temporary workaround to avoid waiting for diagnostics when no LSP clients are available.
+		// In the future, we should refactor this to only wait for diagnostics from relevant clients, and to not wait at all if there are no relevant clients.
+		logging.Debug("No LSP clients available to wait for diagnostics")
+		return nil
 	}
 
 	diagChan := make(chan struct{}, 1)
 
 	for _, client := range clients {
-		originalDiags := make(map[protocol.DocumentUri][]protocol.Diagnostic)
-		maps.Copy(originalDiags, client.GetDiagnostics())
+		newDiags := client.GetDiagnostics()
+		originalDiags := make(map[protocol.DocumentUri][]protocol.Diagnostic, len(newDiags))
+		maps.Copy(originalDiags, newDiags)
 
 		handler := func(params json.RawMessage) {
 			lsp.HandleDiagnostics(client, params)
@@ -187,6 +213,7 @@ func (s *lspService) WaitForDiagnostics(ctx context.Context, filePath string) {
 	case <-time.After(5 * time.Second):
 	case <-ctx.Done():
 	}
+	return ctx.Err()
 }
 
 func (s *lspService) FormatDiagnostics(filePath string) string {

@@ -1,29 +1,4 @@
-# Binaries for programs and plugins
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-
-# Test binary, built with `go test -c`
-*.test
-
-# Output of the go coverage tool, specifically when used with LiteIDE
-*.out
-
-# Dependency directories (remove the comment below to include it)
-# vendor/
-
-# Go workspace file
-go.work
-
-# IDE specific files
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# OS specific files
+# === OS generated files ===
 .DS_Store
 .DS_Store?
 ._*
@@ -32,25 +7,71 @@ go.work
 ehthumbs.db
 Thumbs.db
 *.log
+*.swp
+*.swo
+*~
 
-# Binary output directory
+# === Editor / IDE ===
+.idea/
+.vscode/
+.cursor/
+*.sublime-*
+.project
+.classpath
+
+# === Go build artifacts ===
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.o
+*.a
+
+# Output of the go coverage tool (common names)
+*.out
+coverage.txt
+coverage.html
+coverage.out
+
+# Test binaries
+*.test
+
+# Dependency directories (uncomment if you check in vendored code)
+# vendor/
+# Godeps/
+
+# Go workspace file
+go.work
+
+# === Build output directories ===
 /bin/
 /dist/
 /tmp/
+/build/
 
-# Local environment variables
+# === Environment files (secrets) ===
 .env
 .env.local
+.env.*.local
+*.env
 
+# === Custom tooling & project‑specific ===
+# AI assistants / tools
 .opencode/
-
 opencode
 .aider*
 opencode.md
-
-
-#Ignore cursor AI rules
 .cursor/rules/codacy.mdc
-
-#Ignore local codacy cli
 .codacy
+.vibecheck
+.vibecheckrc.json
+
+# === Temporary files and caches ===
+*.tmp
+*.temp
+*.cache
+.cache/
+*.pid
+*.pid.lock

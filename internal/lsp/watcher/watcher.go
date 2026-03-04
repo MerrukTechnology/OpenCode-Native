@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
@@ -21,6 +22,12 @@ import (
 type (
 	serverNameContextKey       string
 	workspaceWatcherContextKey string
+	// debounceEntry holds a timer and its cleanup state for a debounced event
+	debounceEntry struct {
+		timer   *time.Timer
+		running atomic.Bool
+		once    sync.Once
+	}
 )
 
 const (
@@ -34,7 +41,7 @@ type WorkspaceWatcher struct {
 	workspacePath string
 
 	debounceTime time.Duration
-	debounceMap  map[string]*time.Timer
+	debounceMap  sync.Map // map[string]*debounceEntry
 	debounceMu   sync.Mutex
 
 	// File watchers registered by the server
@@ -47,7 +54,7 @@ func NewWorkspaceWatcher(client *lsp.Client) *WorkspaceWatcher {
 	return &WorkspaceWatcher{
 		client:        client,
 		debounceTime:  300 * time.Millisecond,
-		debounceMap:   make(map[string]*time.Timer),
+		debounceMap:   sync.Map{},
 		registrations: []protocol.FileSystemWatcher{},
 	}
 }
@@ -632,27 +639,40 @@ func (w *WorkspaceWatcher) matchesPattern(path string, pattern protocol.GlobPatt
 
 // debounceHandleFileEvent handles file events with debouncing to reduce notifications
 func (w *WorkspaceWatcher) debounceHandleFileEvent(ctx context.Context, uri string, changeType protocol.FileChangeType) {
-	w.debounceMu.Lock()
-	defer w.debounceMu.Unlock()
-
 	// Create a unique key based on URI and change type
 	key := fmt.Sprintf("%s:%d", uri, changeType)
 
-	// Cancel existing timer if any
-	if timer, exists := w.debounceMap[key]; exists {
-		timer.Stop()
-		delete(w.debounceMap, key)
-	}
-
-	// Create new timer
-	w.debounceMap[key] = time.AfterFunc(w.debounceTime, func() {
-		w.handleFileEvent(ctx, uri, changeType)
-
-		// Cleanup timer after execution
-		w.debounceMu.Lock()
-		delete(w.debounceMap, key)
-		w.debounceMu.Unlock()
+	// Load or create the debounce entry
+	entryIface, loaded := w.debounceMap.LoadOrStore(key, &debounceEntry{
+		timer: time.NewTimer(w.debounceTime),
 	})
+	entry := entryIface.(*debounceEntry)
+
+	if loaded {
+		// Stop existing timer and reset it
+		if !entry.timer.Stop() {
+			// Timer already fired, wait for it to complete if still running
+			// Use atomic to check and wait for the running callback to finish
+			for entry.running.Load() {
+				time.Sleep(time.Millisecond)
+			}
+		}
+		// Reset the timer for the new debounce period
+		entry.timer.Reset(w.debounceTime)
+	} else {
+		// Start goroutine to handle timer expiration for new entries
+		go func() {
+			<-entry.timer.C
+			// Mark as running before executing
+			entry.running.Store(true)
+			w.handleFileEvent(ctx, uri, changeType)
+			// Cleanup using Once to ensure it happens only once
+			entry.once.Do(func() {
+				w.debounceMap.Delete(key)
+				entry.running.Store(false)
+			})
+		}()
+	}
 }
 
 // handleFileEvent sends file change notifications
@@ -881,7 +901,7 @@ func (w *WorkspaceWatcher) openMatchingFile(ctx context.Context, path string) {
 			ext := strings.ToLower(filepath.Ext(path))
 
 			// Only preload source files for the specific language
-			shouldOpen := false
+			var shouldOpen bool
 
 			switch serverName {
 			case "typescript", "typescript-language-server", "tsserver", "vtsls":

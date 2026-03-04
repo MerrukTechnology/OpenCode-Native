@@ -1,0 +1,23 @@
+{
+    "go.lintTool": "golangci-lint",
+    "go.lintFlags": [
+        "--fast"
+    ],
+    "go.formatTool": "default",
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": "explicit"
+    },
+    // This tells the editor to use your specific linter config
+    "go.lintOnSave": "package",
+    "go.coverOnSave": true,
+    "go.useLanguageServer": true,
+    "go.autocompleteUnimportedPackages": true,
+    "emeraldwalk.runonsave": {
+        "commands": [
+            {
+                "match": "\\.go$",
+                "cmd": "golangci-lint run --fix ${file}"
+            }
+        ]
+    }
+}

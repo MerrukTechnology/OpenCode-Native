@@ -1,0 +1,18 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "OpenCode",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/main.go",
+      "console": "externalTerminal",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PORT": "3000",
+        "DEBUG": "true"
+      }
+    }
+  ]
+}

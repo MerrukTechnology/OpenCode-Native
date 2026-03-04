@@ -4,6 +4,59 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// BorderStyle holds normal, focused, and dim border styles.
+type BorderStyle struct {
+	Normal  lipgloss.Border
+	Focused lipgloss.Border
+	Dim     lipgloss.Border
+}
+
+// DiffStyles holds all styles for diff rendering.
+type DiffStyles struct {
+	HunkHeader      lipgloss.Style
+	AddLineNumber   lipgloss.Style
+	AddIndicator    lipgloss.Style
+	Addition        lipgloss.Style
+	Deletion        lipgloss.Style
+	DelLineNumber   lipgloss.Style
+	DelIndicator    lipgloss.Style
+	LineNumberStyle lipgloss.Style
+	ContextStyle    lipgloss.Style
+}
+
+// Colors holds common UI colors used throughout the app.
+type Colors struct {
+	BorderFocus lipgloss.AdaptiveColor
+	BorderDim   lipgloss.AdaptiveColor
+	AccentGreen lipgloss.AdaptiveColor
+	AccentRed   lipgloss.AdaptiveColor
+	BgSurface   lipgloss.AdaptiveColor
+	TextMain    lipgloss.AdaptiveColor
+}
+
+// ChatStyles holds styles for chat bubbles.
+type ChatStyles struct {
+	User      lipgloss.Style
+	Assistant lipgloss.Style
+	Role      lipgloss.Style
+}
+
+// These are built from the current theme and used by layout components.
+type Styles struct {
+	TopBar    lipgloss.Style
+	BottomBar lipgloss.Style
+	Sidebar   lipgloss.Style
+	Content   lipgloss.Style
+}
+
+// CurrentStyles holds the current theme's styles.
+var CurrentStyles = Styles{
+	TopBar:    lipgloss.NewStyle(),
+	BottomBar: lipgloss.NewStyle(),
+	Sidebar:   lipgloss.NewStyle(),
+	Content:   lipgloss.NewStyle(),
+}
+
 // Theme defines the interface for all UI themes in the application.
 // All colors must be defined as lipgloss.AdaptiveColor to support
 // both light and dark terminal backgrounds.
@@ -33,6 +86,21 @@ type Theme interface {
 	BorderNormal() lipgloss.AdaptiveColor
 	BorderFocused() lipgloss.AdaptiveColor
 	BorderDim() lipgloss.AdaptiveColor
+
+	// Border style (for modal and other components)
+	GetBorderStyle() BorderStyle
+
+	// Diff styles for diff rendering
+	Diff() DiffStyles
+
+	// Common colors used in UI components
+	Colors() Colors
+
+	// Chat bubble styles
+	Chat() ChatStyles
+
+	// Syntax theme for highlighting
+	GetSyntaxTheme() string
 
 	// Diff view colors
 	DiffAdded() lipgloss.AdaptiveColor
@@ -105,6 +173,21 @@ type BaseTheme struct {
 	BorderFocusedColor lipgloss.AdaptiveColor
 	BorderDimColor     lipgloss.AdaptiveColor
 
+	// Border style
+	BorderStyleValue BorderStyle
+
+	// Diff styles
+	DiffStylesValue DiffStyles
+
+	// Colors
+	ColorsValue Colors
+
+	// Chat styles
+	ChatStylesValue ChatStyles
+
+	// Syntax theme name
+	SyntaxThemeName string
+
 	// Diff view colors
 	DiffAddedColor               lipgloss.AdaptiveColor
 	DiffRemovedColor             lipgloss.AdaptiveColor
@@ -169,6 +252,26 @@ func (t *BaseTheme) BackgroundDarker() lipgloss.AdaptiveColor    { return t.Back
 func (t *BaseTheme) BorderNormal() lipgloss.AdaptiveColor  { return t.BorderNormalColor }
 func (t *BaseTheme) BorderFocused() lipgloss.AdaptiveColor { return t.BorderFocusedColor }
 func (t *BaseTheme) BorderDim() lipgloss.AdaptiveColor     { return t.BorderDimColor }
+
+func (t *BaseTheme) GetBorderStyle() BorderStyle {
+	return t.BorderStyleValue
+}
+
+func (t *BaseTheme) GetSyntaxTheme() string {
+	return t.SyntaxThemeName
+}
+
+func (t *BaseTheme) Diff() DiffStyles {
+	return t.DiffStylesValue
+}
+
+func (t *BaseTheme) Colors() Colors {
+	return t.ColorsValue
+}
+
+func (t *BaseTheme) Chat() ChatStyles {
+	return t.ChatStylesValue
+}
 
 func (t *BaseTheme) DiffAdded() lipgloss.AdaptiveColor            { return t.DiffAddedColor }
 func (t *BaseTheme) DiffRemoved() lipgloss.AdaptiveColor          { return t.DiffRemovedColor }

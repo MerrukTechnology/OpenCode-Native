@@ -11,6 +11,7 @@ import (
 	"github.com/MerrukTechnology/OpenCode-Native/internal/lsp/install"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/message"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/session"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/components/shared"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/styles"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/theme"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/version"
@@ -113,7 +114,7 @@ func lspsConfigured(width int) string {
 
 // logo generates the logo string for the chat page.
 func logo(width int) string {
-	logo := fmt.Sprintf("%s %s", styles.OpenCodeIcon, "OpenCode")
+	logo := fmt.Sprintf("%s %s", shared.IconOpenCode, "OpenCode")
 	t := theme.CurrentTheme()
 	baseStyle := styles.BaseStyle()
 

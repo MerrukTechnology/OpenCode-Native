@@ -43,7 +43,7 @@ type chatPage struct {
 // ChatKeyMap defines keyboard shortcuts for the chat page.
 type ChatKeyMap struct {
 	ShowCompletionDialog        key.Binding // Show completion dialog (@)
-	ShowCommandCompletionDialog key.Binding
+	ShowCommandCompletionDialog key.Binding // Show command completion dialog (/)
 	NewSession                  key.Binding // Create new session (ctrl+n)
 	Cancel                      key.Binding // Cancel current operation (esc)
 }

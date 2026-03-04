@@ -14,6 +14,7 @@ import (
 	"github.com/MerrukTechnology/OpenCode-Native/internal/pubsub"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/session"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/components/chat"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/components/shared"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/styles"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/theme"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/util"
@@ -87,7 +88,7 @@ var (
 // getHelpWidget returns the help widget with current theme colors
 func getHelpWidget() string {
 	t := theme.CurrentTheme()
-	helpText := "ctrl+h help"
+	helpText := "Ctrl+H: help"
 
 	return styles.Padded().
 		Background(t.TextMuted()).
@@ -108,7 +109,7 @@ func getAgentHintWidget() string {
 		Background(t.TextMuted()).
 		Foreground(t.BackgroundDarker()).
 		Bold(true).
-		Render("tab agents")
+		Render("Tab: agents")
 }
 
 func formatTokensAndCost(tokens, contextWindow int64, cost float64) string {
@@ -244,7 +245,7 @@ func (m *statusCmp) projectDiagnostics() string {
 		return lipgloss.NewStyle().
 			Background(t.BackgroundDarker()).
 			Foreground(t.Warning()).
-			Render(styles.SpinnerIcon + " Initializing LSP...")
+			Render(styles.SpinnerIcon + " LSP initializing...")
 	}
 
 	errorDiagnostics := []protocol.Diagnostic{}
@@ -269,7 +270,12 @@ func (m *statusCmp) projectDiagnostics() string {
 	}
 
 	if len(errorDiagnostics) == 0 && len(warnDiagnostics) == 0 && len(hintDiagnostics) == 0 && len(infoDiagnostics) == 0 {
-		return "No diagnostics"
+		// Show connected status with a subtle indicator
+		connectedStr := lipgloss.NewStyle().
+			Background(t.BackgroundDarker()).
+			Foreground(t.Success()).
+			Render("✓ Ready")
+		return connectedStr
 	}
 
 	diagnostics := []string{}
@@ -278,21 +284,21 @@ func (m *statusCmp) projectDiagnostics() string {
 		errStr := lipgloss.NewStyle().
 			Background(t.BackgroundDarker()).
 			Foreground(t.Error()).
-			Render(fmt.Sprintf("%s %d", styles.ErrorIcon, len(errorDiagnostics)))
+			Render(fmt.Sprintf("%s %d", shared.GetIcon("error"), len(errorDiagnostics)))
 		diagnostics = append(diagnostics, errStr)
 	}
 	if len(warnDiagnostics) > 0 {
 		warnStr := lipgloss.NewStyle().
 			Background(t.BackgroundDarker()).
 			Foreground(t.Warning()).
-			Render(fmt.Sprintf("%s %d", styles.WarningIcon, len(warnDiagnostics)))
+			Render(fmt.Sprintf("%s %d", shared.GetIcon("warning"), len(warnDiagnostics)))
 		diagnostics = append(diagnostics, warnStr)
 	}
 	if len(hintDiagnostics) > 0 {
 		hintStr := lipgloss.NewStyle().
 			Background(t.BackgroundDarker()).
-			Foreground(t.Text()).
-			Render(fmt.Sprintf("%s %d", styles.HintIcon, len(hintDiagnostics)))
+			Foreground(t.TextMuted()).
+			Render(fmt.Sprintf("%s %d", shared.GetIcon("info"), len(hintDiagnostics)))
 		diagnostics = append(diagnostics, hintStr)
 	}
 	if len(infoDiagnostics) > 0 {
