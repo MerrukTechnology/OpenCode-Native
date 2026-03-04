@@ -631,13 +631,13 @@ func setDefaultModelForAgent(agent AgentName) bool {
 		// 10. KiloCode
 		{
 			EnvKey:          "KILO_API_KEY",
-			CoderModel:      models.KiloCodeAuto,
-			SummarizerModel: models.KiloCodeAuto,
-			ExplorerModel:   models.KiloCodeAuto,
-			DescriptorModel: models.KiloCodeAuto,
-			WorkhorseModel:  models.KiloCodeAuto,
-			HivemindModel:   models.KiloCodeAuto,
-			FallbackModel:   models.KiloCodeAuto,
+			CoderModel:      models.KiloCodeMiniMaxM2_5Free,
+			SummarizerModel: models.KiloCodeQwen3_235BThinking,
+			ExplorerModel:   models.KiloCodeArceeTrinityLargePreviewFree,
+			DescriptorModel: models.KiloCodeOpenAIGPTOSS_120BFree,
+			WorkhorseModel:  models.KiloCodeZaiGLM5Free,
+			HivemindModel:   models.KiloCodeArceeTrinityLargePreviewFree,
+			FallbackModel:   models.KiloCodeMiniMaxM2_5Free,
 		},
 		// 11. Mistral
 		{

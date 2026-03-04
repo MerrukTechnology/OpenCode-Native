@@ -13,7 +13,7 @@ func TestModelID_String(t *testing.T) {
 		{
 			name:     "KiloCode Auto model ID",
 			modelID:  KiloCodeMiniMaxM2_5Free,
-			expected: "kilo.auto",
+			expected: "kilo.minimax-m2.5-free",
 		},
 		{
 			name:     "Mistral GPT-4o model ID",
@@ -128,9 +128,9 @@ func TestModelDefinitions(t *testing.T) {
 		{
 			name:         "KiloCode Auto model",
 			modelMap:     KiloCodeModels,
-			modelID:      KiloCodeAuto,
-			wantName:     "KiloCode Auto",
-			wantAPI:      "kilo/auto",
+			modelID:      KiloCodeMiniMaxM2_5Free,
+			wantName:     "MiniMax M2.5 (free)",
+			wantAPI:      "kilo.minimax-m2.5-free",
 			wantCtx:      128000,
 			wantMaxTok:   16384,
 			wantProvider: ProviderKiloCode,
@@ -166,7 +166,7 @@ func TestSupportedModels_Contains(t *testing.T) {
 	}{
 		{
 			name:         "KiloCodeAuto",
-			modelID:      KiloCodeAuto,
+			modelID:      KiloCodeMiniMaxM2_5Free,
 			wantProvider: ProviderKiloCode,
 		},
 		{
@@ -233,7 +233,7 @@ func TestProviderPopularity(t *testing.T) {
 
 func TestModel_StructFields(t *testing.T) {
 	model := Model{
-		ID:                       KiloCodeAuto,
+		ID:                       KiloCodeMiniMaxM2_5Free,
 		Name:                     "Test Model",
 		Provider:                 ProviderKiloCode,
 		APIModel:                 "test/api",
@@ -249,8 +249,8 @@ func TestModel_StructFields(t *testing.T) {
 		SupportsAttachments:      true,
 	}
 
-	if model.ID != KiloCodeAuto {
-		t.Errorf("ID = %q, want %q", model.ID, KiloCodeAuto)
+	if model.ID != KiloCodeMiniMaxM2_5Free {
+		t.Errorf("ID = %q, want %q", model.ID, KiloCodeMiniMaxM2_5Free)
 	}
 	if model.Name != "Test Model" {
 		t.Errorf("Name = %q, want %q", model.Name, "Test Model")
@@ -296,7 +296,7 @@ func TestModel_StructFields(t *testing.T) {
 func TestModel_JSONTags(t *testing.T) {
 	// Test that JSON tags are correctly set
 	model := Model{
-		ID:                       KiloCodeAuto,
+		ID:                       KiloCodeMiniMaxM2_5Free,
 		Name:                     "Test",
 		Provider:                 ProviderKiloCode,
 		APIModel:                 "test",
@@ -314,7 +314,7 @@ func TestModel_JSONTags(t *testing.T) {
 
 	// Verify the model can be serialized (basic check)
 	// This ensures JSON tags are valid
-	if model.ID != KiloCodeAuto {
+	if model.ID != KiloCodeMiniMaxM2_5Free {
 		t.Error("Model ID should match")
 	}
 }
