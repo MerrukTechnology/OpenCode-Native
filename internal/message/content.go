@@ -84,6 +84,7 @@ func (BinaryContent) isPart() {}
 
 type ToolCall struct {
 	ID               string `json:"id"`
+	Index            int    `json:"index"`
 	Name             string `json:"name"`
 	Input            string `json:"input"`
 	Type             string `json:"type"`

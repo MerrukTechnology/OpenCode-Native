@@ -90,8 +90,8 @@ func TestGetProviderAPIKey(t *testing.T) {
 			wantValue: "test-groq-key",
 		},
 		{
-			name:      "KiloCode API key from environment",
-			provider:  models.ProviderKiloCode,
+			name:      "Kilo API key from environment",
+			provider:  models.ProviderKilo,
 			envKey:    "KILO_API_KEY",
 			envValue:  "test-kilo-key",
 			wantValue: "test-kilo-key",

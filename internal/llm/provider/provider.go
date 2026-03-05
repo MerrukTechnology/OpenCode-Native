@@ -13,7 +13,7 @@ package provider
 //   - Groq: Fast inference via GroqCloud
 //   - xAI: Grok models via xAI API
 //   - Mistral: Mistral models via Mistral API
-//   - KiloCode: KiloCode's API gateway
+//   - Kilo: Kilo's API gateway
 //   - Local: Self-hosted OpenAI-compatible endpoints
 //
 // The package uses a generic baseProvider[C ProviderClient] pattern to share common
@@ -98,6 +98,7 @@ type TokenUsage struct {
 	OutputTokens        int64
 	CacheCreationTokens int64
 	CacheReadTokens     int64
+	TotalTokens         int64
 }
 
 // ProviderResponse represents a complete response from a provider.
@@ -152,6 +153,7 @@ type providerClientOptions struct {
 	geminiOptions    []GeminiOption
 	bedrockOptions   []BedrockOption
 	deepSeekOptions  []DeepSeekOption
+	kiloOptions      []KiloOption
 }
 
 func (opts *providerClientOptions) asHeader() *http.Header {
@@ -260,17 +262,16 @@ func NewProvider(providerName models.ModelProvider, opts ...ProviderClientOption
 			client:  newOpenAIClient(clientOptions),
 			name:    providerName,
 		}, nil
-	case models.ProviderKiloCode:
-		clientOptions.openaiOptions = append(clientOptions.openaiOptions,
-			WithOpenAIBaseURL("https://api.kilo.ai/api/gateway"),
-			WithOpenAIExtraHeaders(map[string]string{
-				"HTTP-Referer": "opencode.ai",
-				"X-Title":      "opencode",
-			}),
-		)
-		return &baseProvider[OpenAIClient]{
+	case models.ProviderKilo:
+		return &baseProvider[KiloClient]{
 			options: clientOptions,
-			client:  newOpenAIClient(clientOptions),
+			client:  newKiloClient(clientOptions),
+			name:    providerName,
+		}, nil
+	case models.ProviderDeepSeek:
+		return &baseProvider[DeepSeekClient]{
+			options: clientOptions,
+			client:  newDeepSeekClient(clientOptions),
 			name:    providerName,
 		}, nil
 	case models.ProviderLocal:
@@ -280,12 +281,6 @@ func NewProvider(providerName models.ModelProvider, opts ...ProviderClientOption
 		return &baseProvider[OpenAIClient]{
 			options: clientOptions,
 			client:  newOpenAIClient(clientOptions),
-			name:    providerName,
-		}, nil
-	case models.ProviderDeepSeek:
-		return &baseProvider[DeepSeekClient]{
-			options: clientOptions,
-			client:  newDeepSeekClient(clientOptions),
 			name:    providerName,
 		}, nil
 	case models.ProviderMock:
@@ -594,5 +589,12 @@ func WithBedrockOptions(bedrockOptions ...BedrockOption) ProviderClientOption {
 func WithDeepSeekOptions(deepSeekOptions ...DeepSeekOption) ProviderClientOption {
 	return func(options *providerClientOptions) {
 		options.deepSeekOptions = deepSeekOptions
+	}
+}
+
+// WithKiloOptions sets Kilo-specific options.
+func WithKiloOptions(kiloOptions ...KiloOption) ProviderClientOption {
+	return func(options *providerClientOptions) {
+		options.kiloOptions = kiloOptions
 	}
 }

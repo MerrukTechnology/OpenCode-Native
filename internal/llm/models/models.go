@@ -39,7 +39,7 @@ var ProviderPopularity = map[ModelProvider]int{
 	ProviderGemini:     4,
 	ProviderGroq:       5,
 	ProviderXAI:        6,
-	ProviderKiloCode:   7,
+	ProviderKilo:       7,
 	ProviderMistral:    8,
 	ProviderOpenRouter: 9,
 	ProviderDeepSeek:   10,

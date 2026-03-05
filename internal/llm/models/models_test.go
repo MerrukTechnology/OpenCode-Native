@@ -11,8 +11,8 @@ func TestModelID_String(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "KiloCode Auto model ID",
-			modelID:  KiloCodeMiniMaxM2_5Free,
+			name:     "Kilo Auto model ID",
+			modelID:  KiloMiniMaxM2_5Free,
 			expected: "kilo.minimax-m2.5-free",
 		},
 		{
@@ -43,9 +43,9 @@ func TestModelProvider_String(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "KiloCode provider",
-			provider: ProviderKiloCode,
-			expected: "kilocode",
+			name:     "Kilo provider",
+			provider: ProviderKilo,
+			expected: "kilo",
 		},
 		{
 			name:     "Mistral provider",
@@ -126,14 +126,14 @@ func TestModelDefinitions(t *testing.T) {
 		wantProvider ModelProvider
 	}{
 		{
-			name:         "KiloCode Auto model",
-			modelMap:     KiloCodeModels,
-			modelID:      KiloCodeMiniMaxM2_5Free,
+			name:         "Kilo Auto model",
+			modelMap:     KiloModels,
+			modelID:      KiloMiniMaxM2_5Free,
 			wantName:     "MiniMax M2.5 (free)",
-			wantAPI:      "kilo.minimax-m2.5-free",
-			wantCtx:      128000,
-			wantMaxTok:   16384,
-			wantProvider: ProviderKiloCode,
+			wantAPI:      "minimax/minimax-m2.5:free",
+			wantCtx:      204800,
+			wantMaxTok:   131072,
+			wantProvider: ProviderKilo,
 		},
 		{
 			name:         "Mistral GPT-4o model",
@@ -165,9 +165,9 @@ func TestSupportedModels_Contains(t *testing.T) {
 		wantProvider ModelProvider
 	}{
 		{
-			name:         "KiloCodeAuto",
-			modelID:      KiloCodeMiniMaxM2_5Free,
-			wantProvider: ProviderKiloCode,
+			name:         "KiloAuto",
+			modelID:      KiloMiniMaxM2_5Free,
+			wantProvider: ProviderKilo,
 		},
 		{
 			name:         "MistralGPT4O",
@@ -203,7 +203,7 @@ func TestProviderPopularity(t *testing.T) {
 		{"Gemini popularity", ProviderGemini, 4, true},
 		{"Groq popularity", ProviderGroq, 5, true},
 		{"XAI popularity", ProviderXAI, 6, true},
-		{"KiloCode popularity", ProviderKiloCode, 7, true},
+		{"Kilo popularity", ProviderKilo, 7, true},
 		{"Mistral popularity", ProviderMistral, 8, true},
 		{"OpenRouter popularity", ProviderOpenRouter, 9, true},
 		{"DeepSeek popularity", ProviderDeepSeek, 10, true},
@@ -233,9 +233,9 @@ func TestProviderPopularity(t *testing.T) {
 
 func TestModel_StructFields(t *testing.T) {
 	model := Model{
-		ID:                       KiloCodeMiniMaxM2_5Free,
+		ID:                       KiloMiniMaxM2_5Free,
 		Name:                     "Test Model",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "test/api",
 		CostPer1MIn:              0.20,
 		CostPer1MOut:             0.50,
@@ -249,14 +249,14 @@ func TestModel_StructFields(t *testing.T) {
 		SupportsAttachments:      true,
 	}
 
-	if model.ID != KiloCodeMiniMaxM2_5Free {
-		t.Errorf("ID = %q, want %q", model.ID, KiloCodeMiniMaxM2_5Free)
+	if model.ID != KiloMiniMaxM2_5Free {
+		t.Errorf("ID = %q, want %q", model.ID, KiloMiniMaxM2_5Free)
 	}
 	if model.Name != "Test Model" {
 		t.Errorf("Name = %q, want %q", model.Name, "Test Model")
 	}
-	if model.Provider != ProviderKiloCode {
-		t.Errorf("Provider = %q, want %q", model.Provider, ProviderKiloCode)
+	if model.Provider != ProviderKilo {
+		t.Errorf("Provider = %q, want %q", model.Provider, ProviderKilo)
 	}
 	if model.APIModel != "test/api" {
 		t.Errorf("APIModel = %q, want %q", model.APIModel, "test/api")
@@ -296,9 +296,9 @@ func TestModel_StructFields(t *testing.T) {
 func TestModel_JSONTags(t *testing.T) {
 	// Test that JSON tags are correctly set
 	model := Model{
-		ID:                       KiloCodeMiniMaxM2_5Free,
+		ID:                       KiloMiniMaxM2_5Free,
 		Name:                     "Test",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "test",
 		CostPer1MIn:              1.0,
 		CostPer1MOut:             2.0,
@@ -314,7 +314,7 @@ func TestModel_JSONTags(t *testing.T) {
 
 	// Verify the model can be serialized (basic check)
 	// This ensures JSON tags are valid
-	if model.ID != KiloCodeMiniMaxM2_5Free {
+	if model.ID != KiloMiniMaxM2_5Free {
 		t.Error("Model ID should match")
 	}
 }

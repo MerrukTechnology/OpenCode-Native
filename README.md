@@ -16,7 +16,7 @@ Designed for developers who prefer command-line workflows, OpenCode offers deep 
 - **Non-interactive mode** for headless automation and autonomous agents
 - **Flows**: deterministic multi-step agent workflows defined in YAML ([guide](docs/flows.md))
 - **Subagents**: highly customizable agents calling another agents to do work [[#Agents]]
-- **Multiple AI providers**: Anthropic, OpenAI, Google Gemini, AWS Bedrock, VertexAI, KiloCode, Mistral, and self-hosted
+- **Multiple AI providers**: Anthropic, OpenAI, Google Gemini, AWS Bedrock, VertexAI, Kilo, Mistral, and self-hosted
 - **Tool integration**: file operations, shell commands, code search, LSP code intelligence
 - **Structured output**: enforce final agent's output with json schema, perfect for automated pipelines
 - **MCP support**: extend capabilities via Model Context Protocol servers
@@ -349,7 +349,7 @@ export LOCAL_ENDPOINT_API_KEY=secret
 | `AWS_ACCESS_KEY_ID` | AWS Bedrock |
 | `AWS_SECRET_ACCESS_KEY` | AWS Bedrock |
 | `AWS_REGION` | AWS Bedrock |
-| `KILO_API_KEY` | KiloCode models |
+| `KILO_API_KEY` | Kilo models |
 | `MISTRAL_API_KEY` | Mistral models |
 | `LOCAL_ENDPOINT` | Self-hosted model endpoint |
 | `LOCAL_ENDPOINT_API_KEY` | Self-hosted model API key |
@@ -413,7 +413,7 @@ OpenCode supports a wide range of LLM providers and models:
 | **Google Gemini** | Gemini 3.0 Pro, Gemini 3.0 Flash, Gemini 2.0 Flash |
 | **AWS Bedrock** | Claude 4.5 Sonnet (via Bedrock) |
 | **VertexAI** | Claude 4.6 Sonnet (1M), Claude 4.6 Opus (1M), Gemini 3.0 Pro, Gemini 3.0 Flash |
-| **KiloCode** | KiloCode Auto |
+| **Kilo** | Kilo Auto |
 | **Mistral** | Mistral models |
 | **Groq** | Groq-hosted models |
 | **DeepSeek** | DeepSeek chat models |

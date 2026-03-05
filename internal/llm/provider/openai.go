@@ -1,15 +1,13 @@
 package provider
 
 // OpenAI provider implementation using the OpenAI SDK.
-// Supports OpenAI, Groq, xAI, OpenRouter, Mistral, KiloCode, and Local models through OpenAI-compatible APIs.
+// Supports OpenAI, Groq, xAI, OpenRouter, Mistral, Kilo, and Local models through OpenAI-compatible APIs.
 import (
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
@@ -289,6 +287,7 @@ func (o *openaiClient) send(ctx context.Context, messages []message.Message, too
 
 func (o *openaiClient) stream(ctx context.Context, messages []message.Message, tools []tools.BaseTool) <-chan ProviderEvent {
 	params := o.preparedParams(o.convertMessages(messages), o.convertTools(tools))
+	// Ensure usage is requested for streaming
 	params.StreamOptions = openai.ChatCompletionStreamOptionsParam{
 		IncludeUsage: openai.Bool(true),
 	}
@@ -303,87 +302,76 @@ func (o *openaiClient) stream(ctx context.Context, messages []message.Message, t
 		}
 	}
 
-	attempts := 0
 	eventChan := make(chan ProviderEvent)
 
 	go func() {
+		defer close(eventChan)
+		attempts := 0
+
 		for {
 			attempts++
-			openaiStream := o.client.Chat.Completions.NewStreaming(
-				ctx,
-				params,
-			)
+			openaiStream := o.client.Chat.Completions.NewStreaming(ctx, params)
 
+			// Use SDK Accumulator for easy final object creation
 			acc := openai.ChatCompletionAccumulator{}
-			currentContent := ""
-			toolCalls := make([]message.ToolCall, 0)
 
-			var currentContentSb293 strings.Builder
 			for openaiStream.Next() {
 				chunk := openaiStream.Current()
-				acc.AddChunk(chunk)
+				acc.AddChunk(chunk) // Automatically merges content and tool args
 
-				var currentContentSb295 strings.Builder
 				for _, choice := range chunk.Choices {
+					// Send content deltas to the UI/Caller immediately
 					if choice.Delta.Content != "" {
 						eventChan <- ProviderEvent{
 							Type:    EventContentDelta,
 							Content: choice.Delta.Content,
 						}
-						currentContentSb295.WriteString(choice.Delta.Content)
 					}
 				}
-				currentContentSb293.WriteString(currentContentSb295.String())
 			}
-			currentContent += currentContentSb293.String()
 
-			err := openaiStream.Err()
-			if err == nil || errors.Is(err, io.EOF) {
-				// Stream completed successfully
-				finishReason := o.finishReason(string(acc.ChatCompletion.Choices[0].FinishReason))
-				if len(acc.Choices[0].Message.ToolCalls) > 0 {
-					toolCalls = append(toolCalls, o.toolCalls(acc.ChatCompletion)...)
+			if err := openaiStream.Err(); err != nil {
+				// Retry Logic
+				retry, after, retryErr := o.shouldRetry(attempts, err)
+				if retryErr != nil {
+					eventChan <- ProviderEvent{Type: EventError, Error: retryErr}
+					return
 				}
-				if len(toolCalls) > 0 {
+				if retry {
+					logging.WarnPersist(fmt.Sprintf("Retrying due to rate limit... attempt %d of %d", attempts, maxRetries), logging.PersistTimeArg, time.Millisecond*time.Duration(after+100))
+					select {
+					case <-ctx.Done():
+						eventChan <- ProviderEvent{Type: EventError, Error: ctx.Err()}
+						return
+					case <-time.After(time.Duration(after) * time.Millisecond):
+						continue
+					}
+				}
+				eventChan <- ProviderEvent{Type: EventError, Error: err}
+				return
+			}
+
+			// Stream Finished Successfully
+			// Construct final response from the accumulator
+			if len(acc.Choices) > 0 {
+				finishReason := o.finishReason(string(acc.Choices[0].FinishReason))
+
+				// Helper: Check if tool calls exist in the accumulated message
+				finalToolCalls := o.toolCalls(acc.ChatCompletion)
+				if len(finalToolCalls) > 0 {
 					finishReason = message.FinishReasonToolUse
 				}
 
 				eventChan <- ProviderEvent{
 					Type: EventComplete,
 					Response: &ProviderResponse{
-						Content:      currentContent,
-						ToolCalls:    toolCalls,
+						Content:      acc.Choices[0].Message.Content,
+						ToolCalls:    finalToolCalls,
 						Usage:        o.usage(acc.ChatCompletion),
 						FinishReason: finishReason,
 					},
 				}
-				close(eventChan)
-				return
 			}
-
-			// If there is an error we are going to see if we can retry the call
-			retry, after, retryErr := o.shouldRetry(attempts, err)
-			if retryErr != nil {
-				eventChan <- ProviderEvent{Type: EventError, Error: retryErr}
-				close(eventChan)
-				return
-			}
-			if retry {
-				logging.WarnPersist(fmt.Sprintf("Retrying due to rate limit... attempt %d of %d", attempts, maxRetries), logging.PersistTimeArg, time.Millisecond*time.Duration(after+100))
-				select {
-				case <-ctx.Done():
-					// context cancelled
-					if ctx.Err() != nil {
-						eventChan <- ProviderEvent{Type: EventError, Error: ctx.Err()}
-					}
-					close(eventChan)
-					return
-				case <-time.After(time.Duration(after) * time.Millisecond):
-					continue
-				}
-			}
-			eventChan <- ProviderEvent{Type: EventError, Error: retryErr}
-			close(eventChan)
 			return
 		}
 	}()

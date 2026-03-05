@@ -358,7 +358,7 @@ func getAllproviderIDs() []models.ModelProvider {
 		models.ProviderGemini,
 		models.ProviderGroq,
 		models.ProviderXAI,
-		models.ProviderKiloCode,
+		models.ProviderKilo,
 		models.ProviderMistral,
 		models.ProviderOpenRouter,
 		models.ProviderDeepSeek,

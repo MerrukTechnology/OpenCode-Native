@@ -1,4 +1,4 @@
-# KiloCode and Mistral Provider Support
+# Kilo and Mistral Provider Support
 
 **Date:** 2026-02-21
 **Status:** Implemented
@@ -6,21 +6,21 @@
 
 ## Overview
 
-This specification documents the addition of KiloCode and Mistral as supported LLM providers in OpenCode. Both providers are configured via environment variables and are automatically detected when their respective API keys are present.
+This specification documents the addition of Kilo and Mistral as supported LLM providers in OpenCode. Both providers are configured via environment variables and are automatically detected when their respective API keys are present.
 
 ## Motivation
 
-Users requested support for additional LLM providers to expand the range of available models. KiloCode offers an auto model that intelligently routes to the best available model, while Mistral provides access to GPT-4o through their API.
+Users requested support for additional LLM providers to expand the range of available models. Kilo offers an auto model that intelligently routes to the best available model, while Mistral provides access to GPT-4o through their API.
 
 ## Implementation
 
 ### Provider Constants
 
 ```go
-// internal/llm/models/kilocode.go
+// internal/llm/models/kilo.go
 const (
-    ProviderKiloCode ModelProvider = "kilocode"
-    KiloCodeAuto     ModelID       = "kilo.auto"
+    ProviderKilo ModelProvider = "kilo"
+    KiloAuto     ModelID       = "kilo.auto"
 )
 
 // internal/llm/models/mistral.go
@@ -32,13 +32,13 @@ const (
 
 ### Model Definitions
 
-#### KiloCode Auto
+#### Kilo Auto
 
 | Property | Value |
 |----------|-------|
 | ID | `kilo.auto` |
-| Name | KiloCode Auto |
-| Provider | `kilocode` |
+| Name | Kilo Auto |
+| Provider | `kilo` |
 | API Model | `kilo/auto` |
 | Context Window | 128,000 tokens |
 | Default Max Tokens | 16,384 |
@@ -62,7 +62,7 @@ const (
 
 | Variable | Provider | Description |
 |----------|----------|-------------|
-| `KILO_API_KEY` | KiloCode | API key for KiloCode models |
+| `KILO_API_KEY` | Kilo | API key for Kilo models |
 | `MISTRAL_API_KEY` | Mistral | API key for Mistral models |
 
 ### Provider Detection
@@ -84,7 +84,7 @@ var ProviderPopularity = map[ModelProvider]int{
     ProviderGemini:     4,
     ProviderGroq:       5,
     ProviderXAI:        6,
-    ProviderKiloCode:   7,
+    ProviderKilo:   7,
     ProviderMistral:    8,
     ProviderOpenRouter: 9,
     ProviderDeepSeek:   10,
@@ -102,7 +102,7 @@ Add to `.opencode.json`:
 ```json
 {
   "providers": {
-    "kilocode": {
+    "kilo": {
       "apiKey": "your-kilo-api-key"
     },
     "mistral": {
@@ -120,7 +120,7 @@ Add to `.opencode.json`:
 ### Environment Variables
 
 ```bash
-# KiloCode
+# Kilo
 export KILO_API_KEY=your-kilo-api-key
 
 # Mistral
@@ -129,13 +129,13 @@ export MISTRAL_API_KEY=your-mistral-api-key
 
 ### Model Selection
 
-In the TUI, press `Ctrl+O` to open the model selection dialog. KiloCode and Mistral will appear in the provider list if their API keys are configured.
+In the TUI, press `Ctrl+O` to open the model selection dialog. Kilo and Mistral will appear in the provider list if their API keys are configured.
 
 ## Files Modified
 
 | File | Changes |
 |------|---------|
-| `internal/llm/models/kilocode.go` | New file - KiloCode model definitions |
+| `internal/llm/models/kilo.go` | New file - Kilo model definitions |
 | `internal/llm/models/mistral.go` | New file - Mistral model definitions |
 | `internal/config/config.go` | Exported `GetProviderAPIKey()` function |
 | `internal/tui/components/dialog/models.go` | Added environment-based provider detection |

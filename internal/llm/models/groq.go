@@ -10,7 +10,7 @@ const (
 	Llama4Scout               ModelID = "meta-llama/llama-4-scout-17b-16e-instruct"
 	Llama4Maverick            ModelID = "meta-llama/llama-4-maverick-17b-128e-instruct"
 	Llama3_3_70BVersatile     ModelID = "llama-3.3-70b-versatile"
-	DeepseekR1DistillLlama70b ModelID = "deepseek-r1-distill-llama-70b"
+	DeepSeekR1DistillLlama70b ModelID = "deepseek-r1-distill-llama-70b"
 	Kimi_K2_0905              ModelID = "moonshotai/kimi-k2-instruct-0905"
 )
 
@@ -71,9 +71,9 @@ var GroqModels = map[ModelID]Model{
 		SupportsAttachments: false,
 	},
 
-	DeepseekR1DistillLlama70b: {
-		ID:                  DeepseekR1DistillLlama70b,
-		Name:                "DeepseekR1DistillLlama70b",
+	DeepSeekR1DistillLlama70b: {
+		ID:                  DeepSeekR1DistillLlama70b,
+		Name:                "DeepSeekR1DistillLlama70b",
 		Provider:            ProviderGroq,
 		APIModel:            "deepseek-r1-distill-llama-70b",
 		CostPer1MIn:         0.75,

@@ -94,21 +94,22 @@ func newDeepSeekClient(opts providerClientOptions) DeepSeekClient {
 		o(&deepSeekOpts)
 	}
 
-	clientOptions := []option.RequestOption{}
+	deepSeekClientOptions := []option.RequestOption{}
 	if opts.apiKey != "" {
-		clientOptions = append(clientOptions, option.WithAPIKey(opts.apiKey))
+		deepSeekClientOptions = append(deepSeekClientOptions, option.WithAPIKey(opts.apiKey))
 	}
+
 	if deepSeekOpts.baseURL != "" {
-		clientOptions = append(clientOptions, option.WithBaseURL(deepSeekOpts.baseURL))
+		deepSeekClientOptions = append(deepSeekClientOptions, option.WithBaseURL(deepSeekOpts.baseURL))
 	}
 
 	if deepSeekOpts.extraHeaders != nil {
 		for key, value := range deepSeekOpts.extraHeaders {
-			clientOptions = append(clientOptions, option.WithHeader(key, value))
+			deepSeekClientOptions = append(deepSeekClientOptions, option.WithHeader(key, value))
 		}
 	}
 
-	client := openai.NewClient(clientOptions...)
+	client := openai.NewClient(deepSeekClientOptions...)
 	return &deepSeekClient{
 		providerOptions: opts,
 		options:         deepSeekOpts,
@@ -116,10 +117,11 @@ func newDeepSeekClient(opts providerClientOptions) DeepSeekClient {
 	}
 }
 
-func (d *deepSeekClient) convertMessages(messages []message.Message) (deepSeekMessages []openai.ChatCompletionMessageParamUnion) {
+func (d *deepSeekClient) convertMessages(messages []message.Message) []openai.ChatCompletionMessageParamUnion {
 	// Add system message first
-	deepSeekMessages = append(deepSeekMessages, openai.SystemMessage(d.providerOptions.systemMessage))
-
+	deepSeekMessages := []openai.ChatCompletionMessageParamUnion{
+		openai.SystemMessage(d.providerOptions.systemMessage),
+	}
 	for _, msg := range messages {
 		switch msg.Role {
 		case message.User:
@@ -174,7 +176,7 @@ func (d *deepSeekClient) convertMessages(messages []message.Message) (deepSeekMe
 		}
 	}
 
-	return
+	return deepSeekMessages
 }
 
 // DeepSeek-specific tool conversion that handles empty tools properly

@@ -41,7 +41,7 @@ The following providers use the **OpenAI provider client** with a custom base UR
 | **XAI** | `https://api.x.ai/v1` | xAI API (Grok models) |
 | **OpenRouter** | `https://openrouter.ai/api/v1` | Unified API to 200+ models |
 | **Mistral** | `https://api.mistral.ai/v1` | Mistral AI models |
-| **KiloCode** | `https://api.kilo.ai/api/gateway` | KiloCode gateway |
+| **Kilo** | `https://api.kilo.ai/api/gateway` | Kilo gateway |
 | **Local/Ollama** | `LOCAL_ENDPOINT` env var | Local models via Ollama, LM Studio |
 
 > **Important:** When adding support for a new OpenAI-compatible API provider, you only need to:
@@ -211,13 +211,13 @@ Mistral models via [`mistral.go`](internal/llm/models/mistral.go) (OpenAI-compat
 |----------|--------------|----------------|------------|
 | `mistral.gpt-4o` | GPT-4o (via Mistral) | 128K | 16K |
 
-### KiloCode Models
+### Kilo Models
 
-KiloCode models via [`kilocode.go`](internal/llm/models/kilocode.go) (OpenAI-compatible):
+Kilo models via [`kilo.go`](internal/llm/models/kilo.go) (OpenAI-compatible):
 
 | Model ID | Display Name | Context Window | Max Output |
 |----------|--------------|----------------|------------|
-| `kilo.auto` | KiloCode Auto | 128K | 16K |
+| `kilo.auto` | Kilo Auto | 128K | 16K |
 
 ---
 
@@ -474,7 +474,7 @@ Providers and models are configured in `.opencode.json`:
 | `XAI_API_KEY` | XAI | xAI API key |
 | `OPENROUTER_API_KEY` | OpenRouter | OpenRouter API key |
 | `MISTRAL_API_KEY` | Mistral | Mistral API key |
-| `KILO_API_KEY` | KiloCode | KiloCode API key |
+| `KILO_API_KEY` | Kilo | Kilo API key |
 | `LOCAL_ENDPOINT` | Local | Ollama/LM Studio endpoint |
 | `AWS_REGION` | Bedrock | AWS region |
 | `VERTEXAI_PROJECT` | Vertex AI | GCP project ID |

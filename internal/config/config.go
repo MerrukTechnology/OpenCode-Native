@@ -432,7 +432,7 @@ func mapEnvVarsToViper() {
 		"DEEPSEEK_API_KEY":   "providers.deepseek.apiKey",
 		"QWEN_API_KEY":       "providers.qwen.apiKey",
 		"MISTRAL_API_KEY":    "providers.mistral.apiKey",
-		"KILO_API_KEY":       "providers.kilocode.apiKey",
+		"KILO_API_KEY":       "providers.kilo.apiKey",
 		// "MOONSHOT_API_KEY":   "providers.moonshot.apiKey",
 		"VERTEXAI_PROJECT":  "providers.vertexai.project",
 		"VERTEXAI_LOCATION": "providers.vertexai.location",
@@ -628,16 +628,16 @@ func setDefaultModelForAgent(agent AgentName) bool {
 			HivemindModel:   models.BedrockClaude45Sonnet,
 			FallbackModel:   models.BedrockClaude45Sonnet,
 		},
-		// 10. KiloCode
+		// 10. Kilo
 		{
 			EnvKey:          "KILO_API_KEY",
-			CoderModel:      models.KiloCodeMiniMaxM2_5Free,
-			SummarizerModel: models.KiloCodeQwen3_235BThinking,
-			ExplorerModel:   models.KiloCodeArceeTrinityLargePreviewFree,
-			DescriptorModel: models.KiloCodeOpenAIGPTOSS_120BFree,
-			WorkhorseModel:  models.KiloCodeZaiGLM5Free,
-			HivemindModel:   models.KiloCodeArceeTrinityLargePreviewFree,
-			FallbackModel:   models.KiloCodeMiniMaxM2_5Free,
+			CoderModel:      models.KiloMiniMaxM2_5Free,
+			SummarizerModel: models.KiloQwen3_235BThinking,
+			ExplorerModel:   models.KiloArceeTrinityLargePreviewFree,
+			DescriptorModel: models.KiloOpenAIGPTOSS_120BFree,
+			WorkhorseModel:  models.KiloZaiGLM5Free,
+			HivemindModel:   models.KiloArceeTrinityLargePreviewFree,
+			FallbackModel:   models.KiloMiniMaxM2_5Free,
 		},
 		// 11. Mistral
 		{
@@ -861,7 +861,7 @@ func GetProviderAPIKey(provider models.ModelProvider) string {
 		return os.Getenv("GEMINI_API_KEY")
 	case models.ProviderGroq:
 		return os.Getenv("GROQ_API_KEY")
-	case models.ProviderKiloCode:
+	case models.ProviderKilo:
 		return os.Getenv("KILO_API_KEY")
 	case models.ProviderMistral:
 		return os.Getenv("MISTRAL_API_KEY")

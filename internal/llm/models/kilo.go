@@ -1,48 +1,65 @@
 package models
 
 const (
-	ProviderKiloCode ModelProvider = "kilocode"
+	ProviderKilo ModelProvider = "kilo"
 
 	// Model IDs for Kilo Gateway models
-	KiloCodeMiniMaxM2_5Free               ModelID = "kilo.minimax-m2.5-free"
-	KiloCodeZaiGLM5Free                   ModelID = "kilo.zai-glm-5-free"
-	KiloCodeArceeTrinityLargePreviewFree  ModelID = "kilo.arcee-trinity-large-preview-free"
-	KiloCodeArceeTrinityMiniFree          ModelID = "kilo.arcee-trinity-mini-free"
-	KiloCodeAuroraAlphaFree               ModelID = "kilo.aurora-alpha-free"
-	KiloCodeDeepSeekR1_0528Free           ModelID = "kilo.deepseek-r1-0528-free"
-	KiloCodeGoogleGemma3_12BFree          ModelID = "kilo.google-gemma-3-12b-free"
-	KiloCodeGoogleGemma3_27BFree          ModelID = "kilo.google-gemma-3-27b-free"
-	KiloCodeGoogleGemma3_4BFree           ModelID = "kilo.google-gemma-3-4b-free"
-	KiloCodeGoogleGemma3n_2BFree          ModelID = "kilo.google-gemma-3n-2b-free"
-	KiloCodeGoogleGemma3n_4BFree          ModelID = "kilo.google-gemma-3n-4b-free"
-	KiloCodeLiquidLFM2_5_1_2BFree         ModelID = "kilo.liquid-lfm-2.5-1.2b-free"
-	KiloCodeLiquidLFM2_5_1_2BThinkingFree ModelID = "kilo.liquid-lfm-2.5-1.2b-thinking-free"
-	KiloCodeMetaLlama3_2_3BFree           ModelID = "kilo.meta-llama-3.2-3b-free"
-	KiloCodeMetaLlama3_3_70BFree          ModelID = "kilo.meta-llama-3.3-70b-free"
-	KiloCodeMistralSmall3_1_24BFree       ModelID = "kilo.mistral-small-3.1-24b-free"
-	KiloCodeNousHermes3_405BFree          ModelID = "kilo.nous-hermes-3-405b-free"
-	KiloCodeNvidiaNemotron3Nano30BFree    ModelID = "kilo.nvidia-nemotron-3-nano-30b-free"
-	KiloCodeNvidiaNemotronNano12BV2Free   ModelID = "kilo.nvidia-nemotron-nano-12b-v2-free"
-	KiloCodeNvidiaNemotronNano9BV2Free    ModelID = "kilo.nvidia-nemotron-nano-9b-v2-free"
-	KiloCodeOpenAIGPTOSS_120BFree         ModelID = "kilo.openai-gpt-oss-120b-free"
-	KiloCodeOpenAIGPTOSS_20BFree          ModelID = "kilo.openai-gpt-oss-20b-free"
-	KiloCodeQwen3_235BThinking            ModelID = "kilo.qwen3-235b-thinking"
-	KiloCodeQwen3_4BFree                  ModelID = "kilo.qwen3-4b-free"
-	KiloCodeQwen3Coder480BFree            ModelID = "kilo.qwen3-coder-480b-free"
-	KiloCodeQwen3Next80BFree              ModelID = "kilo.qwen3-next-80b-free"
-	KiloCodeQwen3VL235BThinking           ModelID = "kilo.qwen3-vl-235b-thinking"
-	KiloCodeQwen3VL30BThinking            ModelID = "kilo.qwen3-vl-30b-thinking"
-	KiloCodeStepFun3_5FlashFree           ModelID = "kilo.stepfun-3.5-flash-free"
-	KiloCodeVeniceUncensoredFree          ModelID = "kilo.venice-uncensored-free"
-	KiloCodeZaiGLM4_5AirFree              ModelID = "kilo.zai-glm-4.5-air-free"
-	KiloCodeNousDeepHermes3Mistral24B     ModelID = "kilo.nous-deephermes-3-mistral-24b"
+	KiloAutoFree                      ModelID = "kilo.auto-free"
+	KiloMiniMaxM2_5Free               ModelID = "kilo.minimax-m2.5-free"
+	KiloZaiGLM5Free                   ModelID = "kilo.zai-glm-5-free"
+	KiloArceeTrinityLargePreviewFree  ModelID = "kilo.arcee-trinity-large-preview-free"
+	KiloArceeTrinityMiniFree          ModelID = "kilo.arcee-trinity-mini-free"
+	KiloAuroraAlphaFree               ModelID = "kilo.aurora-alpha-free"
+	KiloDeepSeekR1_0528Free           ModelID = "kilo.deepseek-r1-0528-free"
+	KiloGoogleGemma3_12BFree          ModelID = "kilo.google-gemma-3-12b-free"
+	KiloGoogleGemma3_27BFree          ModelID = "kilo.google-gemma-3-27b-free"
+	KiloGoogleGemma3_4BFree           ModelID = "kilo.google-gemma-3-4b-free"
+	KiloGoogleGemma3n_2BFree          ModelID = "kilo.google-gemma-3n-2b-free"
+	KiloGoogleGemma3n_4BFree          ModelID = "kilo.google-gemma-3n-4b-free"
+	KiloLiquidLFM2_5_1_2BFree         ModelID = "kilo.liquid-lfm-2.5-1.2b-free"
+	KiloLiquidLFM2_5_1_2BThinkingFree ModelID = "kilo.liquid-lfm-2.5-1.2b-thinking-free"
+	KiloMetaLlama3_2_3BFree           ModelID = "kilo.meta-llama-3.2-3b-free"
+	KiloMetaLlama3_3_70BFree          ModelID = "kilo.meta-llama-3.3-70b-free"
+	KiloMistralSmall3_1_24BFree       ModelID = "kilo.mistral-small-3.1-24b-free"
+	KiloNousHermes3_405BFree          ModelID = "kilo.nous-hermes-3-405b-free"
+	KiloNvidiaNemotron3Nano30BFree    ModelID = "kilo.nvidia-nemotron-3-nano-30b-free"
+	KiloNvidiaNemotronNano12BV2Free   ModelID = "kilo.nvidia-nemotron-nano-12b-v2-free"
+	KiloNvidiaNemotronNano9BV2Free    ModelID = "kilo.nvidia-nemotron-nano-9b-v2-free"
+	KiloOpenAIGPTOSS_120BFree         ModelID = "kilo.openai-gpt-oss-120b-free"
+	KiloOpenAIGPTOSS_20BFree          ModelID = "kilo.openai-gpt-oss-20b-free"
+	KiloQwen3_235BThinking            ModelID = "kilo.qwen3-235b-thinking"
+	KiloQwen3_4BFree                  ModelID = "kilo.qwen3-4b-free"
+	KiloQwen3Coder480BFree            ModelID = "kilo.qwen3-coder-480b-free"
+	KiloQwen3Next80BFree              ModelID = "kilo.qwen3-next-80b-free"
+	KiloQwen3VL235BThinking           ModelID = "kilo.qwen3-vl-235b-thinking"
+	KiloQwen3VL30BThinking            ModelID = "kilo.qwen3-vl-30b-thinking"
+	KiloStepFun3_5FlashFree           ModelID = "kilo.stepfun-3.5-flash-free"
+	KiloVeniceUncensoredFree          ModelID = "kilo.venice-uncensored-free"
+	KiloZaiGLM4_5AirFree              ModelID = "kilo.zai-glm-4.5-air-free"
+	KiloNousDeepHermes3Mistral24B     ModelID = "kilo.nous-deephermes-3-mistral-24b"
 )
 
-var KiloCodeModels = map[ModelID]Model{
-	KiloCodeMiniMaxM2_5Free: {
-		ID:                       KiloCodeMiniMaxM2_5Free,
+var KiloModels = map[ModelID]Model{
+	KiloAutoFree: {
+		ID:                       KiloAutoFree,
+		Name:                     "Kilo Auto (free)",
+		Provider:                 ProviderKilo,
+		APIModel:                 "kilo/auto-free",
+		CostPer1MIn:              0.0,
+		CostPer1MInCached:        0.0,
+		CostPer1MOut:             0.0,
+		CostPer1MOutCached:       0.0,
+		ContextWindow:            204800,
+		DefaultMaxTokens:         131072,
+		CanReason:                false,
+		SupportsAdaptiveThinking: false,
+		SupportsMaximumThinking:  false,
+		SupportsAttachments:      false,
+	},
+	KiloMiniMaxM2_5Free: {
+		ID:                       KiloMiniMaxM2_5Free,
 		Name:                     "MiniMax M2.5 (free)",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "minimax/minimax-m2.5:free",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,
@@ -55,10 +72,10 @@ var KiloCodeModels = map[ModelID]Model{
 		SupportsMaximumThinking:  false,
 		SupportsAttachments:      true,
 	},
-	KiloCodeZaiGLM5Free: {
-		ID:                       KiloCodeZaiGLM5Free,
+	KiloZaiGLM5Free: {
+		ID:                       KiloZaiGLM5Free,
 		Name:                     "Z.ai GLM 5 (free)",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "z-ai/glm-5:free",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,
@@ -71,10 +88,10 @@ var KiloCodeModels = map[ModelID]Model{
 		SupportsMaximumThinking:  false,
 		SupportsAttachments:      true,
 	},
-	KiloCodeArceeTrinityLargePreviewFree: {
-		ID:                       KiloCodeArceeTrinityLargePreviewFree,
+	KiloArceeTrinityLargePreviewFree: {
+		ID:                       KiloArceeTrinityLargePreviewFree,
 		Name:                     "Arcee AI: Trinity Large Preview (free)",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "arcee-ai/trinity-large-preview:free",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,
@@ -87,10 +104,10 @@ var KiloCodeModels = map[ModelID]Model{
 		SupportsMaximumThinking:  false,
 		SupportsAttachments:      true,
 	},
-	KiloCodeArceeTrinityMiniFree: {
-		ID:                       KiloCodeArceeTrinityMiniFree,
+	KiloArceeTrinityMiniFree: {
+		ID:                       KiloArceeTrinityMiniFree,
 		Name:                     "Arcee AI: Trinity Mini (free)",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "arcee-ai/trinity-mini:free",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,
@@ -103,10 +120,10 @@ var KiloCodeModels = map[ModelID]Model{
 		SupportsMaximumThinking:  false,
 		SupportsAttachments:      true,
 	},
-	KiloCodeAuroraAlphaFree: {
-		ID:                       KiloCodeAuroraAlphaFree,
+	KiloAuroraAlphaFree: {
+		ID:                       KiloAuroraAlphaFree,
 		Name:                     "Aurora Alpha (free)",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "openrouter/aurora-alpha",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,
@@ -119,10 +136,10 @@ var KiloCodeModels = map[ModelID]Model{
 		SupportsMaximumThinking:  false,
 		SupportsAttachments:      true,
 	},
-	KiloCodeDeepSeekR1_0528Free: {
-		ID:                       KiloCodeDeepSeekR1_0528Free,
+	KiloDeepSeekR1_0528Free: {
+		ID:                       KiloDeepSeekR1_0528Free,
 		Name:                     "DeepSeek: R1 0528 (free)",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "deepseek/deepseek-r1-0528:free",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,
@@ -135,10 +152,10 @@ var KiloCodeModels = map[ModelID]Model{
 		SupportsMaximumThinking:  false,
 		SupportsAttachments:      false,
 	},
-	KiloCodeGoogleGemma3_12BFree: {
-		ID:                       KiloCodeGoogleGemma3_12BFree,
+	KiloGoogleGemma3_12BFree: {
+		ID:                       KiloGoogleGemma3_12BFree,
 		Name:                     "Google: Gemma 3 12B (free)",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "google/gemma-3-12b-it:free",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,
@@ -151,10 +168,10 @@ var KiloCodeModels = map[ModelID]Model{
 		SupportsMaximumThinking:  false,
 		SupportsAttachments:      false,
 	},
-	KiloCodeGoogleGemma3_27BFree: {
-		ID:                       KiloCodeGoogleGemma3_27BFree,
+	KiloGoogleGemma3_27BFree: {
+		ID:                       KiloGoogleGemma3_27BFree,
 		Name:                     "Google: Gemma 3 27B (free)",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "google/gemma-3-27b-it:free",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,
@@ -167,10 +184,10 @@ var KiloCodeModels = map[ModelID]Model{
 		SupportsMaximumThinking:  false,
 		SupportsAttachments:      true,
 	},
-	KiloCodeGoogleGemma3_4BFree: {
-		ID:                       KiloCodeGoogleGemma3_4BFree,
+	KiloGoogleGemma3_4BFree: {
+		ID:                       KiloGoogleGemma3_4BFree,
 		Name:                     "Google: Gemma 3 4B (free)",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "google/gemma-3-4b-it:free",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,
@@ -183,10 +200,10 @@ var KiloCodeModels = map[ModelID]Model{
 		SupportsMaximumThinking:  false,
 		SupportsAttachments:      false,
 	},
-	KiloCodeGoogleGemma3n_2BFree: {
-		ID:                       KiloCodeGoogleGemma3n_2BFree,
+	KiloGoogleGemma3n_2BFree: {
+		ID:                       KiloGoogleGemma3n_2BFree,
 		Name:                     "Google: Gemma 3n 2B (free)",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "google/gemma-3n-e2b-it:free",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,
@@ -199,10 +216,10 @@ var KiloCodeModels = map[ModelID]Model{
 		SupportsMaximumThinking:  false,
 		SupportsAttachments:      false,
 	},
-	KiloCodeGoogleGemma3n_4BFree: {
-		ID:                       KiloCodeGoogleGemma3n_4BFree,
+	KiloGoogleGemma3n_4BFree: {
+		ID:                       KiloGoogleGemma3n_4BFree,
 		Name:                     "Google: Gemma 3n 4B (free)",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "google/gemma-3n-e4b-it:free",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,
@@ -215,10 +232,10 @@ var KiloCodeModels = map[ModelID]Model{
 		SupportsMaximumThinking:  false,
 		SupportsAttachments:      false,
 	},
-	KiloCodeLiquidLFM2_5_1_2BFree: {
-		ID:                       KiloCodeLiquidLFM2_5_1_2BFree,
+	KiloLiquidLFM2_5_1_2BFree: {
+		ID:                       KiloLiquidLFM2_5_1_2BFree,
 		Name:                     "LiquidAI: LFM2.5-1.2B-Instruct (free)",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "liquid/lfm-2.5-1.2b-instruct:free",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,
@@ -231,10 +248,10 @@ var KiloCodeModels = map[ModelID]Model{
 		SupportsMaximumThinking:  false,
 		SupportsAttachments:      false,
 	},
-	KiloCodeLiquidLFM2_5_1_2BThinkingFree: {
-		ID:                       KiloCodeLiquidLFM2_5_1_2BThinkingFree,
+	KiloLiquidLFM2_5_1_2BThinkingFree: {
+		ID:                       KiloLiquidLFM2_5_1_2BThinkingFree,
 		Name:                     "LiquidAI: LFM2.5-1.2B-Thinking (free)",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "liquid/lfm-2.5-1.2b-thinking:free",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,
@@ -247,10 +264,10 @@ var KiloCodeModels = map[ModelID]Model{
 		SupportsMaximumThinking:  false,
 		SupportsAttachments:      false,
 	},
-	KiloCodeMetaLlama3_2_3BFree: {
-		ID:                       KiloCodeMetaLlama3_2_3BFree,
+	KiloMetaLlama3_2_3BFree: {
+		ID:                       KiloMetaLlama3_2_3BFree,
 		Name:                     "Meta: Llama 3.2 3B Instruct (free)",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "meta-llama/llama-3.2-3b-instruct:free",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,
@@ -263,10 +280,10 @@ var KiloCodeModels = map[ModelID]Model{
 		SupportsMaximumThinking:  false,
 		SupportsAttachments:      false,
 	},
-	KiloCodeMetaLlama3_3_70BFree: {
-		ID:                       KiloCodeMetaLlama3_3_70BFree,
+	KiloMetaLlama3_3_70BFree: {
+		ID:                       KiloMetaLlama3_3_70BFree,
 		Name:                     "Meta: Llama 3.3 70B Instruct (free)",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "meta-llama/llama-3.3-70b-instruct:free",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,
@@ -279,10 +296,10 @@ var KiloCodeModels = map[ModelID]Model{
 		SupportsMaximumThinking:  false,
 		SupportsAttachments:      true,
 	},
-	KiloCodeMistralSmall3_1_24BFree: {
-		ID:                       KiloCodeMistralSmall3_1_24BFree,
+	KiloMistralSmall3_1_24BFree: {
+		ID:                       KiloMistralSmall3_1_24BFree,
 		Name:                     "Mistral: Mistral Small 3.1 24B (free)",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "mistralai/mistral-small-3.1-24b-instruct:free",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,
@@ -295,10 +312,10 @@ var KiloCodeModels = map[ModelID]Model{
 		SupportsMaximumThinking:  false,
 		SupportsAttachments:      true,
 	},
-	KiloCodeNousHermes3_405BFree: {
-		ID:                       KiloCodeNousHermes3_405BFree,
+	KiloNousHermes3_405BFree: {
+		ID:                       KiloNousHermes3_405BFree,
 		Name:                     "Nous: Hermes 3 405B Instruct (free)",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "nousresearch/hermes-3-llama-3.1-405b:free",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,
@@ -311,10 +328,10 @@ var KiloCodeModels = map[ModelID]Model{
 		SupportsMaximumThinking:  false,
 		SupportsAttachments:      false,
 	},
-	KiloCodeNvidiaNemotron3Nano30BFree: {
-		ID:                       KiloCodeNvidiaNemotron3Nano30BFree,
+	KiloNvidiaNemotron3Nano30BFree: {
+		ID:                       KiloNvidiaNemotron3Nano30BFree,
 		Name:                     "NVIDIA: Nemotron 3 Nano 30B A3B (free)",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "nvidia/nemotron-3-nano-30b-a3b:free",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,
@@ -327,10 +344,10 @@ var KiloCodeModels = map[ModelID]Model{
 		SupportsMaximumThinking:  false,
 		SupportsAttachments:      true,
 	},
-	KiloCodeNvidiaNemotronNano12BV2Free: {
-		ID:                       KiloCodeNvidiaNemotronNano12BV2Free,
+	KiloNvidiaNemotronNano12BV2Free: {
+		ID:                       KiloNvidiaNemotronNano12BV2Free,
 		Name:                     "NVIDIA: Nemotron Nano 12B 2 VL (free)",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "nvidia/nemotron-nano-12b-v2-vl:free",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,
@@ -343,10 +360,10 @@ var KiloCodeModels = map[ModelID]Model{
 		SupportsMaximumThinking:  false,
 		SupportsAttachments:      true,
 	},
-	KiloCodeNvidiaNemotronNano9BV2Free: {
-		ID:                       KiloCodeNvidiaNemotronNano9BV2Free,
+	KiloNvidiaNemotronNano9BV2Free: {
+		ID:                       KiloNvidiaNemotronNano9BV2Free,
 		Name:                     "NVIDIA: Nemotron Nano 9B V2 (free)",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "nvidia/nemotron-nano-9b-v2:free",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,
@@ -359,10 +376,10 @@ var KiloCodeModels = map[ModelID]Model{
 		SupportsMaximumThinking:  false,
 		SupportsAttachments:      true,
 	},
-	KiloCodeOpenAIGPTOSS_120BFree: {
-		ID:                       KiloCodeOpenAIGPTOSS_120BFree,
+	KiloOpenAIGPTOSS_120BFree: {
+		ID:                       KiloOpenAIGPTOSS_120BFree,
 		Name:                     "OpenAI: gpt-oss-120b (free)",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "openai/gpt-oss-120b:free",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,
@@ -375,10 +392,10 @@ var KiloCodeModels = map[ModelID]Model{
 		SupportsMaximumThinking:  false,
 		SupportsAttachments:      true,
 	},
-	KiloCodeOpenAIGPTOSS_20BFree: {
-		ID:                       KiloCodeOpenAIGPTOSS_20BFree,
+	KiloOpenAIGPTOSS_20BFree: {
+		ID:                       KiloOpenAIGPTOSS_20BFree,
 		Name:                     "OpenAI: gpt-oss-20b (free)",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "openai/gpt-oss-20b:free",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,
@@ -391,10 +408,10 @@ var KiloCodeModels = map[ModelID]Model{
 		SupportsMaximumThinking:  false,
 		SupportsAttachments:      true,
 	},
-	KiloCodeQwen3_235BThinking: {
-		ID:                       KiloCodeQwen3_235BThinking,
+	KiloQwen3_235BThinking: {
+		ID:                       KiloQwen3_235BThinking,
 		Name:                     "Qwen: Qwen3 235B A22B Thinking 2507",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "qwen/qwen3-235b-a22b-thinking-2507",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,
@@ -407,10 +424,10 @@ var KiloCodeModels = map[ModelID]Model{
 		SupportsMaximumThinking:  false,
 		SupportsAttachments:      true,
 	},
-	KiloCodeQwen3_4BFree: {
-		ID:                       KiloCodeQwen3_4BFree,
+	KiloQwen3_4BFree: {
+		ID:                       KiloQwen3_4BFree,
 		Name:                     "Qwen: Qwen3 4B (free)",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "qwen/qwen3-4b:free",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,
@@ -423,10 +440,10 @@ var KiloCodeModels = map[ModelID]Model{
 		SupportsMaximumThinking:  false,
 		SupportsAttachments:      true,
 	},
-	KiloCodeQwen3Coder480BFree: {
-		ID:                       KiloCodeQwen3Coder480BFree,
+	KiloQwen3Coder480BFree: {
+		ID:                       KiloQwen3Coder480BFree,
 		Name:                     "Qwen: Qwen3 Coder 480B A35B (free)",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "qwen/qwen3-coder:free",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,
@@ -439,10 +456,10 @@ var KiloCodeModels = map[ModelID]Model{
 		SupportsMaximumThinking:  false,
 		SupportsAttachments:      true,
 	},
-	KiloCodeQwen3Next80BFree: {
-		ID:                       KiloCodeQwen3Next80BFree,
+	KiloQwen3Next80BFree: {
+		ID:                       KiloQwen3Next80BFree,
 		Name:                     "Qwen: Qwen3 Next 80B A3B Instruct (free)",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "qwen/qwen3-next-80b-a3b-instruct:free",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,
@@ -455,10 +472,10 @@ var KiloCodeModels = map[ModelID]Model{
 		SupportsMaximumThinking:  false,
 		SupportsAttachments:      true,
 	},
-	KiloCodeQwen3VL235BThinking: {
-		ID:                       KiloCodeQwen3VL235BThinking,
+	KiloQwen3VL235BThinking: {
+		ID:                       KiloQwen3VL235BThinking,
 		Name:                     "Qwen: Qwen3 VL 235B A22B Thinking",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "qwen/qwen3-vl-235b-a22b-thinking",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,
@@ -471,10 +488,10 @@ var KiloCodeModels = map[ModelID]Model{
 		SupportsMaximumThinking:  false,
 		SupportsAttachments:      true,
 	},
-	KiloCodeQwen3VL30BThinking: {
-		ID:                       KiloCodeQwen3VL30BThinking,
+	KiloQwen3VL30BThinking: {
+		ID:                       KiloQwen3VL30BThinking,
 		Name:                     "Qwen: Qwen3 VL 30B A3B Thinking",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "qwen/qwen3-vl-30b-a3b-thinking",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,
@@ -487,10 +504,10 @@ var KiloCodeModels = map[ModelID]Model{
 		SupportsMaximumThinking:  false,
 		SupportsAttachments:      true,
 	},
-	KiloCodeStepFun3_5FlashFree: {
-		ID:                       KiloCodeStepFun3_5FlashFree,
+	KiloStepFun3_5FlashFree: {
+		ID:                       KiloStepFun3_5FlashFree,
 		Name:                     "StepFun: StepFun 3.5 Flash (free)",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "stepfun/stepfun-3.5-flash:free",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,
@@ -503,10 +520,10 @@ var KiloCodeModels = map[ModelID]Model{
 		SupportsMaximumThinking:  false,
 		SupportsAttachments:      true,
 	},
-	KiloCodeVeniceUncensoredFree: {
-		ID:                       KiloCodeVeniceUncensoredFree,
+	KiloVeniceUncensoredFree: {
+		ID:                       KiloVeniceUncensoredFree,
 		Name:                     "Venice AI: Venice Uncensored (free)",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "veniceai/venice-uncensored:free",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,
@@ -519,10 +536,10 @@ var KiloCodeModels = map[ModelID]Model{
 		SupportsMaximumThinking:  false,
 		SupportsAttachments:      true,
 	},
-	KiloCodeZaiGLM4_5AirFree: {
-		ID:                       KiloCodeZaiGLM4_5AirFree,
+	KiloZaiGLM4_5AirFree: {
+		ID:                       KiloZaiGLM4_5AirFree,
 		Name:                     "Z.ai GLM 4.5 Air (free)",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "z-ai/glm-4.5-air:free",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,
@@ -535,10 +552,10 @@ var KiloCodeModels = map[ModelID]Model{
 		SupportsMaximumThinking:  false,
 		SupportsAttachments:      true,
 	},
-	KiloCodeNousDeepHermes3Mistral24B: {
-		ID:                       KiloCodeNousDeepHermes3Mistral24B,
+	KiloNousDeepHermes3Mistral24B: {
+		ID:                       KiloNousDeepHermes3Mistral24B,
 		Name:                     "Nous: DeepHermes 3 Mistral 24B",
-		Provider:                 ProviderKiloCode,
+		Provider:                 ProviderKilo,
 		APIModel:                 "nousresearch/deephermes-3-mistral-24b-preview:free",
 		CostPer1MIn:              0.0,
 		CostPer1MInCached:        0.0,

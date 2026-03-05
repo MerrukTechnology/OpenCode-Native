@@ -35,8 +35,8 @@ INSERT INTO sessions (
     ?,
     ?,
     null,
-    strftime('%s', 'now'),
-    strftime('%s', 'now')
+    unixepoch('now'),
+    unixepoch('now')
 ) RETURNING id, parent_session_id, title, message_count, prompt_tokens, completion_tokens, cost, updated_at, created_at, summary_message_id, project_id, root_session_id
 `
 

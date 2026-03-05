@@ -101,7 +101,8 @@ func newAnthropicClient(opts providerClientOptions) AnthropicClient {
 func (a *anthropicClient) convertMessages(messages []message.Message) (anthropicMessages []anthropic.MessageParam) {
 	for i, msg := range messages {
 		cache := false
-		if i > len(messages)-3 {
+		// Ensure we don't go out of bounds if len(messages) < 3
+		if len(messages) >= 3 && i >= len(messages)-3 {
 			cache = true
 		}
 		switch msg.Role {
@@ -571,6 +572,10 @@ func WithVertexAI(projectID, localtion string, localForCounting string) Anthropi
 
 // parses image tool response and creates an Anthropic image content block
 func (a *anthropicClient) newToolResultImageBlock(toolResult message.ToolResult) (*anthropic.ContentBlockParamUnion, error) {
+	if toolResult.IsError {
+		return nil, errors.New("cannot create image block from error result")
+	}
+
 	// HACK: replace with proper fields passing
 	var imageData struct {
 		Type     string `json:"type"`

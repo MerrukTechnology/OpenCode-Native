@@ -14,5 +14,6 @@
     }
   },
   "username": "MerrukTechnology",
-  "snapshot": true
+  "snapshot": true,
+  "debug": true
 }

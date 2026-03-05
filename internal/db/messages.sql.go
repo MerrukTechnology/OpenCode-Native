@@ -20,7 +20,7 @@ INSERT INTO messages (
     created_at,
     updated_at
 ) VALUES (
-    ?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now')
+    ?, ?, ?, ?, ?, unixepoch('now'), unixepoch('now')
 )
 RETURNING id, session_id, role, parts, model, created_at, updated_at, finished_at
 `
@@ -141,7 +141,7 @@ UPDATE messages
 SET
     parts = ?,
     finished_at = ?,
-    updated_at = strftime('%s', 'now')
+    updated_at = unixepoch('now')
 WHERE id = ?
 `
 
