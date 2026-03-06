@@ -119,8 +119,20 @@ func New(ctx context.Context, conn *sql.DB, cliSchema map[string]any, projectID 
 	}
 
 	app.initTheme()
-	// start lsp in background
-	go lspSvc.Init(ctx)
+
+	// Start LSP in background with guarded goroutine to handle errors and panics
+	// Use context.Background() so LSP init runs independently of New()'s ctx
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				logging.Error("Panic in lspSvc.Init goroutine", "panic", r)
+			}
+		}()
+
+		if err := lspSvc.Init(context.Background()); err != nil {
+			logging.Error("lspSvc.Init failed", "error", err)
+		}
+	}()
 
 	primaryAgents, err := factory.InitPrimaryAgents(ctx, cliSchema)
 	if err != nil {
