@@ -1,7 +1,7 @@
 -- +goose Up
 CREATE TABLE flow_states (
     session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
-    root_session_id TEXT NOT NULL,
+    root_session_id TEXT,
     flow_id TEXT NOT NULL,
     step_id TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'running',

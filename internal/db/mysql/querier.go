@@ -15,7 +15,7 @@ type Querier interface {
 	CreateMessage(ctx context.Context, arg CreateMessageParams) (sql.Result, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (sql.Result, error)
 	DeleteFile(ctx context.Context, id string) error
-	DeleteFlowStatesByRootSession(ctx context.Context, rootSessionID string) error
+	DeleteFlowStatesByRootSession(ctx context.Context, rootSessionID sql.NullString) error
 	DeleteMessage(ctx context.Context, id string) error
 	DeleteSession(ctx context.Context, id string) error
 	DeleteSessionFiles(ctx context.Context, sessionID string) error
@@ -31,7 +31,7 @@ type Querier interface {
 	ListFilesBySession(ctx context.Context, sessionID string) ([]File, error)
 	ListFilesBySessionTree(ctx context.Context, rootSessionID sql.NullString) ([]File, error)
 	ListFlowStatesByFlowID(ctx context.Context, flowID string) ([]FlowState, error)
-	ListFlowStatesByRootSession(ctx context.Context, rootSessionID string) ([]FlowState, error)
+	ListFlowStatesByRootSession(ctx context.Context, rootSessionID sql.NullString) ([]FlowState, error)
 	ListLatestSessionFiles(ctx context.Context, sessionID string) ([]File, error)
 	ListLatestSessionTreeFiles(ctx context.Context, rootSessionID sql.NullString) ([]File, error)
 	ListMessagesBySession(ctx context.Context, sessionID string) ([]Message, error)

@@ -38,7 +38,7 @@ INSERT INTO flow_states (
 
 type CreateFlowStateParams struct {
 	SessionID      string         `json:"session_id"`
-	RootSessionID  string         `json:"root_session_id"`
+	RootSessionID  sql.NullString `json:"root_session_id"`
 	FlowID         string         `json:"flow_id"`
 	StepID         string         `json:"step_id"`
 	Status         string         `json:"status"`
@@ -61,10 +61,10 @@ func (q *Queries) CreateFlowState(ctx context.Context, arg CreateFlowStateParams
 }
 
 const deleteFlowStatesByRootSession = `-- name: DeleteFlowStatesByRootSession :exec
-DELETE FROM flow_states WHERE root_session_id = ?
+DELETE FROM flow_states WHERE root_session_id <=> ?
 `
 
-func (q *Queries) DeleteFlowStatesByRootSession(ctx context.Context, rootSessionID string) error {
+func (q *Queries) DeleteFlowStatesByRootSession(ctx context.Context, rootSessionID sql.NullString) error {
 	_, err := q.db.ExecContext(ctx, deleteFlowStatesByRootSession, rootSessionID)
 	return err
 }
@@ -130,10 +130,10 @@ func (q *Queries) ListFlowStatesByFlowID(ctx context.Context, flowID string) ([]
 }
 
 const listFlowStatesByRootSession = `-- name: ListFlowStatesByRootSession :many
-SELECT session_id, root_session_id, flow_id, step_id, status, args, output, is_struct_output, created_at, updated_at FROM flow_states WHERE root_session_id = ? ORDER BY created_at ASC
+SELECT session_id, root_session_id, flow_id, step_id, status, args, output, is_struct_output, created_at, updated_at FROM flow_states WHERE root_session_id <=> ? ORDER BY created_at ASC
 `
 
-func (q *Queries) ListFlowStatesByRootSession(ctx context.Context, rootSessionID string) ([]FlowState, error) {
+func (q *Queries) ListFlowStatesByRootSession(ctx context.Context, rootSessionID sql.NullString) ([]FlowState, error) {
 	rows, err := q.db.QueryContext(ctx, listFlowStatesByRootSession, rootSessionID)
 	if err != nil {
 		return nil, err

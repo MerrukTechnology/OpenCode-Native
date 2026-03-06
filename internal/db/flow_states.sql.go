@@ -38,7 +38,7 @@ INSERT INTO flow_states (
 
 type CreateFlowStateParams struct {
 	SessionID      string         `json:"session_id"`
-	RootSessionID  string         `json:"root_session_id"`
+	RootSessionID  sql.NullString `json:"root_session_id"`
 	FlowID         string         `json:"flow_id"`
 	StepID         string         `json:"step_id"`
 	Status         string         `json:"status"`
@@ -75,11 +75,16 @@ func (q *Queries) CreateFlowState(ctx context.Context, arg CreateFlowStateParams
 }
 
 const deleteFlowStatesByRootSession = `-- name: DeleteFlowStatesByRootSession :exec
-DELETE FROM flow_states WHERE root_session_id = ?
+DELETE FROM flow_states WHERE (root_session_id = ? OR (? IS NULL AND root_session_id IS NULL))
 `
 
-func (q *Queries) DeleteFlowStatesByRootSession(ctx context.Context, rootSessionID string) error {
-	_, err := q.exec(ctx, q.deleteFlowStatesByRootSessionStmt, deleteFlowStatesByRootSession, rootSessionID)
+type DeleteFlowStatesByRootSessionParams struct {
+	RootSessionID sql.NullString `json:"root_session_id"`
+	Column2       interface{}    `json:"column_2"`
+}
+
+func (q *Queries) DeleteFlowStatesByRootSession(ctx context.Context, arg DeleteFlowStatesByRootSessionParams) error {
+	_, err := q.exec(ctx, q.deleteFlowStatesByRootSessionStmt, deleteFlowStatesByRootSession, arg.RootSessionID, arg.Column2)
 	return err
 }
 
@@ -144,11 +149,16 @@ func (q *Queries) ListFlowStatesByFlowID(ctx context.Context, flowID string) ([]
 }
 
 const listFlowStatesByRootSession = `-- name: ListFlowStatesByRootSession :many
-SELECT session_id, root_session_id, flow_id, step_id, status, args, output, is_struct_output, created_at, updated_at FROM flow_states WHERE root_session_id = ? ORDER BY created_at ASC
+SELECT session_id, root_session_id, flow_id, step_id, status, args, output, is_struct_output, created_at, updated_at FROM flow_states WHERE (root_session_id = ? OR (? IS NULL AND root_session_id IS NULL)) ORDER BY created_at ASC
 `
 
-func (q *Queries) ListFlowStatesByRootSession(ctx context.Context, rootSessionID string) ([]FlowState, error) {
-	rows, err := q.query(ctx, q.listFlowStatesByRootSessionStmt, listFlowStatesByRootSession, rootSessionID)
+type ListFlowStatesByRootSessionParams struct {
+	RootSessionID sql.NullString `json:"root_session_id"`
+	Column2       interface{}    `json:"column_2"`
+}
+
+func (q *Queries) ListFlowStatesByRootSession(ctx context.Context, arg ListFlowStatesByRootSessionParams) ([]FlowState, error) {
+	rows, err := q.query(ctx, q.listFlowStatesByRootSessionStmt, listFlowStatesByRootSession, arg.RootSessionID, arg.Column2)
 	if err != nil {
 		return nil, err
 	}

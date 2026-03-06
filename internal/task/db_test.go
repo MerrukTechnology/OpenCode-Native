@@ -17,6 +17,11 @@ func newTestDB(t *testing.T) *sql.DB {
 	if err := db.Ping(); err != nil {
 		t.Fatalf("ping db: %v", err)
 	}
+	t.Cleanup(func() { db.Close() })
+	// Enable foreign keys for test database consistency with production
+	if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {
+		t.Fatalf("enable foreign keys: %v", err)
+	}
 	// initialize schema
 	if err := dbsql.InitSchema(db); err != nil {
 		t.Fatalf("init schema: %v", err)

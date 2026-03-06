@@ -20,7 +20,7 @@ type File struct {
 
 type FlowState struct {
 	SessionID      string         `json:"session_id"`
-	RootSessionID  string         `json:"root_session_id"`
+	RootSessionID  sql.NullString `json:"root_session_id"`
 	FlowID         string         `json:"flow_id"`
 	StepID         string         `json:"step_id"`
 	Status         string         `json:"status"`

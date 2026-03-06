@@ -494,8 +494,8 @@ func (q *MySQLQuerier) GetFlowState(ctx context.Context, sessionID string) (Flow
 }
 
 // ListFlowStatesByRootSession lists flow states by root session ID
-func (q *MySQLQuerier) ListFlowStatesByRootSession(ctx context.Context, rootSessionID string) ([]FlowState, error) {
-	mysqlStates, err := q.queries.ListFlowStatesByRootSession(ctx, rootSessionID)
+func (q *MySQLQuerier) ListFlowStatesByRootSession(ctx context.Context, arg ListFlowStatesByRootSessionParams) ([]FlowState, error) {
+	mysqlStates, err := q.queries.ListFlowStatesByRootSession(ctx, arg.RootSessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -559,6 +559,6 @@ func (q *MySQLQuerier) UpdateFlowState(ctx context.Context, arg UpdateFlowStateP
 }
 
 // DeleteFlowStatesByRootSession deletes all flow states for a root session
-func (q *MySQLQuerier) DeleteFlowStatesByRootSession(ctx context.Context, rootSessionID string) error {
-	return q.queries.DeleteFlowStatesByRootSession(ctx, rootSessionID)
+func (q *MySQLQuerier) DeleteFlowStatesByRootSession(ctx context.Context, arg DeleteFlowStatesByRootSessionParams) error {
+	return q.queries.DeleteFlowStatesByRootSession(ctx, arg.RootSessionID)
 }

@@ -27,7 +27,7 @@ INSERT INTO flow_states (
 SELECT * FROM flow_states WHERE session_id = ? LIMIT 1;
 
 -- name: ListFlowStatesByRootSession :many
-SELECT * FROM flow_states WHERE root_session_id = ? ORDER BY created_at ASC;
+SELECT * FROM flow_states WHERE root_session_id <=> ? ORDER BY created_at ASC;
 
 -- name: ListFlowStatesByFlowID :many
 SELECT * FROM flow_states WHERE flow_id = ? ORDER BY created_at ASC;
@@ -42,4 +42,4 @@ SET status = ?,
 WHERE session_id = ?;
 
 -- name: DeleteFlowStatesByRootSession :exec
-DELETE FROM flow_states WHERE root_session_id = ?;
+DELETE FROM flow_states WHERE root_session_id <=> ?;

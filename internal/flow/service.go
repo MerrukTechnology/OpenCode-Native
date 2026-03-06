@@ -107,7 +107,7 @@ func (s *service) Run(ctx context.Context, sessionPrefix string, flowID string, 
 	}
 	rootSessionID := fmt.Sprintf("%s-%s-%s", sessionPrefix, flowID, f.Spec.Steps[0].ID)
 
-	existingStates, err := s.querier.ListFlowStatesByRootSession(ctx, rootSessionID)
+	existingStates, err := s.querier.ListFlowStatesByRootSession(ctx, db.ListFlowStatesByRootSessionParams{RootSessionID: sql.NullString{String: rootSessionID, Valid: true}})
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, nil, fmt.Errorf("checking existing flow states: %w", err)
 	}
@@ -136,7 +136,7 @@ func (s *service) Run(ctx context.Context, sessionPrefix string, flowID string, 
 	}
 
 	if fresh {
-		if err := s.querier.DeleteFlowStatesByRootSession(ctx, rootSessionID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		if err := s.querier.DeleteFlowStatesByRootSession(ctx, db.DeleteFlowStatesByRootSessionParams{RootSessionID: sql.NullString{String: rootSessionID, Valid: true}}); err != nil {
 			logging.Warn("Failed to delete existing flow states", "error", err)
 		}
 		for _, step := range f.Spec.Steps {
@@ -187,7 +187,7 @@ func (s *service) Run(ctx context.Context, sessionPrefix string, flowID string, 
 		} else {
 			if _, err := s.querier.CreateFlowState(ctx, db.CreateFlowStateParams{
 				SessionID:      stepSessionID,
-				RootSessionID:  rootSessionID,
+				RootSessionID:  sql.NullString{String: rootSessionID, Valid: true},
 				FlowID:         f.ID,
 				StepID:         w.step.ID,
 				Status:         string(FlowStatusRunning),
@@ -302,7 +302,7 @@ func (s *service) runStep(
 	} else {
 		if state, stateErr := s.querier.CreateFlowState(ctx, db.CreateFlowStateParams{
 			SessionID:      sessionID,
-			RootSessionID:  rootSessionID,
+			RootSessionID:  sql.NullString{String: rootSessionID, Valid: true},
 			FlowID:         f.ID,
 			StepID:         step.ID,
 			Status:         string(status),
@@ -887,9 +887,13 @@ func dbFlowStateToFlowState(fs db.FlowState) *FlowState {
 	if fs.Output.Valid {
 		output = fs.Output.String
 	}
+	rootSessionID := ""
+	if fs.RootSessionID.Valid {
+		rootSessionID = fs.RootSessionID.String
+	}
 	return &FlowState{
 		SessionID:      fs.SessionID,
-		RootSessionID:  fs.RootSessionID,
+		RootSessionID:  rootSessionID,
 		FlowID:         fs.FlowID,
 		StepID:         fs.StepID,
 		Status:         FlowStatus(fs.Status),
