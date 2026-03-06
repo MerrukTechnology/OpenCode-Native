@@ -16,7 +16,7 @@ func TestFetchTool_Info(t *testing.T) {
 	tool := NewFetchTool(permService)
 	info := tool.Info()
 
-	assert.Equal(t, FetchToolName, info.Name)
+	assert.Equal(t, WebFetchToolName, info.Name)
 	assert.NotEmpty(t, info.Description)
 	assert.Contains(t, info.Parameters, "url")
 	assert.Contains(t, info.Parameters, "format")
@@ -68,7 +68,7 @@ func TestFetchTool_Run(t *testing.T) {
 		{
 			name: "handles invalid JSON parameters",
 			call: ToolCall{
-				Name:  FetchToolName,
+				Name:  WebFetchToolName,
 				Input: "invalid json",
 			},
 			assertResult: func(t *testing.T, resp ToolResponse, err error) {
@@ -87,7 +87,7 @@ func TestFetchTool_Run(t *testing.T) {
 				paramsJSON, err := json.Marshal(tt.params)
 				require.NoError(t, err)
 				call = ToolCall{
-					Name:  FetchToolName,
+					Name:  WebFetchToolName,
 					Input: string(paramsJSON),
 				}
 			}

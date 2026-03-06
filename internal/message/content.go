@@ -129,6 +129,7 @@ type Message struct {
 	SessionID string
 	Parts     []ContentPart
 	Model     models.ModelID
+	Seq       int64
 	CreatedAt int64
 	UpdatedAt int64
 }

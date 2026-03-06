@@ -23,7 +23,11 @@ type FetchParams struct {
 	Timeout int    `json:"timeout,omitempty"`
 }
 
-type FetchPermissionsParams = FetchParams
+type FetchPermissionsParams struct {
+	URL     string `json:"url"`
+	Format  string `json:"format"`
+	Timeout int    `json:"timeout,omitempty"`
+}
 
 type fetchTool struct {
 	client      *http.Client
@@ -31,7 +35,7 @@ type fetchTool struct {
 }
 
 const (
-	FetchToolName        = "fetch"
+	WebFetchToolName     = "webfetch"
 	fetchToolDescription = `Fetches content from a URL and returns it in the specified format.
 
 WHEN TO USE THIS TOOL:
@@ -75,7 +79,7 @@ func NewFetchTool(permissions permission.Service) BaseTool {
 
 func (t *fetchTool) Info() ToolInfo {
 	return ToolInfo{
-		Name:        FetchToolName,
+		Name:        WebFetchToolName,
 		Description: fetchToolDescription,
 		Parameters: map[string]any{
 			"url": map[string]any{
@@ -113,7 +117,6 @@ func (t *fetchTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 	if format != "text" && format != "markdown" && format != "html" {
 		return NewTextErrorResponse("Format must be one of: text, markdown, html"), nil
 	}
-	params.Format = format
 
 	if !strings.HasPrefix(params.URL, "http://") && !strings.HasPrefix(params.URL, "https://") {
 		return NewTextErrorResponse("URL must start with http:// or https://"), nil
@@ -128,8 +131,8 @@ func (t *fetchTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 		permission.CreatePermissionRequest{
 			SessionID:   sessionID,
 			Path:        config.WorkingDirectory(),
-			ToolName:    FetchToolName,
-			Action:      "fetch",
+			ToolName:    WebFetchToolName,
+			Action:      "webfetch",
 			Description: "Fetch content from URL: " + params.URL,
 			Params:      FetchPermissionsParams(params),
 		},
@@ -145,9 +148,9 @@ func (t *fetchTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 		if params.Timeout > maxTimeout {
 			params.Timeout = maxTimeout
 		}
-		clientCopy := *t.client
-		clientCopy.Timeout = time.Duration(params.Timeout) * time.Second
-		client = &clientCopy
+		client = &http.Client{
+			Timeout: time.Duration(params.Timeout) * time.Second,
+		}
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, params.URL, nil)
@@ -173,8 +176,6 @@ func (t *fetchTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		// Drain body to ensure connection can be reused
-		_, _ = io.Copy(io.Discard, resp.Body)
 		return NewTextErrorResponse(fmt.Sprintf("Request failed with status code: %d", resp.StatusCode)), nil
 	}
 

@@ -277,8 +277,10 @@ func (p *permissionDialogCmp) renderHeader() string {
 			),
 			baseStyle.Render(strings.Repeat(" ", p.width)),
 		)
-	case tools.FetchToolName:
+	case tools.WebFetchToolName:
 		headerParts = append(headerParts, baseStyle.Foreground(t.TextMuted()).Width(p.width).Bold(true).Render("URL"))
+	case tools.WebSearchToolName:
+		headerParts = append(headerParts, baseStyle.Foreground(t.TextMuted()).Width(p.width).Bold(true).Render("Query"))
 	}
 
 	return lipgloss.NewStyle().Background(t.Background()).Render(lipgloss.JoinVertical(lipgloss.Left, headerParts...))
@@ -396,6 +398,25 @@ func (p *permissionDialogCmp) renderFetchContent() string {
 	return ""
 }
 
+func (p *permissionDialogCmp) renderWebSearchContent() string {
+	t := theme.CurrentTheme()
+	baseStyle := styles.BaseStyle()
+
+	if pr, ok := p.permission.Params.(tools.WebSearchPermissionsParams); ok {
+		content := pr.Query
+		if pr.Provider != "" {
+			content = fmt.Sprintf("%s\n\nProvider: %s", pr.Query, pr.Provider)
+		}
+		finalContent := baseStyle.
+			Foreground(t.Text()).
+			Width(p.contentViewPort.Width).
+			Render(content)
+		p.contentViewPort.SetContent(finalContent)
+		return p.styleViewport()
+	}
+	return ""
+}
+
 func (p *permissionDialogCmp) renderDefaultContent() string {
 	t := theme.CurrentTheme()
 	baseStyle := styles.BaseStyle()
@@ -488,7 +509,11 @@ func (p *permissionDialogCmp) render() string {
 	buttons := p.renderButtons()
 
 	// Calculate content height dynamically based on window size
-	p.contentViewPort.Height = p.height - lipgloss.Height(headerContent) - lipgloss.Height(buttons) - 2 - lipgloss.Height(title)
+	// Subtract 3 for the outer frame: border top (1) + border bottom (1) + top padding (1)
+	// Subtract 2 for the spacer lines between title/header and buttons/bottom
+	frameOverhead := 3
+	spacers := 2
+	p.contentViewPort.Height = max(1, p.height-frameOverhead-lipgloss.Height(headerContent)-lipgloss.Height(buttons)-spacers-lipgloss.Height(title))
 	p.contentViewPort.Width = p.width - 5
 
 	// Render content based on tool type
@@ -504,8 +529,10 @@ func (p *permissionDialogCmp) render() string {
 		contentFinal = p.renderPatchContent()
 	case tools.WriteToolName:
 		contentFinal = p.renderWriteContent()
-	case tools.FetchToolName:
+	case tools.WebFetchToolName:
 		contentFinal = p.renderFetchContent()
+	case tools.WebSearchToolName:
+		contentFinal = p.renderWebSearchContent()
 	default:
 		contentFinal = p.renderDefaultContent()
 	}
@@ -546,17 +573,17 @@ func (p *permissionDialogCmp) SetSize() tea.Cmd {
 	}
 	switch p.permission.ToolName {
 	case tools.BashToolName:
-		p.width = int(float64(p.windowSize.Width) * 0.4)
-		p.height = int(float64(p.windowSize.Height) * 0.3)
+		p.width = max(40, int(float64(p.windowSize.Width)*0.4))
+		p.height = max(15, int(float64(p.windowSize.Height)*0.4))
 	case tools.EditToolName, tools.MultiEditToolName:
 		p.width = int(float64(p.windowSize.Width) * 0.8)
 		p.height = int(float64(p.windowSize.Height) * 0.8)
 	case tools.WriteToolName:
 		p.width = int(float64(p.windowSize.Width) * 0.8)
 		p.height = int(float64(p.windowSize.Height) * 0.8)
-	case tools.FetchToolName:
-		p.width = int(float64(p.windowSize.Width) * 0.4)
-		p.height = int(float64(p.windowSize.Height) * 0.3)
+	case tools.WebFetchToolName, tools.WebSearchToolName:
+		p.width = max(40, int(float64(p.windowSize.Width)*0.4))
+		p.height = max(15, int(float64(p.windowSize.Height)*0.4))
 	default:
 		p.width = int(float64(p.windowSize.Width) * 0.7)
 		p.height = int(float64(p.windowSize.Height) * 0.5)
@@ -566,6 +593,7 @@ func (p *permissionDialogCmp) SetSize() tea.Cmd {
 
 func (p *permissionDialogCmp) SetPermissions(permission permission.PermissionRequest) tea.Cmd {
 	p.permission = permission
+	p.contentViewPort.GotoTop()
 	return p.SetSize()
 }
 

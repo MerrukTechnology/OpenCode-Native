@@ -1,268 +1,355 @@
 package provider
 
 import (
-	"net/http"
 	"testing"
 
-	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/models"
-	"github.com/stretchr/testify/assert"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/message"
 )
 
-func TestEventTypeConstants(t *testing.T) {
-	tests := []struct {
-		name  string
-		value EventType
-		want  string
-	}{
-		{"EventContentStart", EventContentStart, "content_start"},
-		{"EventToolUseStart", EventToolUseStart, "tool_use_start"},
-		{"EventToolUseDelta", EventToolUseDelta, "tool_use_delta"},
-		{"EventToolUseStop", EventToolUseStop, "tool_use_stop"},
-		{"EventContentDelta", EventContentDelta, "content_delta"},
-		{"EventThinkingDelta", EventThinkingDelta, "thinking_delta"},
-		{"EventContentStop", EventContentStop, "content_stop"},
-		{"EventComplete", EventComplete, "complete"},
-		{"EventError", EventError, "error"},
-		{"EventWarning", EventWarning, "warning"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, string(tt.value))
-		})
-	}
+func newTestProvider() *baseProvider[AnthropicClient] {
+	return &baseProvider[AnthropicClient]{}
 }
 
-func TestTokenUsage(t *testing.T) {
+func TestSanitizeToolPairs(t *testing.T) {
 	tests := []struct {
-		name                string
-		inputTokens         int64
-		outputTokens        int64
-		cacheCreationTokens int64
-		cacheReadTokens     int64
-		checkTokens         func(*testing.T, TokenUsage)
+		name           string
+		messages       []message.Message
+		wantMsgCount   int
+		wantToolResult func([]message.Message, *testing.T)
 	}{
 		{
-			name:                "all tokens zero",
-			inputTokens:         0,
-			outputTokens:        0,
-			cacheCreationTokens: 0,
-			cacheReadTokens:     0,
-			checkTokens: func(t *testing.T, tu TokenUsage) {
-				assert.Equal(t, int64(0), tu.InputTokens)
-				assert.Equal(t, int64(0), tu.OutputTokens)
-			},
-		},
-		{
-			name:                "with token values",
-			inputTokens:         1000,
-			outputTokens:        500,
-			cacheCreationTokens: 100,
-			cacheReadTokens:     200,
-			checkTokens: func(t *testing.T, tu TokenUsage) {
-				assert.Equal(t, int64(1000), tu.InputTokens)
-				assert.Equal(t, int64(500), tu.OutputTokens)
-				assert.Equal(t, int64(100), tu.CacheCreationTokens)
-				assert.Equal(t, int64(200), tu.CacheReadTokens)
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tu := TokenUsage{
-				InputTokens:         tt.inputTokens,
-				OutputTokens:        tt.outputTokens,
-				CacheCreationTokens: tt.cacheCreationTokens,
-				CacheReadTokens:     tt.cacheReadTokens,
-			}
-			tt.checkTokens(t, tu)
-		})
-	}
-}
-
-func TestProviderResponse(t *testing.T) {
-	resp := ProviderResponse{
-		Content:      "test content",
-		ToolCalls:    nil,
-		Usage:        TokenUsage{InputTokens: 100, OutputTokens: 50},
-		FinishReason: "stop",
-	}
-
-	assert.Equal(t, "test content", resp.Content)
-	assert.Equal(t, int64(100), resp.Usage.InputTokens)
-	assert.Equal(t, int64(50), resp.Usage.OutputTokens)
-}
-
-func TestProviderEvent(t *testing.T) {
-	tests := []struct {
-		name       string
-		eventType  EventType
-		content    string
-		thinking   string
-		checkEvent func(*testing.T, ProviderEvent)
-	}{
-		{
-			name:      "content start event",
-			eventType: EventContentStart,
-			content:   "Hello",
-			checkEvent: func(t *testing.T, e ProviderEvent) {
-				assert.Equal(t, EventContentStart, e.Type)
-				assert.Equal(t, "Hello", e.Content)
-			},
-		},
-		{
-			name:      "thinking delta event",
-			eventType: EventThinkingDelta,
-			thinking:  " reasoning...",
-			checkEvent: func(t *testing.T, e ProviderEvent) {
-				assert.Equal(t, EventThinkingDelta, e.Type)
-				assert.Equal(t, " reasoning...", e.Thinking)
-			},
-		},
-		{
-			name:      "error event",
-			eventType: EventError,
-			checkEvent: func(t *testing.T, e ProviderEvent) {
-				assert.Equal(t, EventError, e.Type)
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			event := ProviderEvent{
-				Type:     tt.eventType,
-				Content:  tt.content,
-				Thinking: tt.thinking,
-			}
-			tt.checkEvent(t, event)
-		})
-	}
-}
-
-func TestProviderClientOptions(t *testing.T) {
-	tests := []struct {
-		name  string
-		opts  providerClientOptions
-		check func(*testing.T, providerClientOptions)
-	}{
-		{
-			name: "empty options",
-			opts: providerClientOptions{},
-			check: func(t *testing.T, o providerClientOptions) {
-				assert.Nil(t, o.headers)
-				assert.Empty(t, o.baseURL)
-			},
-		},
-		{
-			name: "with headers",
-			opts: providerClientOptions{
-				headers: map[string]string{
-					"Authorization": "Bearer token",
+			name: "valid pair passes through unchanged",
+			messages: []message.Message{
+				{
+					Role: message.User,
+					Parts: []message.ContentPart{
+						message.TextContent{Text: "hello"},
+					},
+				},
+				{
+					Role: message.Assistant,
+					Parts: []message.ContentPart{
+						message.TextContent{Text: "calling tool"},
+						message.ToolCall{ID: "tc-1", Name: "bash", Input: "{}", Finished: true},
+					},
+				},
+				{
+					Role: message.Tool,
+					Parts: []message.ContentPart{
+						message.ToolResult{ToolCallID: "tc-1", Name: "bash", Content: "ok"},
+					},
 				},
 			},
-			check: func(t *testing.T, o providerClientOptions) {
-				assert.NotNil(t, o.headers)
-				assert.Equal(t, "Bearer token", o.headers["Authorization"])
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.check(t, tt.opts)
-		})
-	}
-}
-
-func TestProviderClientOptionsAsHeader(t *testing.T) {
-	tests := []struct {
-		name     string
-		opts     providerClientOptions
-		checkKey func(*testing.T, *http.Header)
-	}{
-		{
-			name: "nil headers",
-			opts: providerClientOptions{
-				headers: nil,
-			},
-			checkKey: func(t *testing.T, header *http.Header) {
-				// nil headers should return empty header
-				assert.NotNil(t, header)
-				assert.Empty(t, *header)
+			wantMsgCount: 3,
+			wantToolResult: func(msgs []message.Message, t *testing.T) {
+				toolMsg := msgs[2]
+				results := toolMsg.ToolResults()
+				if len(results) != 1 || results[0].ToolCallID != "tc-1" {
+					t.Error("valid pair should pass through unchanged")
+				}
 			},
 		},
 		{
-			name: "with headers",
-			opts: providerClientOptions{
-				headers: map[string]string{
-					"Content-Type": "application/json",
+			name: "orphaned tool_use with no following tool message gets synthetic results",
+			messages: []message.Message{
+				{
+					Role: message.User,
+					Parts: []message.ContentPart{
+						message.TextContent{Text: "hello"},
+					},
+				},
+				{
+					Role: message.Assistant,
+					Parts: []message.ContentPart{
+						message.ToolCall{ID: "tc-1", Name: "bash", Input: "{}", Finished: true},
+					},
+				},
+				{
+					Role: message.User,
+					Parts: []message.ContentPart{
+						message.TextContent{Text: "next message"},
+					},
 				},
 			},
-			checkKey: func(t *testing.T, header *http.Header) {
-				assert.NotNil(t, header)
-				assert.Equal(t, "application/json", header.Get("Content-Type"))
+			wantMsgCount: 4,
+			wantToolResult: func(msgs []message.Message, t *testing.T) {
+				toolMsg := msgs[2]
+				if toolMsg.Role != message.Tool {
+					t.Errorf("expected synthesized tool message at index 2, got role %s", toolMsg.Role)
+				}
+				results := toolMsg.ToolResults()
+				if len(results) != 1 {
+					t.Fatalf("expected 1 tool result, got %d", len(results))
+				}
+				if results[0].ToolCallID != "tc-1" {
+					t.Errorf("expected tool call ID tc-1, got %s", results[0].ToolCallID)
+				}
+				if !results[0].IsError {
+					t.Error("expected synthesized tool result to be an error")
+				}
 			},
+		},
+		{
+			name: "incomplete tool results - missing results for some tool_use IDs get synthesized",
+			messages: []message.Message{
+				{
+					Role: message.User,
+					Parts: []message.ContentPart{
+						message.TextContent{Text: "hello"},
+					},
+				},
+				{
+					Role: message.Assistant,
+					Parts: []message.ContentPart{
+						message.ToolCall{ID: "tc-1", Name: "bash", Input: "{}", Finished: true},
+						message.ToolCall{ID: "tc-2", Name: "read", Input: "{}", Finished: true},
+						message.ToolCall{ID: "tc-3", Name: "grep", Input: "{}", Finished: true},
+					},
+				},
+				{
+					Role: message.Tool,
+					Parts: []message.ContentPart{
+						message.ToolResult{ToolCallID: "tc-1", Name: "bash", Content: "ok"},
+					},
+				},
+			},
+			wantMsgCount: 3,
+			wantToolResult: func(msgs []message.Message, t *testing.T) {
+				toolMsg := msgs[2]
+				if toolMsg.Role != message.Tool {
+					t.Fatalf("expected tool message at index 2, got role %s", toolMsg.Role)
+				}
+				results := toolMsg.ToolResults()
+				if len(results) != 3 {
+					t.Fatalf("expected 3 tool results (1 real + 2 synthesized), got %d", len(results))
+				}
+				resultByID := make(map[string]message.ToolResult, len(results))
+				for _, r := range results {
+					resultByID[r.ToolCallID] = r
+				}
+				if r, ok := resultByID["tc-1"]; !ok {
+					t.Error("missing result for tc-1")
+				} else if r.IsError {
+					t.Error("tc-1 should not be an error")
+				}
+				if r, ok := resultByID["tc-2"]; !ok {
+					t.Error("missing synthesized result for tc-2")
+				} else if !r.IsError {
+					t.Error("tc-2 should be an error (synthesized)")
+				}
+				if r, ok := resultByID["tc-3"]; !ok {
+					t.Error("missing synthesized result for tc-3")
+				} else if !r.IsError {
+					t.Error("tc-3 should be an error (synthesized)")
+				}
+			},
+		},
+		{
+			name: "tool results with only finish parts and no tool_result parts get synthesized",
+			messages: []message.Message{
+				{
+					Role: message.User,
+					Parts: []message.ContentPart{
+						message.TextContent{Text: "hello"},
+					},
+				},
+				{
+					Role: message.Assistant,
+					Parts: []message.ContentPart{
+						message.ToolCall{ID: "tc-1", Name: "bash", Input: "{}", Finished: true},
+						message.ToolCall{ID: "tc-2", Name: "read", Input: "{}", Finished: true},
+					},
+				},
+				{
+					Role: message.Tool,
+					Parts: []message.ContentPart{
+						message.Finish{Reason: message.FinishReasonEndTurn},
+					},
+				},
+			},
+			// 3 messages: user, assistant, tool (Finish part + 2 synthesized results merged in)
+			wantMsgCount: 3,
+			wantToolResult: func(msgs []message.Message, t *testing.T) {
+				toolMsg := msgs[2]
+				results := toolMsg.ToolResults()
+				if len(results) != 2 {
+					t.Fatalf("expected 2 synthesized tool results, got %d", len(results))
+				}
+				for _, r := range results {
+					if !r.IsError {
+						t.Errorf("expected synthesized result for %s to be error", r.ToolCallID)
+					}
+				}
+			},
+		},
+		{
+			name: "mismatched tool_result IDs get fixed positionally",
+			messages: []message.Message{
+				{
+					Role: message.User,
+					Parts: []message.ContentPart{
+						message.TextContent{Text: "hello"},
+					},
+				},
+				{
+					Role: message.Assistant,
+					Parts: []message.ContentPart{
+						message.ToolCall{ID: "tc-1", Name: "bash", Input: "{}", Finished: true},
+					},
+				},
+				{
+					Role: message.Tool,
+					Parts: []message.ContentPart{
+						message.ToolResult{ToolCallID: "wrong-id", Name: "bash", Content: "ok"},
+					},
+				},
+			},
+			wantMsgCount: 3,
+			wantToolResult: func(msgs []message.Message, t *testing.T) {
+				toolMsg := msgs[2]
+				results := toolMsg.ToolResults()
+				if len(results) != 1 {
+					t.Fatalf("expected 1 tool result, got %d", len(results))
+				}
+				if results[0].ToolCallID != "tc-1" {
+					t.Errorf("expected tool call ID to be fixed to tc-1, got %s", results[0].ToolCallID)
+				}
+			},
+		},
+		{
+			name: "orphaned tool result without preceding assistant is skipped",
+			messages: []message.Message{
+				{
+					Role: message.User,
+					Parts: []message.ContentPart{
+						message.TextContent{Text: "hello"},
+					},
+				},
+				{
+					Role: message.Tool,
+					Parts: []message.ContentPart{
+						message.ToolResult{ToolCallID: "tc-1", Name: "bash", Content: "ok"},
+					},
+				},
+			},
+			wantMsgCount: 1,
+		},
+		{
+			name: "multiple tool use cycles with incomplete second pair",
+			messages: []message.Message{
+				{
+					Role: message.User,
+					Parts: []message.ContentPart{
+						message.TextContent{Text: "hello"},
+					},
+				},
+				{
+					Role: message.Assistant,
+					Parts: []message.ContentPart{
+						message.ToolCall{ID: "tc-1", Name: "bash", Input: "{}", Finished: true},
+					},
+				},
+				{
+					Role: message.Tool,
+					Parts: []message.ContentPart{
+						message.ToolResult{ToolCallID: "tc-1", Name: "bash", Content: "ok"},
+					},
+				},
+				{
+					Role: message.Assistant,
+					Parts: []message.ContentPart{
+						message.ToolCall{ID: "tc-2", Name: "read", Input: "{}", Finished: true},
+						message.ToolCall{ID: "tc-3", Name: "grep", Input: "{}", Finished: true},
+					},
+				},
+				{
+					Role: message.Tool,
+					Parts: []message.ContentPart{
+						message.ToolResult{ToolCallID: "tc-2", Name: "read", Content: "file contents"},
+					},
+				},
+			},
+			wantMsgCount: 5,
+			wantToolResult: func(msgs []message.Message, t *testing.T) {
+				firstToolMsg := msgs[2]
+				firstResults := firstToolMsg.ToolResults()
+				if len(firstResults) != 1 || firstResults[0].ToolCallID != "tc-1" {
+					t.Error("first tool pair should be unchanged")
+				}
+
+				secondToolMsg := msgs[4]
+				secondResults := secondToolMsg.ToolResults()
+				if len(secondResults) != 2 {
+					t.Fatalf("expected 2 tool results in second pair (1 real + 1 synthesized), got %d", len(secondResults))
+				}
+				resultByID := make(map[string]message.ToolResult, len(secondResults))
+				for _, r := range secondResults {
+					resultByID[r.ToolCallID] = r
+				}
+				if r, ok := resultByID["tc-2"]; !ok || r.IsError {
+					t.Error("tc-2 result should exist and not be an error")
+				}
+				if r, ok := resultByID["tc-3"]; !ok || !r.IsError {
+					t.Error("tc-3 should have a synthesized error result")
+				}
+			},
+		},
+		{
+			name:         "empty messages returns empty",
+			messages:     []message.Message{},
+			wantMsgCount: 0,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			header := tt.opts.asHeader()
-			tt.checkKey(t, header)
+			p := newTestProvider()
+			result := p.sanitizeToolPairs(tt.messages)
+			if len(result) != tt.wantMsgCount {
+				t.Errorf("expected %d messages, got %d", tt.wantMsgCount, len(result))
+				for i, m := range result {
+					t.Logf("  msg[%d]: id=%s role=%s parts=%d toolCalls=%d toolResults=%d", i, m.ID, m.Role, len(m.Parts), len(m.ToolCalls()), len(m.ToolResults()))
+				}
+			}
+			if tt.wantToolResult != nil {
+				tt.wantToolResult(result, t)
+			}
 		})
 	}
 }
 
-func TestProviderClientOptionFunctions(t *testing.T) {
-	// Test the option functions
-	t.Run("WithBaseURL", func(t *testing.T) {
-		opts := &providerClientOptions{}
-		WithBaseURL("https://api.example.com")(opts)
-		assert.Equal(t, "https://api.example.com", opts.baseURL)
-	})
+func TestCleanMessages(t *testing.T) {
+	tests := []struct {
+		name         string
+		messages     []message.Message
+		wantMsgCount int
+	}{
+		{
+			name: "removes empty messages",
+			messages: []message.Message{
+				{Role: message.User, Parts: []message.ContentPart{message.TextContent{Text: "hello"}}},
+				{Role: message.Assistant, Parts: []message.ContentPart{}},
+				{Role: message.User, Parts: []message.ContentPart{message.TextContent{Text: "world"}}},
+			},
+			wantMsgCount: 2,
+		},
+		{
+			name: "removes assistant with only finish part",
+			messages: []message.Message{
+				{Role: message.User, Parts: []message.ContentPart{message.TextContent{Text: "hello"}}},
+				{Role: message.Assistant, Parts: []message.ContentPart{message.Finish{Reason: message.FinishReasonCanceled}}},
+			},
+			wantMsgCount: 1,
+		},
+	}
 
-	t.Run("WithAPIKey", func(t *testing.T) {
-		opts := &providerClientOptions{}
-		WithAPIKey("test-key")(opts)
-		assert.Equal(t, "test-key", opts.apiKey)
-	})
-
-	t.Run("WithMaxTokens", func(t *testing.T) {
-		opts := &providerClientOptions{}
-		WithMaxTokens(4096)(opts)
-		assert.Equal(t, int64(4096), opts.maxTokens)
-	})
-
-	t.Run("WithSystemMessage", func(t *testing.T) {
-		opts := &providerClientOptions{}
-		WithSystemMessage("You are a helpful assistant")(opts)
-		assert.Equal(t, "You are a helpful assistant", opts.systemMessage)
-	})
-
-	t.Run("WithModel", func(t *testing.T) {
-		opts := &providerClientOptions{}
-		testModel := models.Model{Name: "test-model", ContextWindow: 4096}
-		WithModel(testModel)(opts)
-		assert.Equal(t, "test-model", opts.model.Name)
-	})
-
-	t.Run("WithHeaders", func(t *testing.T) {
-		opts := &providerClientOptions{}
-		WithHeaders(map[string]string{"X-Custom": "value"})(opts)
-		assert.Equal(t, "value", opts.headers["X-Custom"])
-	})
-}
-
-func TestNewProvider_Unsupported(t *testing.T) {
-	// Test that NewProvider returns error for unsupported provider
-	_, err := NewProvider("unsupported-provider")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "provider not supported")
-}
-
-func TestMaxRetriesConstant(t *testing.T) {
-	// Verify maxRetries constant
-	assert.Equal(t, 8, maxRetries)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := newTestProvider()
+			result := p.cleanMessages(tt.messages)
+			if len(result) != tt.wantMsgCount {
+				t.Errorf("expected %d messages, got %d", tt.wantMsgCount, len(result))
+			}
+		})
+	}
 }

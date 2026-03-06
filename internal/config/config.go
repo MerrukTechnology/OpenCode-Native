@@ -173,6 +173,18 @@ type PermissionConfig struct {
 	Skill map[string]string `json:"skill,omitempty"`
 }
 
+// WebSearchProvider defines configuration for a web search provider.
+type WebSearchProvider struct {
+	Description string `json:"description,omitempty"`
+	APIKey      string `json:"apiKey,omitempty"`
+	BaseURL     string `json:"baseURL,omitempty"`
+}
+
+// WebSearchConfig defines configuration for web search.
+type WebSearchConfig struct {
+	Providers map[string]WebSearchProvider `json:"providers,omitempty"`
+}
+
 // Config is the main configuration structure for the application.
 type Config struct {
 	Data               Data                              `json:"data"`
@@ -189,6 +201,7 @@ type Config struct {
 	AutoCompact        bool                              `json:"autoCompact,omitempty"`
 	DisableLSPDownload bool                              `json:"disableLSPDownload,omitempty"`
 	SessionProvider    SessionProviderConfig             `json:"sessionProvider,omitempty"`
+	WebSearch          *WebSearchConfig                  `json:"webSearch,omitempty"`
 
 	// Deprecated: use Rules instead, Needed for backward compatibility.
 	Skills     *SkillsConfig     `json:"skills,omitempty"`

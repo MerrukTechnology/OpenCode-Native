@@ -25,9 +25,9 @@ var (
 		tools.LSToolName,
 		tools.GlobToolName,
 		tools.GrepToolName,
-		tools.ViewToolName,
+		tools.ReadToolName,
 		tools.ViewImageToolName,
-		tools.FetchToolName,
+		tools.WebFetchToolName,
 		tools.SkillToolName,
 		tools.SourcegraphToolName,
 	}
@@ -72,16 +72,18 @@ func NewToolSet(
 			return tools.NewGlobTool()
 		case tools.GrepToolName:
 			return tools.NewGrepTool()
-		case tools.ViewToolName:
+		case tools.ReadToolName:
 			return tools.NewViewTool(lspService)
 		case tools.ViewImageToolName:
 			return tools.NewViewImageTool()
-		case tools.FetchToolName:
+		case tools.WebFetchToolName:
 			return tools.NewFetchTool(permissions)
 		case tools.SkillToolName:
 			return tools.NewSkillTool(permissions, reg)
 		case tools.SourcegraphToolName:
 			return tools.NewSourcegraphTool()
+		case tools.WebSearchToolName:
+			return tools.NewWebSearchTool(tools.NewSearchProviderRegistry(config.Get()), permissions)
 		case tools.WriteToolName:
 			return tools.NewWriteTool(lspService, permissions, historyService, reg)
 		case tools.EditToolName:
@@ -108,6 +110,16 @@ func NewToolSet(
 	for _, name := range viewerToolNames {
 		if reg.IsToolEnabled(agentID, name) {
 			if t := createTool(name); t != nil {
+				result <- t
+			}
+		}
+	}
+
+	// Only add websearch tool if providers are configured
+	cfg := config.Get()
+	if cfg != nil && cfg.WebSearch != nil && len(cfg.WebSearch.Providers) > 0 {
+		if reg.IsToolEnabled(agentID, tools.WebSearchToolName) {
+			if t := createTool(tools.WebSearchToolName); t != nil {
 				result <- t
 			}
 		}

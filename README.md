@@ -101,6 +101,7 @@ All permissions are auto-approved in non-interactive mode.
 | `--flow` | `-F` | Flow ID to execute, [more info](docs/flows.md) |
 | `--arg` | `-A` | Flow argument as `key=value` (repeatable) |
 | `--args-file` | | JSON file with flow arguments |
+| `--project-id` | `-P` | Custom project ID to group sessions (overrides detected Git/basename) |
 
 ## Configuration
 
@@ -168,6 +169,15 @@ OpenCode looks for `.opencode.json` in:
     "rules": {
       "bash": { "*": "ask", "git *": "allow" },
       "edit": { "*": "allow" }
+    }
+  },
+  "webSearch": {
+    "providers": {
+      "tavily": {
+        "baseUrl": "https://api.tavily.com/search",
+        "apiKey": "env:TAVILY_API_KEY",
+        "description": "Web search via Tavily"
+      }
     }
   },
   "autoCompact": true,
@@ -431,7 +441,7 @@ For a complete list of supported models and their configurations, see the [Provi
 | `glob` | Find files by pattern |
 | `grep` | Search file contents |
 | `ls` | List directory contents |
-| `view` | View file contents |
+| `read` | Read file contents |
 | `view_image` | View image files as base64 |
 | `write` | Write to files |
 | `edit` | Edit files |
@@ -445,7 +455,8 @@ For a complete list of supported models and their configurations, see the [Provi
 | Tool | Description |
 |------|-------------|
 | `bash` | Execute shell commands |
-| `fetch` | Fetch data from URLs |
+| `webfetch` | Fetch data from URLs |
+| `websearch` | Search internet via configured WebSearch providers |
 | `sourcegraph` | Search public repositories |
 | `task` | Run sub-tasks with a subagent (supports `subagent_type` and `task_id` for resumption) |
 | `skill` | Load agent skills on-demand |
