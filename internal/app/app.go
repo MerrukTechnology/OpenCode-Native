@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -136,14 +137,15 @@ func New(ctx context.Context, conn *sql.DB, cliSchema map[string]any, projectID 
 
 	primaryAgents, err := factory.InitPrimaryAgents(ctx, cliSchema)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("initializing primary agents: %w", err)
 	}
+	if len(primaryAgents) == 0 {
+		return nil, errors.New("no primary agents available: registry returned empty list")
+	}
+	app.activeAgent = primaryAgents[0]
 	for _, primaryAgent := range primaryAgents {
 		app.PrimaryAgents[primaryAgent.AgentID()] = primaryAgent
 		app.PrimaryAgentKeys = append(app.PrimaryAgentKeys, primaryAgent.AgentID())
-		if app.activeAgent == nil {
-			app.activeAgent = primaryAgent
-		}
 	}
 	return app, nil
 }
