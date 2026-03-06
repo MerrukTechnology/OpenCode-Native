@@ -199,7 +199,19 @@ func (s *lspService) WaitForDiagnostics(ctx context.Context, filePath string) er
 			}
 		}
 
+		// Save the original handler to restore after wait completes
+		var originalHandler lsp.NotificationHandler
+		client.GetNotificationHandler("textDocument/publishDiagnostics", &originalHandler)
+
+		// Register the temporary handler
 		client.RegisterNotificationHandler("textDocument/publishDiagnostics", handler)
+
+		// Restore the original handler when this client iteration ends
+		if originalHandler != nil {
+			client.RegisterNotificationHandler("textDocument/publishDiagnostics", originalHandler)
+		} else {
+			client.UnregisterNotificationHandler("textDocument/publishDiagnostics")
+		}
 
 		if client.IsFileOpen(filePath) {
 			_ = client.NotifyChange(ctx, filePath)
@@ -327,8 +339,9 @@ func (s *lspService) createAndStartLSPClient(ctx context.Context, name string, s
 
 	s.mu.Lock()
 	s.clients[name] = lspClient
-	s.clientsCh <- lspClient
 	s.mu.Unlock()
+
+	s.clientsCh <- lspClient
 
 	go s.runWorkspaceWatcher(watchCtx, name, workspaceWatcher)
 }

@@ -132,6 +132,22 @@ func (c *Client) RegisterNotificationHandler(method string, handler Notification
 	c.notificationHandlers[method] = handler
 }
 
+// UnregisterNotificationHandler removes a notification handler for the given method.
+func (c *Client) UnregisterNotificationHandler(method string) {
+	c.notificationMu.Lock()
+	defer c.notificationMu.Unlock()
+	delete(c.notificationHandlers, method)
+}
+
+// GetNotificationHandler retrieves a notification handler for the given method.
+func (c *Client) GetNotificationHandler(method string, handler *NotificationHandler) {
+	c.notificationMu.RLock()
+	defer c.notificationMu.RUnlock()
+	if h, ok := c.notificationHandlers[method]; ok {
+		*handler = h
+	}
+}
+
 func (c *Client) RegisterServerRequestHandler(method string, handler ServerRequestHandler) {
 	c.serverHandlersMu.Lock()
 	defer c.serverHandlersMu.Unlock()
