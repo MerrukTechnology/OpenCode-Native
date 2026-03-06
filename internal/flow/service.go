@@ -182,7 +182,23 @@ func (s *service) Run(ctx context.Context, sessionPrefix string, flowID string, 
 				IsStructOutput: isStructOutput,
 				SessionID:      stepSessionID,
 			}); err != nil {
-				logging.Warn("Failed to update initial flow state", "session_id", stepSessionID, "error", err)
+				if errors.Is(err, sql.ErrNoRows) {
+					// Flow state was deleted between GetFlowState and UpdateFlowState (race condition)
+					// Fallback to creating a new state
+					if _, createErr := s.querier.CreateFlowState(ctx, db.CreateFlowStateParams{
+						SessionID:      stepSessionID,
+						RootSessionID:  sql.NullString{String: rootSessionID, Valid: true},
+						FlowID:         f.ID,
+						StepID:         w.step.ID,
+						Status:         string(FlowStatusRunning),
+						Args:           sql.NullString{String: string(argsJSON), Valid: true},
+						IsStructOutput: false,
+					}); createErr != nil {
+						logging.Warn("Failed to create fallback flow state after race condition", "session_id", stepSessionID, "error", createErr)
+					}
+				} else {
+					logging.Warn("Failed to update initial flow state", "session_id", stepSessionID, "error", err)
+				}
 			}
 		} else {
 			if _, err := s.querier.CreateFlowState(ctx, db.CreateFlowStateParams{
@@ -296,6 +312,22 @@ func (s *service) runStep(
 			SessionID:      sessionID,
 		}); stateErr == nil {
 			updatedAt = state.UpdatedAt
+		} else if errors.Is(stateErr, sql.ErrNoRows) {
+			// Flow state was deleted between GetFlowState and UpdateFlowState (race condition)
+			// Fallback to creating a new state
+			if newState, createErr := s.querier.CreateFlowState(ctx, db.CreateFlowStateParams{
+				SessionID:      sessionID,
+				RootSessionID:  sql.NullString{String: rootSessionID, Valid: true},
+				FlowID:         f.ID,
+				StepID:         step.ID,
+				Status:         string(status),
+				Args:           sql.NullString{String: string(argsJSON), Valid: true},
+				IsStructOutput: isStructOutput,
+			}); createErr == nil {
+				updatedAt = newState.UpdatedAt
+			} else {
+				err = fmt.Errorf("failed to create flow state after not found: %w", createErr)
+			}
 		} else {
 			err = stateErr
 		}
@@ -389,7 +421,12 @@ doneRetry:
 			IsStructOutput: false,
 			SessionID:      sessionID,
 		}); updateErr != nil {
-			logging.Warn("Failed to persist step failure state", "session_id", sessionID, "error", updateErr)
+			if errors.Is(updateErr, sql.ErrNoRows) {
+				// Flow state was deleted during retry (race condition)
+				logging.Error("Flow state not found during retry failure update", "session_id", sessionID, "error", updateErr)
+			} else {
+				logging.Warn("Failed to persist step failure state", "session_id", sessionID, "error", updateErr)
+			}
 			updatedAt = time.Now().Unix()
 		} else {
 			updatedAt = state.UpdatedAt
@@ -443,7 +480,12 @@ doneRetry:
 		IsStructOutput: isStructOutput,
 		SessionID:      sessionID,
 	}); updateErr != nil {
-		logging.Warn("Failed to persist step completion state", "session_id", sessionID, "error", updateErr)
+		if errors.Is(updateErr, sql.ErrNoRows) {
+			// Flow state was deleted during step execution (race condition)
+			logging.Error("Flow state not found during completion update", "session_id", sessionID, "error", updateErr)
+		} else {
+			logging.Warn("Failed to persist step completion state", "session_id", sessionID, "error", updateErr)
+		}
 		updatedAt = time.Now().Unix()
 	} else {
 		updatedAt = state.UpdatedAt
@@ -497,7 +539,12 @@ func (s *service) handleStepError(
 		IsStructOutput: false,
 		SessionID:      sessionID,
 	}); updateErr != nil {
-		logging.Warn("Failed to persist step error state", "session_id", sessionID, "error", updateErr)
+		if errors.Is(updateErr, sql.ErrNoRows) {
+			// Flow state was deleted during step execution (race condition)
+			logging.Error("Flow state not found during error handling", "session_id", sessionID, "error", updateErr)
+		} else {
+			logging.Warn("Failed to persist step error state", "session_id", sessionID, "error", updateErr)
+		}
 		updatedAt = time.Now().Unix()
 	} else {
 		updatedAt = state.UpdatedAt

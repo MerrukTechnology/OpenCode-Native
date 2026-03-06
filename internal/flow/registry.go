@@ -244,6 +244,9 @@ func validateFlow(f *Flow) error {
 		if err := validateStepID(step.ID); err != nil {
 			return err
 		}
+		if strings.TrimSpace(step.Prompt) == "" {
+			return fmt.Errorf("step %q has an empty prompt", step.ID)
+		}
 		if stepIDs[step.ID] {
 			return fmt.Errorf("%w: %q", ErrDuplicateStepID, step.ID)
 		}
