@@ -83,7 +83,7 @@ func (s *skillTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 	}
 
 	baseDir := filepath.Dir(skillInfo.Location)
-	files := sampleSkillFiles(baseDir, skillFileSampleLimit)
+	files := sampleSkillFiles(ctx, baseDir, skillFileSampleLimit)
 
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "<skill_content name=%q>\n", skillInfo.Name)
@@ -108,8 +108,8 @@ func (s *skillTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error
 }
 
 // sampleSkillFiles lists up to limit files in the skill directory, excluding SKILL.md.
-func sampleSkillFiles(dir string, limit int) []string {
-	if files, err := sampleSkillFilesWithRipgrep(dir, limit); err == nil {
+func sampleSkillFiles(ctx context.Context, dir string, limit int) []string {
+	if files, err := sampleSkillFilesWithRipgrep(ctx, dir, limit); err == nil {
 		return files
 	}
 
@@ -138,13 +138,13 @@ func sampleSkillFiles(dir string, limit int) []string {
 	return files
 }
 
-func sampleSkillFilesWithRipgrep(dir string, limit int) ([]string, error) {
+func sampleSkillFilesWithRipgrep(ctx context.Context, dir string, limit int) ([]string, error) {
 	rgPath, err := exec.LookPath("rg")
 	if err != nil {
 		return nil, err
 	}
 
-	cmd := exec.Command(rgPath, "--files", "--hidden", dir)
+	cmd := exec.CommandContext(ctx, rgPath, "--files", "--hidden", dir)
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, err

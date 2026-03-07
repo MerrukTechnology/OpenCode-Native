@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -113,7 +114,8 @@ func TestSampleSkillFiles(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dir, limit := tt.setup(t)
-			files := sampleSkillFiles(dir, limit)
+			ctx := context.Background()
+			files := sampleSkillFiles(ctx, dir, limit)
 
 			if len(files) < tt.expectedMin || len(files) > tt.expectedMax {
 				t.Errorf("expected between %d and %d files, got %d", tt.expectedMin, tt.expectedMax, len(files))

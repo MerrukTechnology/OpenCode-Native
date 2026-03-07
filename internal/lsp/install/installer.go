@@ -36,7 +36,7 @@ func ResolveCommand(ctx context.Context, server ResolvedServer, disableDownload 
 	// If user provided an absolute path, use it directly
 	if filepath.IsAbs(cmd) {
 		if _, err := os.Stat(cmd); err == nil {
-			logServerVersion(cmd, server.ID)
+			logServerVersion(ctx, cmd, server.ID)
 			return cmd, args, nil
 		}
 		return "", nil, fmt.Errorf("configured command not found: %s", cmd)
@@ -44,7 +44,7 @@ func ResolveCommand(ctx context.Context, server ResolvedServer, disableDownload 
 
 	// Check system PATH
 	if path, err := exec.LookPath(cmd); err == nil {
-		logServerVersion(path, server.ID)
+		logServerVersion(ctx, path, server.ID)
 		return path, args, nil
 	}
 
@@ -86,15 +86,15 @@ func ResolveCommand(ctx context.Context, server ResolvedServer, disableDownload 
 
 	// Re-check after install
 	if path, err := exec.LookPath(cmd); err == nil {
-		logServerVersion(path, server.ID)
+		logServerVersion(ctx, path, server.ID)
 		return path, args, nil
 	}
 	if _, err := os.Stat(localBin); err == nil {
-		logServerVersion(localBin, server.ID)
+		logServerVersion(ctx, localBin, server.ID)
 		return localBin, args, nil
 	}
 	if _, err := os.Stat(npmBin); err == nil {
-		logServerVersion(npmBin, server.ID)
+		logServerVersion(ctx, npmBin, server.ID)
 		return npmBin, args, nil
 	}
 
@@ -102,9 +102,9 @@ func ResolveCommand(ctx context.Context, server ResolvedServer, disableDownload 
 }
 
 // logServerVersion attempts to get and log the server version for debugging.
-func logServerVersion(binaryPath, serverID string) {
+func logServerVersion(ctx context.Context, binaryPath, serverID string) {
 	for _, flag := range []string{"--version", "version", "-v"} {
-		cmd := exec.Command(binaryPath, flag)
+		cmd := exec.CommandContext(ctx, binaryPath, flag)
 		output, err := cmd.Output()
 		if err == nil {
 			version := strings.TrimSpace(strings.Split(string(output), "\n")[0])
@@ -241,9 +241,9 @@ func installGitHubRelease(ctx context.Context, server ResolvedServer) error {
 	downloadName := filepath.Base(asset)
 	switch {
 	case strings.HasSuffix(downloadName, ".tar.gz") || strings.HasSuffix(downloadName, ".tgz"):
-		return extractTarGz(tmpFile.Name(), binDir, server.Command[0])
+		return extractTarGz(ctx, tmpFile.Name(), binDir, server.Command[0])
 	case strings.HasSuffix(downloadName, ".zip"):
-		return extractZip(tmpFile.Name(), binDir, server.Command[0])
+		return extractZip(ctx, tmpFile.Name(), binDir, server.Command[0])
 	default:
 		// Assume it's a raw binary
 		dest := filepath.Join(binDir, server.Command[0])
@@ -312,8 +312,8 @@ func findMatchingAsset(assets []struct {
 	return ""
 }
 
-func extractTarGz(src, destDir, binaryName string) error {
-	cmd := exec.Command("tar", "xzf", src, "-C", destDir)
+func extractTarGz(ctx context.Context, src, destDir, binaryName string) error {
+	cmd := exec.CommandContext(ctx, "tar", "xzf", src, "-C", destDir)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("tar extraction failed: %w\noutput: %s", err, string(output))
@@ -338,8 +338,8 @@ func extractTarGz(src, destDir, binaryName string) error {
 	return err
 }
 
-func extractZip(src, destDir, binaryName string) error {
-	cmd := exec.Command("unzip", "-o", src, "-d", destDir)
+func extractZip(ctx context.Context, src, destDir, binaryName string) error {
+	cmd := exec.CommandContext(ctx, "unzip", "-o", src, "-d", destDir)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("unzip failed: %w\noutput: %s", err, string(output))

@@ -170,13 +170,9 @@ func (m *sidebarCmp) sessionSection() string {
 			providerInfo = fmt.Sprintf("remote (%s)", cfg.SessionProvider.MySQL.Host)
 		} else if cfg.SessionProvider.MySQL.DSN != "" {
 			dsn := cfg.SessionProvider.MySQL.DSN
-			if idx := strings.Index(dsn, "@tcp("); idx != -1 {
-				hostPart := dsn[idx+5:]
-				if endIdx := strings.Index(hostPart, ")"); endIdx != -1 {
-					host := hostPart[:endIdx]
-					if colonIdx := strings.Index(host, ":"); colonIdx != -1 {
-						host = host[:colonIdx]
-					}
+			if _, hostPart, found := strings.Cut(dsn, "@tcp("); found {
+				if host, _, found := strings.Cut(hostPart, ")"); found {
+					host, _, _ = strings.Cut(host, ":")
 					providerInfo = fmt.Sprintf("remote (%s)", host)
 				} else {
 					providerInfo = "remote"
