@@ -142,7 +142,7 @@ Key Features:
 		}
 
 		// Connect DB, this will also run migrations
-		conn, err := db.Connect()
+		conn, err := db.Connect(context.Background())
 		if err != nil {
 			if spinner != nil {
 				spinner.Stop()

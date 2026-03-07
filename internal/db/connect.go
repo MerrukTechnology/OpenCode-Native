@@ -3,6 +3,7 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
@@ -14,7 +15,7 @@ import (
 // Connect creates a new database connection based on the current configuration.
 // It sets up the provider, connects to the database, runs migrations, and
 // backfills project IDs for existing sessions.
-func Connect() (*sql.DB, error) {
+func Connect(ctx context.Context) (*sql.DB, error) {
 	cfg := config.Get()
 
 	// Create provider based on configuration
@@ -58,7 +59,7 @@ func Connect() (*sql.DB, error) {
 	// Backfill project_id for existing sessions (SQLite only)
 	// MySQL support is added AFTER project_id introduction, so MySQL should never have sessions without project_id
 	if provider.Type() == config.ProviderSQLite {
-		if err := backfillProjectID(db, cfg); err != nil {
+		if err := backfillProjectID(ctx, db, cfg); err != nil {
 			logging.Warn("Failed to backfill project_id", "error", err)
 			// Don't fail the connection, just log the warning
 		}
@@ -68,10 +69,10 @@ func Connect() (*sql.DB, error) {
 }
 
 // backfillProjectID populates project_id for sessions that don't have one.
-func backfillProjectID(db *sql.DB, cfg *config.Config) error {
+func backfillProjectID(ctx context.Context, db *sql.DB, cfg *config.Config) error {
 	// Check if there are any sessions without project_id
 	var count int
-	err := db.QueryRow("SELECT COUNT(*) FROM sessions WHERE project_id IS NULL").Scan(&count)
+	err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM sessions WHERE project_id IS NULL").Scan(&count)
 	if err != nil {
 		return fmt.Errorf("failed to count sessions without project_id: %w", err)
 	}
@@ -89,7 +90,7 @@ func backfillProjectID(db *sql.DB, cfg *config.Config) error {
 	projectID := GetProjectID(cfg.WorkingDir)
 
 	// Update all sessions without project_id
-	result, err := db.Exec("UPDATE sessions SET project_id = ? WHERE project_id IS NULL", projectID)
+	result, err := db.ExecContext(ctx, "UPDATE sessions SET project_id = ? WHERE project_id IS NULL", projectID)
 	if err != nil {
 		return fmt.Errorf("failed to update sessions with project_id: %w", err)
 	}

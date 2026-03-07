@@ -1,6 +1,7 @@
 package task
 
 import (
+	"context"
 	"database/sql"
 	"testing"
 
@@ -32,9 +33,10 @@ func newTestDB(t *testing.T) *sql.DB {
 func TestDBTaskLifecycle(t *testing.T) {
 	db := newTestDB(t)
 	svc := NewDBTaskService(db)
+	ctx := context.Background()
 	// create task
 	steps := []Step{{ID: "s1", Description: "first", Type: "structured"}, {ID: "s2", Description: "second", Type: "structured"}}
-	tsk, err := svc.CreateTask("DB Task", "sess1", steps)
+	tsk, err := svc.CreateTask(ctx, "DB Task", "sess1", steps)
 	if err != nil {
 		t.Fatalf("CreateTask: %v", err)
 	}
@@ -43,19 +45,19 @@ func TestDBTaskLifecycle(t *testing.T) {
 	}
 
 	// update first step to running
-	if err := svc.UpdateStep(tsk.ID, 0, StepRunning, "in progress", ""); err != nil {
+	if err := svc.UpdateStep(ctx, tsk.ID, 0, StepRunning, "in progress", ""); err != nil {
 		t.Fatalf("UpdateStep: %v", err)
 	}
 	// complete first step
-	if err := svc.UpdateStep(tsk.ID, 0, StepCompleted, "done", ""); err != nil {
+	if err := svc.UpdateStep(ctx, tsk.ID, 0, StepCompleted, "done", ""); err != nil {
 		t.Fatalf("UpdateStep: %v", err)
 	}
 	// complete second step
-	if err := svc.UpdateStep(tsk.ID, 1, StepCompleted, "done", ""); err != nil {
+	if err := svc.UpdateStep(ctx, tsk.ID, 1, StepCompleted, "done", ""); err != nil {
 		t.Fatalf("UpdateStep: %v", err)
 	}
 	// fetch final state
-	tsk2, err := svc.GetTask(tsk.ID)
+	tsk2, err := svc.GetTask(ctx, tsk.ID)
 	if err != nil {
 		t.Fatalf("GetTask: %v", err)
 	}

@@ -89,7 +89,7 @@ func (s *service) Create(ctx context.Context, sessionID string, params CreateMes
 		return message, nil
 	}
 
-	tx, err := s.db.Begin()
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return Message{}, fmt.Errorf("failed to begin transaction: %w", err)
 	}

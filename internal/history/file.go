@@ -103,7 +103,7 @@ func (s *service) createWithVersion(ctx context.Context, sessionID, path, conten
 
 	for attempt := range maxRetries {
 		logging.Debug("Trying to create a file history", "path", path, "sessionID", sessionID, "version", version)
-		tx, txErr := s.db.Begin()
+		tx, txErr := s.db.BeginTx(ctx, nil)
 		if txErr != nil {
 			return File{}, fmt.Errorf("failed to begin transaction: %w", txErr)
 		}

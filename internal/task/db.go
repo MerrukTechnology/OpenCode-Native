@@ -1,6 +1,7 @@
 package task
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -17,7 +18,7 @@ func NewDBTaskService(db *sql.DB) *DBTaskService {
 	return &DBTaskService{db: db}
 }
 
-func (s *DBTaskService) CreateTask(title, sessionID string, steps []Step) (*Task, error) {
+func (s *DBTaskService) CreateTask(ctx context.Context, title, sessionID string, steps []Step) (*Task, error) {
 	if title == "" {
 		return nil, errors.New("title cannot be empty")
 	}
@@ -28,15 +29,15 @@ func (s *DBTaskService) CreateTask(title, sessionID string, steps []Step) (*Task
 	if err != nil {
 		return nil, err
 	}
-	_, err = s.db.Exec(`INSERT INTO tasks (id, session_id, title, status, current_step_index, steps, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, id, sessionID, title, string(TaskPending), 0, string(b), now, now)
+	_, err = s.db.ExecContext(ctx, `INSERT INTO tasks (id, session_id, title, status, current_step_index, steps, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, id, sessionID, title, string(TaskPending), 0, string(b), now, now)
 	if err != nil {
 		return nil, err
 	}
 	return &Task{ID: id, SessionID: sessionID, Title: title, Status: TaskPending, CurrentStepIndex: 0, Steps: sSteps, CreatedAt: now, UpdatedAt: now}, nil
 }
 
-func (s *DBTaskService) GetTask(id string) (*Task, error) {
-	row := s.db.QueryRow(`SELECT id, session_id, title, status, current_step_index, steps, created_at, updated_at FROM tasks WHERE id = ?`, id)
+func (s *DBTaskService) GetTask(ctx context.Context, id string) (*Task, error) {
+	row := s.db.QueryRowContext(ctx, `SELECT id, session_id, title, status, current_step_index, steps, created_at, updated_at FROM tasks WHERE id = ?`, id)
 	var tid, sessionID, title, statusStr string
 	var current int
 	var stepsJSON string
@@ -52,9 +53,9 @@ func (s *DBTaskService) GetTask(id string) (*Task, error) {
 	return t, nil
 }
 
-func (s *DBTaskService) UpdateStep(taskID string, stepIndex int, newStatus StepStatus, output string, errMsg string) error {
+func (s *DBTaskService) UpdateStep(ctx context.Context, taskID string, stepIndex int, newStatus StepStatus, output string, errMsg string) error {
 	// Load task first
-	t, err := s.GetTask(taskID)
+	t, err := s.GetTask(ctx, taskID)
 	if err != nil {
 		return err
 	}
@@ -96,12 +97,12 @@ func (s *DBTaskService) UpdateStep(taskID string, stepIndex int, newStatus StepS
 	t.UpdatedAt = now
 
 	// Persist
-	_, err = s.db.Exec(`UPDATE tasks SET status = ?, current_step_index = ?, steps = ?, updated_at = ? WHERE id = ?`, string(t.Status), t.CurrentStepIndex, string(stepsBytes), now, taskID)
+	_, err = s.db.ExecContext(ctx, `UPDATE tasks SET status = ?, current_step_index = ?, steps = ?, updated_at = ? WHERE id = ?`, string(t.Status), t.CurrentStepIndex, string(stepsBytes), now, taskID)
 	return err
 }
 
-func (s *DBTaskService) ListTasks() ([]Task, error) {
-	rows, err := s.db.Query(`SELECT id, session_id, title, status, current_step_index, steps, created_at, updated_at FROM tasks`)
+func (s *DBTaskService) ListTasks(ctx context.Context) ([]Task, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT id, session_id, title, status, current_step_index, steps, created_at, updated_at FROM tasks`)
 	if err != nil {
 		return nil, err
 	}

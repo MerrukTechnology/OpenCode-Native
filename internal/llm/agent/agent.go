@@ -279,15 +279,16 @@ func (a *agent) processGeneration(ctx context.Context, sessionID, content string
 		return a.err(fmt.Errorf("failed to list messages: %w", err))
 	}
 	if len(msgs) == 0 {
-		go func() {
+		// Title generation is async, use a detached context
+		go func(ctx context.Context) {
 			defer logging.RecoverPanic("agent.Run", func() {
 				logging.ErrorPersist("panic while generating title")
 			})
-			titleErr := a.generateTitle(context.Background(), sessionID, content)
+			titleErr := a.generateTitle(ctx, sessionID, content)
 			if titleErr != nil {
 				logging.ErrorPersist(fmt.Sprintf("failed to generate title: %v", titleErr))
 			}
-		}()
+		}(ctx)
 	}
 	session, err := a.sessions.Get(ctx, sessionID)
 	if err != nil {
@@ -394,7 +395,7 @@ func (a *agent) processGeneration(ctx context.Context, sessionID, content string
 
 		agentMessage, toolResults, err = a.streamAndHandleEvents(ctx, sessionID, msgHistory, toolSet)
 		if err != nil {
-			a.createErrorToolResults(agentMessage)
+			a.createErrorToolResults(ctx, agentMessage)
 			if errors.Is(err, context.Canceled) {
 				a.finishMessage(ctx, &agentMessage, message.FinishReasonCanceled)
 				return a.err(ErrRequestCancelled)
@@ -487,7 +488,7 @@ func (a *agent) streamAndHandleEvents(ctx context.Context, sessionID string, msg
 	for i, toolCall := range toolCalls {
 		select {
 		case <-ctx.Done():
-			a.finishMessage(context.Background(), &assistantMsg, message.FinishReasonCanceled)
+			a.finishMessage(ctx, &assistantMsg, message.FinishReasonCanceled)
 			// Make all future tool calls cancelled
 			for j := i; j < len(toolCalls); j++ {
 				toolResults[j] = message.ToolResult{
@@ -590,7 +591,7 @@ out:
 	for _, tr := range toolResults {
 		parts = append(parts, tr)
 	}
-	msg, err := a.messages.Create(context.Background(), assistantMsg.SessionID, message.CreateMessageParams{
+	msg, err := a.messages.Create(ctx, assistantMsg.SessionID, message.CreateMessageParams{
 		Role:  message.Tool,
 		Parts: parts,
 	})
@@ -609,7 +610,7 @@ func (a *agent) finishMessage(ctx context.Context, msg *message.Message, finishR
 // createErrorToolResults creates a tool results message with error results for all tool calls
 // in the given assistant message. This ensures that every tool_use block in the DB
 // has a corresponding tool_result, preventing API errors when the session is resumed.
-func (a *agent) createErrorToolResults(assistantMsg message.Message) *message.Message {
+func (a *agent) createErrorToolResults(ctx context.Context, assistantMsg message.Message) *message.Message {
 	toolCalls := assistantMsg.ToolCalls()
 	if len(toolCalls) == 0 {
 		return nil
@@ -623,7 +624,7 @@ func (a *agent) createErrorToolResults(assistantMsg message.Message) *message.Me
 			IsError:    true,
 		}
 	}
-	msg, err := a.messages.Create(context.Background(), assistantMsg.SessionID, message.CreateMessageParams{
+	msg, err := a.messages.Create(ctx, assistantMsg.SessionID, message.CreateMessageParams{
 		Role:  message.Tool,
 		Parts: parts,
 	})
