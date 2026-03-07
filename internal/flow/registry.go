@@ -1,3 +1,5 @@
+// Package flow provides discovery, caching, and validation for YAML-defined flows.
+// Filenames map to flow IDs (kebab-case) and output schemas may use $ref which are resolved at load.
 package flow
 
 import (
@@ -15,14 +17,19 @@ import (
 )
 
 const (
+	// Upper bound on accepted flow YAML size to keep discovery fast and safe.
 	maxFlowFileSize = 100 * 1024 // 100KB
-	maxNameLength   = 64
+	// Maximum length for flow IDs (derived from filenames).
+	maxNameLength = 64
+	// Maximum length for step IDs inside a flow.
 	maxStepIDLength = 64
 )
 
 var (
+	// Validates flow and step identifiers: lowercase alphanumeric with hyphens.
 	kebabCaseRegex = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
+	// Cache of discovered flows guarded by flowCacheLock.
 	flowCache     map[string]Flow
 	flowCacheLock sync.Mutex
 	flowCacheInit bool
@@ -64,6 +71,7 @@ func Invalidate() {
 	flowCacheInit = false
 }
 
+// state returns the memoized set of flows, discovering on first access.
 func state() map[string]Flow {
 	flowCacheLock.Lock()
 	defer flowCacheLock.Unlock()
@@ -74,6 +82,8 @@ func state() map[string]Flow {
 	return flowCache
 }
 
+// discoverFlows merges project and global definitions, preferring project ones
+// when IDs conflict. Duplicates are logged and skipped.
 func discoverFlows() map[string]Flow {
 	flows := make(map[string]Flow)
 
@@ -134,6 +144,7 @@ func discoverGlobalFlows() []Flow {
 	return result
 }
 
+// scanFlowDirectory parses all YAML files in dir as flows, skipping invalid ones.
 func scanFlowDirectory(dir string) []Flow {
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		return nil
@@ -166,6 +177,8 @@ func scanFlowDirectory(dir string) []Flow {
 	return flows
 }
 
+// parseFlowFile loads YAML into a Flow, deriving ID from filename, resolving
+// $ref in output schemas, and validating the final spec.
 func parseFlowFile(path string) (*Flow, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {

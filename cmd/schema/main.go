@@ -1,3 +1,5 @@
+// Package main generates the OpenCode configuration JSON schema.
+// Run: go run cmd/schema/main.go > opencode-schema.json
 package main
 
 import (

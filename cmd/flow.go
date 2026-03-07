@@ -1,3 +1,5 @@
+// Package cmd provides the CLI commands for OpenCode.
+// This file implements the flow subcommand for running AI agent sessions.
 package cmd
 
 import (
