@@ -231,3 +231,16 @@ Permissions use pattern matching with priority:
 - Check the project README for additional guidelines
 - Look at existing code patterns for style consistency
 - Use the explorer agent for codebase navigation
+
+## Technical Debt / Follow-up Issues
+
+### HIGH Priority
+- [ ] Fix unchecked error returns (~140 errcheck issues)
+- [ ] Add context.Context to exec.Command calls (~18 locations)
+
+### MEDIUM Priority
+- [ ] Refactor strings.Index → strings.Cut (7 files)
+- [ ] Add package doc comments (6 files)
+
+### Completed
+- [x] Context propagation for critical DB/goroutine operations (commit 8616e87)
