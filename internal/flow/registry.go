@@ -310,6 +310,25 @@ func validateFlow(f *Flow) error {
 		stepIDs[step.ID] = true
 	}
 
+	// Build adjacency list for cycle detection
+	adj := make(map[string][]string, len(f.Spec.Steps))
+	for _, step := range f.Spec.Steps {
+		adj[step.ID] = nil // Initialize to ensure all nodes exist
+	}
+	for _, step := range f.Spec.Steps {
+		for _, rule := range step.Rules {
+			adj[step.ID] = append(adj[step.ID], rule.Then)
+		}
+		if step.Fallback != nil && step.Fallback.To != "" {
+			adj[step.ID] = append(adj[step.ID], step.Fallback.To)
+		}
+	}
+
+	// Check for cycles using DFS
+	if cycle := detectCycle(adj, stepIDs); cycle != nil {
+		return fmt.Errorf("%w: %s", ErrCycleDetected, strings.Join(cycle, " -> "))
+	}
+
 	// Validate rule and fallback references
 	thenTargets := make(map[string]int) // track how many rules target each step
 	for _, step := range f.Spec.Steps {
@@ -331,6 +350,59 @@ func validateFlow(f *Flow) error {
 		if count > 1 {
 			logging.Warn("Multiple rules target the same step (potential diamond convergence, first-to-arrive wins)",
 				"flow", f.ID, "target_step", targetID, "source_count", count)
+		}
+	}
+
+	return nil
+}
+
+// detectCycle uses DFS to detect cycles in the step graph.
+// Returns the cycle path (as slice of step IDs) if found, nil otherwise.
+func detectCycle(adj map[string][]string, stepIDs map[string]bool) []string {
+	visited := make(map[string]bool)
+	recStack := make(map[string]bool)
+	var path []string
+
+	var dfs func(node string, currentPath []string) bool
+	dfs = func(node string, currentPath []string) bool {
+		visited[node] = true
+		recStack[node] = true
+		currentPath = append(currentPath, node)
+
+		for _, neighbor := range adj[node] {
+			if !stepIDs[neighbor] {
+				continue // Skip invalid references (will be caught by other validation)
+			}
+			if !visited[neighbor] {
+				if dfs(neighbor, currentPath) {
+					return true
+				}
+			} else if recStack[neighbor] {
+				// Cycle detected - build the cycle path
+				cycleStart := -1
+				for i, n := range currentPath {
+					if n == neighbor {
+						cycleStart = i
+						break
+					}
+				}
+				if cycleStart >= 0 {
+					path = append(currentPath[cycleStart:], neighbor)
+				}
+				return true
+			}
+		}
+
+		recStack[node] = false
+		return false
+	}
+
+	// Run DFS from each node to handle disconnected components
+	for node := range stepIDs {
+		if !visited[node] {
+			if dfs(node, nil) {
+				return path
+			}
 		}
 	}
 

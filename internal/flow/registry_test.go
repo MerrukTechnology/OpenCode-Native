@@ -134,6 +134,73 @@ func TestValidateFlow(t *testing.T) {
 			},
 			wantErr: ErrInvalidFallback,
 		},
+		{
+			name: "cycle detection - direct cycle",
+			flow: Flow{
+				ID: "cycle-flow",
+				Spec: FlowSpec{
+					Steps: []Step{
+						{ID: "step-a", Prompt: "do a", Rules: []Rule{{If: "true", Then: "step-b"}}},
+						{ID: "step-b", Prompt: "do b", Rules: []Rule{{If: "true", Then: "step-a"}}},
+					},
+				},
+			},
+			wantErr: ErrCycleDetected,
+		},
+		{
+			name: "cycle detection - self-loop",
+			flow: Flow{
+				ID: "self-loop",
+				Spec: FlowSpec{
+					Steps: []Step{
+						{ID: "step-a", Prompt: "do a", Rules: []Rule{{If: "true", Then: "step-a"}}},
+					},
+				},
+			},
+			wantErr: ErrCycleDetected,
+		},
+		{
+			name: "cycle detection - fallback cycle",
+			flow: Flow{
+				ID: "fallback-cycle",
+				Spec: FlowSpec{
+					Steps: []Step{
+						{ID: "step-a", Prompt: "do a", Fallback: &Fallback{To: "step-b"}},
+						{ID: "step-b", Prompt: "do b", Fallback: &Fallback{To: "step-a"}},
+					},
+				},
+			},
+			wantErr: ErrCycleDetected,
+		},
+		{
+			name: "cycle detection - longer chain",
+			flow: Flow{
+				ID: "long-cycle",
+				Spec: FlowSpec{
+					Steps: []Step{
+						{ID: "step-a", Prompt: "do a", Rules: []Rule{{If: "true", Then: "step-b"}}},
+						{ID: "step-b", Prompt: "do b", Rules: []Rule{{If: "true", Then: "step-c"}}},
+						{ID: "step-c", Prompt: "do c", Rules: []Rule{{If: "true", Then: "step-a"}}},
+					},
+				},
+			},
+			wantErr: ErrCycleDetected,
+		},
+		{
+			name: "no cycle - diamond pattern",
+			flow: Flow{
+				ID: "diamond",
+				Spec: FlowSpec{
+					Steps: []Step{
+						{ID: "step-a", Prompt: "start", Rules: []Rule{{If: "true", Then: "step-b"}}},
+						{ID: "step-b", Prompt: "branch 1", Rules: []Rule{{If: "true", Then: "step-d"}}},
+						{ID: "step-c", Prompt: "branch 2", Rules: []Rule{{If: "true", Then: "step-d"}}},
+						{ID: "step-d", Prompt: "merge"},
+					},
+				},
+			},
+			wantErr: nil,
+		},
 	}
 
 	for _, tt := range tests {
