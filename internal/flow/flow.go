@@ -2,12 +2,14 @@ package flow
 
 import (
 	"errors"
+	"strings"
 )
 
 var (
 	ErrFlowNotFound     = errors.New("flow not found")
 	ErrFlowDisabled     = errors.New("flow is disabled")
 	ErrInvalidFlowName  = errors.New("invalid flow name")
+	ErrDuplicateFlowID  = errors.New("duplicate flow ID")
 	ErrInvalidStepID    = errors.New("invalid step ID")
 	ErrDuplicateStepID  = errors.New("duplicate step ID")
 	ErrInvalidRule      = errors.New("rule references non-existent step")
@@ -15,6 +17,9 @@ var (
 	ErrNoSteps          = errors.New("flow has no steps")
 	ErrInvalidYAML      = errors.New("invalid flow YAML")
 	ErrInvalidPredicate = errors.New("invalid predicate")
+	// TODO(#): Implement cycle detection in step graph validation
+	// Use DFS or Tarjan's algorithm to detect circular dependencies
+	ErrCycleDetected = errors.New("cycle detected in step graph")
 )
 
 // Flow represents a discovered flow definition.
@@ -72,4 +77,39 @@ type Fallback struct {
 	Retry int    `yaml:"retry"`
 	Delay int    `yaml:"delay,omitempty"`
 	To    string `yaml:"to,omitempty"`
+}
+
+// FlowConflict holds duplicate flow IDs and their locations.
+type FlowConflict struct {
+	ID        string
+	Locations []string
+}
+
+// Conflicts aggregates all duplicate flow ID conflicts.
+type Conflicts struct {
+	Conflicts []FlowConflict
+}
+
+// Error returns a formatted error string for the conflicts.
+func (c *Conflicts) Error() string {
+	if len(c.Conflicts) == 0 {
+		return ""
+	}
+	result := "duplicate flow IDs found:"
+	var resultSB1 strings.Builder
+	for _, conflict := range c.Conflicts {
+		resultSB1.WriteString("\n  - " + conflict.ID + ":")
+		var resultSB2 strings.Builder
+		for _, loc := range conflict.Locations {
+			resultSB2.WriteString("\n    - " + loc)
+		}
+		result += resultSB2.String()
+	}
+	result += resultSB1.String()
+	return result
+}
+
+// HasConflicts returns true if there are any conflicts.
+func (c *Conflicts) HasConflicts() bool {
+	return len(c.Conflicts) > 0
 }

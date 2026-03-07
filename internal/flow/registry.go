@@ -33,6 +33,10 @@ var (
 	flowCache     map[string]Flow
 	flowCacheLock sync.Mutex
 	flowCacheInit bool
+
+	// flowConflicts holds duplicate flow IDs discovered during flow loading.
+	flowConflicts *Conflicts
+	conflictsLock sync.Mutex
 )
 
 // flowFile represents the raw YAML structure of a flow file.
@@ -63,12 +67,24 @@ func All() []Flow {
 	return result
 }
 
+// GetConflicts returns any duplicate flow ID conflicts discovered during loading.
+func GetConflicts() *Conflicts {
+	state() // Ensure flows are discovered
+	conflictsLock.Lock()
+	defer conflictsLock.Unlock()
+	return flowConflicts
+}
+
 // Invalidate clears the cached flows, forcing re-discovery on next access.
 func Invalidate() {
 	flowCacheLock.Lock()
 	defer flowCacheLock.Unlock()
 	flowCache = nil
 	flowCacheInit = false
+
+	conflictsLock.Lock()
+	defer conflictsLock.Unlock()
+	flowConflicts = nil
 }
 
 // state returns the memoized set of flows, discovering on first access.
@@ -76,22 +92,24 @@ func state() map[string]Flow {
 	flowCacheLock.Lock()
 	defer flowCacheLock.Unlock()
 	if !flowCacheInit {
-		flowCache = discoverFlows()
+		flowCache, flowConflicts = discoverFlows()
 		flowCacheInit = true
 	}
 	return flowCache
 }
 
-// discoverFlows merges project and global definitions, preferring project ones
-// when IDs conflict. Duplicates are logged and skipped.
-func discoverFlows() map[string]Flow {
+// discoverFlows merges project and global definitions, tracking duplicate IDs.
+// Returns flows map and any conflicts found (project flows take precedence on conflict).
+func discoverFlows() (map[string]Flow, *Conflicts) {
 	flows := make(map[string]Flow)
+	conflictMap := make(map[string][]string)
 
 	// Project flows have higher priority — discover first, so they win on conflict
 	projectFlows := discoverProjectFlows()
 	for _, f := range projectFlows {
-		if _, exists := flows[f.ID]; exists {
-			logging.Warn("Duplicate flow ID, keeping first occurrence", "id", f.ID, "location", f.Location)
+		if existing, exists := flows[f.ID]; exists {
+			// Track the conflict: keep the first occurrence, track duplicates
+			conflictMap[f.ID] = append(conflictMap[f.ID], existing.Location, f.Location)
 			continue
 		}
 		flows[f.ID] = f
@@ -100,14 +118,40 @@ func discoverFlows() map[string]Flow {
 	// Global flows — only add if not already found
 	globalFlows := discoverGlobalFlows()
 	for _, f := range globalFlows {
-		if _, exists := flows[f.ID]; exists {
-			logging.Warn("Flow already defined in project, skipping global", "id", f.ID, "location", f.Location)
+		if existing, exists := flows[f.ID]; exists {
+			// Track the conflict: keep the project flow, track global duplicate
+			conflictMap[f.ID] = append(conflictMap[f.ID], existing.Location, f.Location)
 			continue
 		}
 		flows[f.ID] = f
 	}
 
-	return flows
+	// Build Conflicts struct if there are any duplicates
+	var conflicts *Conflicts
+	if len(conflictMap) > 0 {
+		conflicts = &Conflicts{
+			Conflicts: make([]FlowConflict, 0, len(conflictMap)),
+		}
+		for id, locations := range conflictMap {
+			// Remove duplicates from locations
+			seen := make(map[string]bool)
+			uniqueLocations := make([]string, 0)
+			for _, loc := range locations {
+				if !seen[loc] {
+					seen[loc] = true
+					uniqueLocations = append(uniqueLocations, loc)
+				}
+			}
+			conflicts.Conflicts = append(conflicts.Conflicts, FlowConflict{
+				ID:        id,
+				Locations: uniqueLocations,
+			})
+		}
+		// Log warning about conflicts
+		logging.Warn("Duplicate flow IDs found, using first occurrence", "count", len(conflictMap))
+	}
+
+	return flows, conflicts
 }
 
 func discoverProjectFlows() []Flow {
