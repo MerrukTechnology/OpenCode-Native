@@ -62,7 +62,7 @@ func (s *UIState) IsPageLoaded(pageID PageID) bool {
 
 // MarkPageLoaded marks a page as initialized.
 func (s *UIState) MarkPageLoaded(pageID PageID) {
-	return
+	// No-op: page tracking not yet implemented
 }
 
 // SetDimensions updates window dimensions and recalculates layout.

@@ -51,7 +51,6 @@ import (
 	"os"
 
 	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/models"
-	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/tools"
 	toolsPkg "github.com/MerrukTechnology/OpenCode-Native/internal/llm/tools"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/message"
@@ -123,10 +122,10 @@ type ProviderEvent struct {
 // Provider defines the interface for LLM providers.
 type Provider interface {
 	// SendMessages sends a list of messages to the provider and returns a response.
-	SendMessages(ctx context.Context, messages []message.Message, tools []tools.BaseTool) (*ProviderResponse, error)
+	SendMessages(ctx context.Context, messages []message.Message, tools []toolsPkg.BaseTool) (*ProviderResponse, error)
 
 	// StreamResponse streams a response from the provider.
-	StreamResponse(ctx context.Context, messages []message.Message, tools []tools.BaseTool) <-chan ProviderEvent
+	StreamResponse(ctx context.Context, messages []message.Message, tools []toolsPkg.BaseTool) <-chan ProviderEvent
 
 	// Model returns the current model being used.
 	Model() models.Model
@@ -172,8 +171,8 @@ type ProviderClientOption func(*providerClientOptions)
 
 // ProviderClient is the interface for provider-specific clients.
 type ProviderClient interface {
-	send(ctx context.Context, messages []message.Message, tools []tools.BaseTool) (*ProviderResponse, error)
-	stream(ctx context.Context, messages []message.Message, tools []tools.BaseTool) <-chan ProviderEvent
+	send(ctx context.Context, messages []message.Message, tools []toolsPkg.BaseTool) (*ProviderResponse, error)
+	stream(ctx context.Context, messages []message.Message, tools []toolsPkg.BaseTool) <-chan ProviderEvent
 	countTokens(ctx context.Context, messages []message.Message, tools []toolsPkg.BaseTool) (int64, error)
 	maxTokens() int64
 	setMaxTokens(maxTokens int64)
@@ -457,7 +456,7 @@ func (p *baseProvider[C]) sanitizeToolPairs(messages []message.Message) []messag
 	return result
 }
 
-func (p *baseProvider[C]) SendMessages(ctx context.Context, messages []message.Message, tools []tools.BaseTool) (*ProviderResponse, error) {
+func (p *baseProvider[C]) SendMessages(ctx context.Context, messages []message.Message, tools []toolsPkg.BaseTool) (*ProviderResponse, error) {
 	messages = p.cleanMessages(messages)
 	messages = p.sanitizeToolPairs(messages)
 	return p.client.send(ctx, messages, tools)
@@ -467,7 +466,7 @@ func (p *baseProvider[C]) Model() models.Model {
 	return p.options.model
 }
 
-func (p *baseProvider[C]) StreamResponse(ctx context.Context, messages []message.Message, tools []tools.BaseTool) <-chan ProviderEvent {
+func (p *baseProvider[C]) StreamResponse(ctx context.Context, messages []message.Message, tools []toolsPkg.BaseTool) <-chan ProviderEvent {
 	messages = p.cleanMessages(messages)
 	messages = p.sanitizeToolPairs(messages)
 	return p.client.stream(ctx, messages, tools)

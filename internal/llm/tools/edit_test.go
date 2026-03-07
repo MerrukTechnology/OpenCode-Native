@@ -118,7 +118,6 @@ func (s *stubHistoryService) SubscribeWithContext(ctx context.Context) <-chan pu
 }
 
 func (s *stubHistoryService) Unsubscribe(context.Context) {
-	return
 }
 
 func (s *stubHistoryService) Publish(context.Context, history.File) error {

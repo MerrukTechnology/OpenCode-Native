@@ -414,7 +414,7 @@ func removeDisabledAgents(agents map[string]AgentInfo) {
 func buildGlobalPerms(cfg *config.Config) map[string]any {
 	perms := make(map[string]any)
 	if cfg.Permission != nil {
-		if cfg.Permission.Skill != nil {
+		if cfg.Permission.Rules != nil {
 			perms["skill"] = cfg.Permission.Skill
 		}
 		maps.Copy(perms, cfg.Permission.Rules)
