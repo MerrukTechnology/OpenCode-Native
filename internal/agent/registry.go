@@ -1,3 +1,5 @@
+// Package agent provides the agent registry and configuration management.
+// Agents are configured via markdown files with YAML frontmatter.
 package agent
 
 import (
@@ -20,8 +22,6 @@ type Output struct {
 	Schema map[string]any `json:"schema,omitempty" yaml:"schema,omitempty"`
 }
 
-// AgentInfo holds the configuration for an agent.
-// It includes metadata like name, description, mode, and tool permissions.
 // AgentInfo holds the configuration for an agent.
 // It includes metadata like name, description, mode, and tool permissions.
 type AgentInfo struct {

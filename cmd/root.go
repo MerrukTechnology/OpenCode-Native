@@ -67,10 +67,10 @@ Key Features:
   # Run with a custom project ID to tag sessions
   opencode -P my-project-id
   `,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		// If the help flag is set, show the help message
 		if cmd.Flag("help").Changed {
-			cmd.Help()
+			_ = cmd.Help()
 			return nil
 		}
 		if cmd.Flag("version").Changed {
@@ -391,6 +391,7 @@ func setupSubscriptions(app *app.App, parentCtx context.Context) (chan tea.Msg, 
 	return ch, cleanupFunc
 }
 
+// Execute runs the root command.
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
@@ -427,7 +428,7 @@ func init() {
 	rootCmd.Flags().StringP("project-id", "P", "", "Custom project ID (overrides auto-detected Git/directory-based ID)")
 
 	// Register custom validation for the format flag
-	rootCmd.RegisterFlagCompletionFunc("output-format", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	_ = rootCmd.RegisterFlagCompletionFunc("output-format", func(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return format.SupportedFormats, cobra.ShellCompDirectiveNoFileComp
 	})
 }
