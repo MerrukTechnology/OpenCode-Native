@@ -79,10 +79,12 @@ func PlaceOverlay(
 	}
 
 	if fgWidth >= bgWidth && fgHeight >= bgHeight {
-		// FIXME: return fg or bg?
+		// Foreground is larger than background in both dimensions.
+		// Return foreground as-is since it contains all the content.
 		return fg
 	}
-	// TODO: allow placement outside of the bg box?
+	// Clamp coordinates to ensure overlay stays within background bounds.
+	// To allow placement outside, add a new WhitespaceOption or remove clamping.
 	x = util.Clamp(x, 0, bgWidth-fgWidth)
 	y = util.Clamp(y, 0, bgHeight-fgHeight)
 

@@ -1,6 +1,8 @@
 package core
 
 import (
+	"sync"
+
 	"github.com/MerrukTechnology/OpenCode-Native/internal/tui/layout"
 )
 
@@ -32,6 +34,10 @@ type UIState struct {
 	IsExecuting    bool
 	ExecutingTool  string
 	ExecutingAgent string
+
+	// Page tracking - maps PageID to loaded state (thread-safe)
+	pageLoaded     map[PageID]bool
+	pageLoadedLock sync.RWMutex
 }
 
 // NewUIState creates a new UIState with default values.
@@ -57,12 +63,22 @@ func (s *UIState) GoBack() {
 
 // IsPageLoaded checks if a page has been initialized.
 func (s *UIState) IsPageLoaded(pageID PageID) bool {
-	return true
+	s.pageLoadedLock.RLock()
+	defer s.pageLoadedLock.RUnlock()
+	if s.pageLoaded == nil {
+		return false
+	}
+	return s.pageLoaded[pageID]
 }
 
 // MarkPageLoaded marks a page as initialized.
 func (s *UIState) MarkPageLoaded(pageID PageID) {
-	// No-op: page tracking not yet implemented
+	s.pageLoadedLock.Lock()
+	defer s.pageLoadedLock.Unlock()
+	if s.pageLoaded == nil {
+		s.pageLoaded = make(map[PageID]bool)
+	}
+	s.pageLoaded[pageID] = true
 }
 
 // SetDimensions updates window dimensions and recalculates layout.
