@@ -301,7 +301,10 @@ Key Features:
 			return fmt.Errorf("TUI error: %w", runErr)
 		}
 
-		logging.Info("TUI exited with result: %v", result)
+		logging.Info("TUI exited with result",
+			"result", result,      // clean, searchable
+			"error",  runErr,      // or "run_err" if you prefer
+		)
 		return nil
 	},
 }
