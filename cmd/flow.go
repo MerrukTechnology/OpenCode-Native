@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/MerrukTechnology/OpenCode-Native/internal/app"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/flow"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/format"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/llm/agent"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
@@ -157,6 +158,8 @@ func runFlowNonInteractive(ctx context.Context, a *app.App, flowID, prompt, sess
 		SessionID      string  `json:"session_id"`
 		Status         string  `json:"status"`
 		Output         any     `json:"output,omitempty"`
+		Error          string  `json:"error,omitempty"`
+		ErrorType      string  `json:"error_type,omitempty"`
 		IsStructOutput bool    `json:"is_struct_output,omitempty"`
 		FinishedAt     int64   `json:"finished_at,omitempty"`
 		ContextSize    int64   `json:"context_size,omitempty"`
@@ -180,6 +183,14 @@ func runFlowNonInteractive(ctx context.Context, a *app.App, flowID, prompt, sess
 			rootSessionID = state.RootSessionID
 		}
 		var output any
+		var errMsg, errType string
+
+		// Check if step failed
+		if state.Status == flow.FlowStatusFailed && state.Output != "" {
+			errMsg = state.Output
+			errType = categorizeError(state.Output)
+		}
+
 		if state.IsStructOutput && state.Output != "" {
 			var parsed map[string]any
 			if jsonErr := json.Unmarshal([]byte(state.Output), &parsed); jsonErr == nil {
@@ -195,6 +206,8 @@ func runFlowNonInteractive(ctx context.Context, a *app.App, flowID, prompt, sess
 			SessionID:      state.SessionID,
 			Status:         string(state.Status),
 			Output:         output,
+			Error:          errMsg,
+			ErrorType:      errType,
 			IsStructOutput: state.IsStructOutput,
 			FinishedAt:     state.UpdatedAt,
 		}
@@ -250,4 +263,56 @@ func runFlowNonInteractive(ctx context.Context, a *app.App, flowID, prompt, sess
 
 	fmt.Println(string(output))
 	return nil
+}
+
+// categorizeError identifies the type of error from error message patterns.
+func categorizeError(errMsg string) string {
+	errLower := strings.ToLower(errMsg)
+
+	// Rate limiting errors
+	if strings.Contains(errLower, "rate limit") ||
+		strings.Contains(errLower, "too many requests") ||
+		strings.Contains(errLower, "429") {
+		return "rate_limit"
+	}
+
+	// Authentication errors
+	if strings.Contains(errLower, "authentication") ||
+		strings.Contains(errLower, "unauthorized") ||
+		strings.Contains(errLower, "api key") ||
+		strings.Contains(errLower, "invalid credentials") {
+		return "authentication"
+	}
+
+	// Network errors
+	if strings.Contains(errLower, "connection") ||
+		strings.Contains(errLower, "network") ||
+		strings.Contains(errLower, "timeout") ||
+		strings.Contains(errLower, "i/o timeout") {
+		return "network"
+	}
+
+	// Payment/billing errors
+	if strings.Contains(errLower, "billing") ||
+		strings.Contains(errLower, "payment") ||
+		strings.Contains(errLower, "quota") ||
+		strings.Contains(errLower, "insufficient") {
+		return "billing"
+	}
+
+	// Model errors
+	if strings.Contains(errLower, "model") ||
+		strings.Contains(errLower, "provider") {
+		return "model"
+	}
+
+	// Parse errors
+	if strings.Contains(errLower, "parse") ||
+		strings.Contains(errLower, "json") ||
+		strings.Contains(errLower, "invalid") {
+		return "parse"
+	}
+
+	// Default to unknown
+	return "unknown"
 }
