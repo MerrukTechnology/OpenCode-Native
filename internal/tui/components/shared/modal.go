@@ -65,8 +65,8 @@ func WithModalCloseButton(show bool) ModalOption {
 // Render renders a modal with the given content.
 func (r *ModalRenderer) Render(content string, opts ...ModalOption) string {
 	cfg := modalConfig{
-		width:     50,
-		height:    10,
+		width:     70, // Larger default width
+		height:    18, // Larger default height
 		title:     "",
 		focused:   false,
 		showClose: true,
@@ -77,53 +77,60 @@ func (r *ModalRenderer) Render(content string, opts ...ModalOption) string {
 	}
 
 	t := theme.CurrentTheme()
-	borderStyle := t.GetBorderStyle()
 
-	// Determine border based on focus state
-	border := borderStyle.Normal
+	// Determine border color based on focus state
 	borderColor := t.BorderNormal()
 
 	if cfg.focused {
-		border = borderStyle.Focused
 		borderColor = t.BorderFocused()
 	}
 
-	// Create title style
+	// Create title style with better padding
 	titleStyle := lipgloss.NewStyle().
 		Foreground(t.TextEmphasized()).
 		Bold(true).
-		Padding(0, 1)
+		Padding(0, 1, 0, 0)
 
-	// Create content style
+	// Create content style - use left alignment for better readability
 	contentStyle := lipgloss.NewStyle().
-		Width(cfg.width-2).
-		Height(cfg.height-4).
-		Foreground(t.Text()).
-		Align(lipgloss.Center, lipgloss.Center)
+		Width(cfg.width - 4).
+		Height(cfg.height - 4).
+		Foreground(t.Text())
 
-	// Build the modal
+	// Build the modal with rounded border
 	modalStyle := lipgloss.NewStyle().
 		Width(cfg.width).
 		Height(cfg.height).
-		Border(border).
+		Border(lipgloss.RoundedBorder()).
 		BorderForeground(borderColor).
 		Background(t.Background()).
-		Foreground(t.Text())
+		Foreground(t.Text()).
+		Padding(1, 2)
 
 	var titleBar string
 	if cfg.title != "" {
 		titleBar = titleStyle.Render(cfg.title)
 		if cfg.showClose {
-			titleBar += " " + titleStyle.Render("✕")
+			// Add close button aligned to right
+			titleBar = lipgloss.JoinHorizontal(
+				lipgloss.Right,
+				titleBar,
+				titleStyle.Render("✕"),
+			)
 		}
 	}
 
 	// Join title and content
-	body := lipgloss.JoinVertical(
-		lipgloss.Center,
-		titleBar,
-		contentStyle.Render(content),
-	)
+	var body string
+	if cfg.title != "" {
+		body = lipgloss.JoinVertical(
+			lipgloss.Center,
+			titleBar,
+			contentStyle.Render(content),
+		)
+	} else {
+		body = contentStyle.Render(content)
+	}
 
 	return modalStyle.Render(body)
 }

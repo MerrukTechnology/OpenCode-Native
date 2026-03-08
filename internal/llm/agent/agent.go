@@ -206,6 +206,10 @@ func (a *agent) generateTitle(ctx context.Context, sessionID string, content str
 		make([]tools.BaseTool, 0),
 	)
 	if err != nil {
+		// Handle context cancellation gracefully - not an error, just means the session ended
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return nil
+		}
 		return err
 	}
 
@@ -695,12 +699,11 @@ func (a *agent) processEvent(ctx context.Context, sessionID string, assistantMsg
 		logging.ErrorPersist(event.Error.Error())
 		return event.Error
 	case provider.EventComplete:
-		// HACK: validate if we really need it
 		// Merge tool call data from the accumulated response without replacing IDs.
 		// During streaming, tool calls are added via EventToolUseStart with their IDs,
 		// and tool results reference those IDs. The accumulated response may carry
-		// different IDs (e.g. through proxies), so we must preserve the streaming IDs
-		// and only update the Input field which is accumulated by the SDK.
+		// different IDs (e.g. through LiteLLM/Vertex proxies), so we must preserve
+		// the streaming IDs and only update the Input field which is accumulated by the SDK.
 		a.mergeToolCalls(assistantMsg, event.Response.ToolCalls)
 		assistantMsg.AddFinish(event.Response.FinishReason)
 		if err := a.messages.Update(ctx, *assistantMsg); err != nil {

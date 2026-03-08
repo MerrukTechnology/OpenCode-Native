@@ -143,29 +143,56 @@ func (m *LayoutManager) GetFocusedPane() PaneType {
 	return m.focusedPane
 }
 
+// PaneAppearance holds border and color styling for a pane.
+type PaneAppearance struct {
+	Border lipgloss.Border
+	Color  lipgloss.AdaptiveColor
+}
+
+// getPaneAppearance returns the border and color for a pane based on focus state.
+func getPaneAppearance(pane PaneType, focused PaneType) PaneAppearance {
+	t := theme.CurrentTheme()
+	isFocused := pane == focused
+
+	return PaneAppearance{
+		Border: map[bool]lipgloss.Border{true: t.GetBorderStyle().Focused, false: t.GetBorderStyle().Normal}[isFocused],
+		Color:  map[bool]lipgloss.AdaptiveColor{true: t.BorderFocused(), false: t.BorderNormal()}[isFocused],
+	}
+}
+
+// calculateInnerWidth calculates the inner width accounting for borders.
+func calculateInnerWidth(width, frame int) int {
+	inner := width - frame
+	if inner < 1 {
+		return 1
+	}
+	return inner
+}
+
+// renderPane renders a content string with the appropriate style for a given pane.
+func (m *LayoutManager) renderPane(pane PaneType, dims PaneDimensions, content string) string {
+	appearance := getPaneAppearance(pane, m.focusedPane)
+	frame := lipgloss.NewStyle().Border(appearance.Border, true).GetHorizontalFrameSize()
+	innerWidth := calculateInnerWidth(dims.Width, frame)
+
+	return lipgloss.NewStyle().
+		Border(appearance.Border, true).
+		BorderForeground(appearance.Color).
+		Width(innerWidth).
+		Height(dims.Height).
+		Render(content)
+}
+
 // GetBorderStyle returns the appropriate lipgloss.Border for a pane
 // based on whether it is focused or unfocused.
 func GetBorderStyle(pane PaneType, focused PaneType) lipgloss.Border {
-	borderStyle := theme.CurrentTheme().GetBorderStyle()
-
-	switch pane {
-	case focused:
-		return borderStyle.Focused
-	default:
-		return borderStyle.Normal
-	}
+	return getPaneAppearance(pane, focused).Border
 }
 
 // GetBorderColor returns the appropriate border color for a pane
 // based on whether it is focused or unfocused.
 func GetBorderColor(pane PaneType, focused PaneType) lipgloss.AdaptiveColor {
-	t := theme.CurrentTheme()
-	switch pane {
-	case focused:
-		return t.BorderFocused()
-	default:
-		return t.BorderNormal()
-	}
+	return getPaneAppearance(pane, focused).Color
 }
 
 // GetPaneStyle returns a lipgloss.Style configured for a specific pane
@@ -199,58 +226,11 @@ func JoinVertical(blocks ...string) string {
 func (m *LayoutManager) Render(headerContent, sidebarContent, mainContent, footerContent string) string {
 	t := theme.CurrentTheme()
 
-	// Calculate border frame sizes for each pane style
-	// Header - full width border
-	headerBaseStyle := GetPaneStyle(PaneHeader, m.focusedPane)
-	headerFrame := headerBaseStyle.GetHorizontalFrameSize()
-
-	// Sidebar - has left and right borders (but we'll use full border for now)
-	sidebarBaseStyle := GetPaneStyle(PaneSidebar, m.focusedPane)
-	sidebarFrame := sidebarBaseStyle.GetHorizontalFrameSize()
-
-	// Main - no borders or minimal borders
-	mainBaseStyle := GetPaneStyle(PaneMain, m.focusedPane)
-	mainFrame := mainBaseStyle.GetHorizontalFrameSize()
-
-	// Footer - full width
-	footerBaseStyle := GetPaneStyle(PaneFooter, m.focusedPane)
-	footerFrame := footerBaseStyle.GetHorizontalFrameSize()
-
-	// Calculate inner dimensions accounting for borders
-	// Sidebar: full width minus borders
-	sidebarInnerWidth := m.sidebar.Width - sidebarFrame
-	if sidebarInnerWidth < 1 {
-		sidebarInnerWidth = 1
-	}
-
-	// Main: full width minus borders minus sidebar width
-	mainInnerWidth := m.main.Width - mainFrame
-	if mainInnerWidth < 1 {
-		mainInnerWidth = 1
-	}
-
-	// Create styles with INNER dimensions to prevent wrapping
-	headerStyle := headerBaseStyle.
-		Width(m.header.Width - headerFrame).
-		Height(m.header.Height)
-
-	sidebarStyle := sidebarBaseStyle.
-		Width(sidebarInnerWidth).
-		Height(m.sidebar.Height)
-
-	mainStyle := mainBaseStyle.
-		Width(mainInnerWidth).
-		Height(m.main.Height)
-
-	footerStyle := footerBaseStyle.
-		Width(m.footer.Width - footerFrame).
-		Height(m.footer.Height)
-
-	// Render each pane with its content
-	headerRendered := headerStyle.Render(headerContent)
-	sidebarRendered := sidebarStyle.Render(sidebarContent)
-	mainRendered := mainStyle.Render(mainContent)
-	footerRendered := footerStyle.Render(footerContent)
+	// Use helper to render each pane - handles style, frame, and dimensions
+	headerRendered := m.renderPane(PaneHeader, m.header, headerContent)
+	sidebarRendered := m.renderPane(PaneSidebar, m.sidebar, sidebarContent)
+	mainRendered := m.renderPane(PaneMain, m.main, mainContent)
+	footerRendered := m.renderPane(PaneFooter, m.footer, footerContent)
 
 	// Join sidebar and main content horizontally (side by side)
 	contentArea := lipgloss.JoinHorizontal(

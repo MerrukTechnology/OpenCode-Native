@@ -17,7 +17,7 @@ var (
 	ErrNoSteps          = errors.New("flow has no steps")
 	ErrInvalidYAML      = errors.New("invalid flow YAML")
 	ErrInvalidPredicate = errors.New("invalid predicate")
-	ErrCycleDetected = errors.New("cycle detected in step graph")
+	ErrCycleDetected    = errors.New("cycle detected in step graph")
 )
 
 // Flow represents a discovered flow definition.

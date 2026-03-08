@@ -113,6 +113,7 @@ var logsKeyReturnKey = key.NewBinding(
 	key.WithHelp("esc/q", "go back"),
 )
 
+// Core application state
 type appModel struct {
 	width, height   int
 	layoutEngine    *layout.LayoutEngine
@@ -125,44 +126,89 @@ type appModel struct {
 	app             *app.App
 	selectedSession session.Session
 
+	// Dialog visibility flags and components - each dialog follows showX + X pattern
+	// Using DialogState map for unified dialog management
+	dialogs dialog.DialogState
+
+	// Permission dialog
 	showPermissions bool
 	permissions     dialog.PermissionDialogCmp
 
+	// Help dialog
 	showHelp bool
 	help     dialog.HelpCmp
 
+	// Quit confirmation dialog
 	showQuit bool
 	quit     dialog.QuitDialog
 
+	// Session management dialogs
 	showSessionDialog bool
 	sessionDialog     dialog.SessionDialog
 
 	showDeleteSessionDialog bool
 	deleteSessionDialog     dialog.SessionDialog
 
+	// Command and model selection dialogs
 	showCommandDialog bool
 	commandDialog     dialog.CommandDialog
-	commands          []dialog.Command
+	// commands is now managed by dialog.DefaultRegistry
 
 	showModelDialog bool
 	modelDialog     dialog.ModelDialog
 
+	// Initialization and file dialogs
 	showInitDialog bool
 	initDialog     dialog.InitDialogCmp
 
 	showFilepicker bool
 	filepicker     dialog.FilepickerCmp
 
+	// Theme and arguments dialogs
 	showThemeDialog bool
 	themeDialog     dialog.ThemeDialog
 
 	showMultiArgumentsDialog bool
 	multiArgumentsDialog     dialog.MultiArgumentsDialogCmp
 
+	// Background operation state
 	isCompacting      bool
 	compactingMessage string
 	// New modular components
 	compactingSpinner shared.SpinnerModel
+}
+
+// Dialog helper methods - encapsulate complex visibility checks
+
+// isAnyDialogOpen returns true if any dialog is currently shown.
+func (a *appModel) isAnyDialogOpen() bool {
+	return a.dialogs.IsAnyDialogOpen()
+}
+
+// closeAllDialogs closes all open dialogs. Returns true if any were closed.
+func (a *appModel) closeAllDialogs() bool {
+	// Delegate to DialogState for clean dialog state management
+	anyClosed := a.dialogs.CloseAllDialogs()
+
+	// Special case: also close the filepicker component
+	if a.showFilepicker {
+		a.showFilepicker = false
+		a.filepicker.ToggleFilepicker(false)
+		anyClosed = true
+	}
+	return anyClosed
+}
+
+// canSwitchAgent returns true if agent switching is allowed (no blocking dialogs).
+// This consolidates the complex condition used in agent switch key handlers.
+func (a *appModel) canSwitchAgent() bool {
+	return a.currentPage == page.ChatPage &&
+		!a.showQuit && !a.showPermissions &&
+		!a.showSessionDialog && !a.showDeleteSessionDialog && !a.showCommandDialog &&
+		!a.showModelDialog && !a.showFilepicker && !a.showThemeDialog &&
+		!a.showHelp && !a.showInitDialog && !a.showMultiArgumentsDialog &&
+		!a.isCompacting && !a.app.ActiveAgent().IsBusy() &&
+		!a.pageHasActiveOverlay()
 }
 
 func (a appModel) Init() tea.Cmd {
@@ -437,7 +483,7 @@ func (a appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.showInitDialog = false
 		if msg.Initialize {
 			// Run the initialization command
-			for _, cmd := range a.commands {
+			for _, cmd := range dialog.DefaultRegistry.All() {
 				if cmd.ID == "init" {
 					// Mark the project as initialized
 					if err := config.MarkProjectInitialized(); err != nil {
@@ -578,10 +624,10 @@ func (a appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, keys.Commands):
 			if a.currentPage == page.ChatPage && !a.showQuit && !a.showPermissions && !a.showSessionDialog && !a.showThemeDialog && !a.showFilepicker {
 				// Show commands dialog
-				if len(a.commands) == 0 {
+				if len(dialog.DefaultRegistry.All()) == 0 {
 					return a, util.ReportWarn("No commands available")
 				}
-				a.commandDialog.SetCommands(a.commands)
+				a.commandDialog.SetCommands(dialog.DefaultRegistry.All())
 				a.showCommandDialog = true
 				return a, nil
 			}
@@ -620,12 +666,7 @@ func (a appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return a, nil
 		case key.Matches(msg, keys.SwitchAgent):
-			if a.currentPage == page.ChatPage && !a.showQuit && !a.showPermissions &&
-				!a.showSessionDialog && !a.showDeleteSessionDialog && !a.showCommandDialog &&
-				!a.showModelDialog && !a.showFilepicker && !a.showThemeDialog &&
-				!a.showHelp && !a.showInitDialog && !a.showMultiArgumentsDialog &&
-				!a.isCompacting && !a.app.ActiveAgent().IsBusy() &&
-				!a.pageHasActiveOverlay() {
+			if a.canSwitchAgent() {
 				agentName := a.app.SwitchAgent()
 				return a, tea.Batch(
 					util.CmdHandler(core.ActiveAgentChangedMsg{Name: agentName}),
@@ -633,12 +674,7 @@ func (a appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				)
 			}
 		case key.Matches(msg, keys.SwitchAgentBack):
-			if a.currentPage == page.ChatPage && !a.showQuit && !a.showPermissions &&
-				!a.showSessionDialog && !a.showDeleteSessionDialog && !a.showCommandDialog &&
-				!a.showModelDialog && !a.showFilepicker && !a.showThemeDialog &&
-				!a.showHelp && !a.showInitDialog && !a.showMultiArgumentsDialog &&
-				!a.isCompacting && !a.app.ActiveAgent().IsBusy() &&
-				!a.pageHasActiveOverlay() {
+			if a.canSwitchAgent() {
 				agentName := a.app.SwitchAgentReverse()
 				return a, tea.Batch(
 					util.CmdHandler(core.ActiveAgentChangedMsg{Name: agentName}),
@@ -821,16 +857,11 @@ func (a *appModel) pageHasActiveOverlay() bool {
 
 // RegisterCommand adds a command to the command dialog
 func (a *appModel) RegisterCommand(cmd dialog.Command) {
-	a.commands = append(a.commands, cmd)
+	dialog.DefaultRegistry.Register(cmd)
 }
 
 func (a *appModel) findCommand(id string) (dialog.Command, bool) {
-	for _, cmd := range a.commands {
-		if cmd.ID == id {
-			return cmd, true
-		}
-	}
-	return dialog.Command{}, false
+	return dialog.DefaultRegistry.Find(id)
 }
 
 // GetLayoutEngine returns the layout engine for dimension calculations.
@@ -860,6 +891,22 @@ func (a *appModel) moveToPage(pageID page.PageID) tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
+// placeOverlay centers the overlay content on the given background and renders it.
+// This is a helper to avoid duplicating the same centering logic 11 times.
+func placeOverlay(overlay, bg string) string {
+	row := lipgloss.Height(bg) / 2
+	row -= lipgloss.Height(overlay) / 2
+	col := lipgloss.Width(bg) / 2
+	col -= lipgloss.Width(overlay) / 2
+	return layout.PlaceOverlay(col, row, overlay, bg, true)
+}
+
+// renderModal wraps content using the shared ModalRenderer for consistent dialog styling.
+// This provides consistent border, title, and focus styling across all dialogs.
+func renderModal(content string, opts ...shared.ModalOption) string {
+	return shared.ModalRendererInstance.Render(content, opts...)
+}
+
 func (a appModel) View() string {
 	// Build the main content - page view + status bar
 	// This is a simple vertical stack, matching the original behavior
@@ -872,49 +919,16 @@ func (a appModel) View() string {
 	appView := lipgloss.JoinVertical(lipgloss.Top, components...)
 
 	if a.showPermissions {
-		overlay := a.permissions.View()
-		row := lipgloss.Height(appView) / 2
-		row -= lipgloss.Height(overlay) / 2
-		col := lipgloss.Width(appView) / 2
-		col -= lipgloss.Width(overlay) / 2
-		appView = layout.PlaceOverlay(
-			col,
-			row,
-			overlay,
-			appView,
-			true,
-		)
+		appView = placeOverlay(a.permissions.View(), appView)
 	}
 
 	if a.showFilepicker {
-		overlay := a.filepicker.View()
-		row := lipgloss.Height(appView) / 2
-		row -= lipgloss.Height(overlay) / 2
-		col := lipgloss.Width(appView) / 2
-		col -= lipgloss.Width(overlay) / 2
-		appView = layout.PlaceOverlay(
-			col,
-			row,
-			overlay,
-			appView,
-			true,
-		)
+		appView = placeOverlay(a.filepicker.View(), appView)
 	}
 
 	// Show compacting status overlay using spinner
 	if a.isCompacting {
-		overlay := a.compactingSpinner.View()
-		row := lipgloss.Height(appView) / 2
-		row -= lipgloss.Height(overlay) / 2
-		col := lipgloss.Width(appView) / 2
-		col -= lipgloss.Width(overlay) / 2
-		appView = layout.PlaceOverlay(
-			col,
-			row,
-			overlay,
-			appView,
-			true,
-		)
+		appView = placeOverlay(a.compactingSpinner.View(), appView)
 	}
 
 	if a.showHelp {
@@ -933,138 +947,39 @@ func (a appModel) View() string {
 		}
 		a.help.SetBindings(bindings)
 
-		overlay := a.help.View()
-		row := lipgloss.Height(appView) / 2
-		row -= lipgloss.Height(overlay) / 2
-		col := lipgloss.Width(appView) / 2
-		col -= lipgloss.Width(overlay) / 2
-		appView = layout.PlaceOverlay(
-			col,
-			row,
-			overlay,
-			appView,
-			true,
-		)
+		appView = placeOverlay(a.help.View(), appView)
 	}
 
 	if a.showQuit {
-		overlay := a.quit.View()
-		row := lipgloss.Height(appView) / 2
-		row -= lipgloss.Height(overlay) / 2
-		col := lipgloss.Width(appView) / 2
-		col -= lipgloss.Width(overlay) / 2
-		appView = layout.PlaceOverlay(
-			col,
-			row,
-			overlay,
-			appView,
-			true,
-		)
+		appView = placeOverlay(a.quit.View(), appView)
 	}
 
 	if a.showSessionDialog {
-		overlay := a.sessionDialog.View()
-		row := lipgloss.Height(appView) / 2
-		row -= lipgloss.Height(overlay) / 2
-		col := lipgloss.Width(appView) / 2
-		col -= lipgloss.Width(overlay) / 2
-		appView = layout.PlaceOverlay(
-			col,
-			row,
-			overlay,
-			appView,
-			true,
-		)
+		appView = placeOverlay(a.sessionDialog.View(), appView)
 	}
 
 	if a.showDeleteSessionDialog {
-		overlay := a.deleteSessionDialog.View()
-		row := lipgloss.Height(appView) / 2
-		row -= lipgloss.Height(overlay) / 2
-		col := lipgloss.Width(appView) / 2
-		col -= lipgloss.Width(overlay) / 2
-		appView = layout.PlaceOverlay(
-			col,
-			row,
-			overlay,
-			appView,
-			true,
-		)
+		appView = placeOverlay(a.deleteSessionDialog.View(), appView)
 	}
 
 	if a.showModelDialog {
-		overlay := a.modelDialog.View()
-		row := lipgloss.Height(appView) / 2
-		row -= lipgloss.Height(overlay) / 2
-		col := lipgloss.Width(appView) / 2
-		col -= lipgloss.Width(overlay) / 2
-		appView = layout.PlaceOverlay(
-			col,
-			row,
-			overlay,
-			appView,
-			true,
-		)
+		appView = placeOverlay(a.modelDialog.View(), appView)
 	}
 
 	if a.showCommandDialog {
-		overlay := a.commandDialog.View()
-		row := lipgloss.Height(appView) / 2
-		row -= lipgloss.Height(overlay) / 2
-		col := lipgloss.Width(appView) / 2
-		col -= lipgloss.Width(overlay) / 2
-		appView = layout.PlaceOverlay(
-			col,
-			row,
-			overlay,
-			appView,
-			true,
-		)
+		appView = placeOverlay(a.commandDialog.View(), appView)
 	}
 
 	if a.showInitDialog {
-		overlay := a.initDialog.View()
-		row := lipgloss.Height(appView) / 2
-		row -= lipgloss.Height(overlay) / 2
-		col := lipgloss.Width(appView) / 2
-		col -= lipgloss.Width(overlay) / 2
-		appView = layout.PlaceOverlay(
-			col,
-			row,
-			overlay,
-			appView,
-			true,
-		)
+		appView = placeOverlay(a.initDialog.View(), appView)
 	}
 
 	if a.showThemeDialog {
-		overlay := a.themeDialog.View()
-		row := lipgloss.Height(appView) / 2
-		row -= lipgloss.Height(overlay) / 2
-		col := lipgloss.Width(appView) / 2
-		col -= lipgloss.Width(overlay) / 2
-		appView = layout.PlaceOverlay(
-			col,
-			row,
-			overlay,
-			appView,
-			true,
-		)
+		appView = placeOverlay(a.themeDialog.View(), appView)
 	}
 
 	if a.showMultiArgumentsDialog {
-		overlay := a.multiArgumentsDialog.View()
-		row := lipgloss.Height(appView) / 2
-		row -= lipgloss.Height(overlay) / 2
-		col := lipgloss.Width(appView) / 2
-		col -= lipgloss.Width(overlay) / 2
-		appView = layout.PlaceOverlay(
-			col,
-			row,
-			overlay,
-			appView,
-			true,
-		)
+		appView = placeOverlay(a.multiArgumentsDialog.View(), appView)
 	}
 
 	return appView
@@ -1097,8 +1012,8 @@ func New(app *app.App) tea.Model {
 		permissions:         dialog.NewPermissionDialogCmp(),
 		initDialog:          dialog.NewInitDialogCmp(),
 		themeDialog:         dialog.NewThemeDialogCmp(),
+		dialogs:             dialog.NewDialogState(),
 		app:                 app,
-		commands:            commands,
 		pages: map[page.PageID]tea.Model{
 			page.ChatPage:   page.NewChatPage(app, commands),
 			page.LogsPage:   page.NewLogsPage(),
