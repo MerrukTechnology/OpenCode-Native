@@ -69,7 +69,7 @@ Key Features:
   # Run with a custom project ID to tag sessions
   opencode -P my-project-id
   `,
-	RunE: func(cmd *cobra.Command, _ []string) error {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// If the help flag is set, show the help message
 		if cmd.Flag("help").Changed {
 			_ = cmd.Help()
@@ -98,7 +98,6 @@ Key Features:
 		if deleteSession && sessionID == "" && flowID == "" {
 			return errors.New("--delete requires --session/-s or --flow/-F to be specified")
 		}
-
 		if flowID == "" && len(flowArgs) > 0 {
 			return errors.New("--arg/-A requires --flow/-F to be specified")
 		}
@@ -116,15 +115,15 @@ Key Features:
 		}
 
 		if cwd != "" {
-			err := os.Chdir(cwd)
-			if err != nil {
-				return fmt.Errorf("failed to change directory: %w", err)
+			chErr := os.Chdir(cwd)
+			if chErr != nil {
+				return fmt.Errorf("failed to change directory: %w", chErr)
 			}
 		}
 		if cwd == "" {
-			c, err := os.Getwd()
-			if err != nil {
-				return fmt.Errorf("failed to get current working directory: %w", err)
+			c, gwdErr := os.Getwd()
+			if gwdErr != nil {
+				return fmt.Errorf("failed to get current working directory: %w", gwdErr)
 			}
 			cwd = c
 		}
@@ -135,33 +134,33 @@ Key Features:
 			spinner.Start()
 		}
 
-		_, err := config.Load(cwd, debug)
-		if err != nil {
+		_, loadCfgErr := config.Load(cwd, debug)
+		if loadCfgErr != nil {
 			if spinner != nil {
 				spinner.Stop()
 			}
-			return err
+			return loadCfgErr
 		}
 
 		// Connect DB, this will also run migrations
-		conn, err := db.Connect(context.Background())
-		if err != nil {
+		conn, dbConnErr := db.Connect(context.Background())
+		if dbConnErr != nil {
 			if spinner != nil {
 				spinner.Stop()
 			}
-			return err
+			return dbConnErr
 		}
 
 		// Create main context for the application
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		app, err := app.New(ctx, conn, cliSchema, projectID)
-		if err != nil {
+		app, appNewErr := app.New(ctx, conn, cliSchema, projectID)
+		if appNewErr != nil {
 			if spinner != nil {
 				spinner.Stop()
 			}
-			logging.Error("Failed to create app: %v", err)
-			return err
+			logging.Error("Failed to create app: %v", appNewErr)
+			return appNewErr
 		}
 		defer app.Shutdown()
 
@@ -178,8 +177,8 @@ Key Features:
 		// Look up session if specified, or store ID for on-demand creation
 		// Skip for flow mode — flows manage sessions internally
 		if sessionID != "" && flowID == "" {
-			sess, _err := app.Sessions.Get(ctx, sessionID)
-			if _err != nil {
+			sess, sessErr := app.Sessions.Get(ctx, sessionID)
+			if sessErr != nil {
 				logging.Info("Session not found, will create with provided ID", "session_id", sessionID)
 			} else if deleteSession {
 				if delErr := app.Sessions.Delete(ctx, sessionID); delErr != nil {
@@ -211,9 +210,9 @@ Key Features:
 				nonInteractiveCtx, timeoutCancel = context.WithTimeout(ctx, timeoutDuration)
 				defer timeoutCancel()
 			}
-			_err := runFlowNonInteractive(nonInteractiveCtx, app, flowID, prompt, sessionID, deleteSession, flowArgs, argsFile, quiet)
+			runFlowErr := runFlowNonInteractive(nonInteractiveCtx, app, flowID, prompt, sessionID, deleteSession, flowArgs, argsFile, quiet)
 			app.ForceShutdown()
-			return _err
+			return runFlowErr
 		}
 
 		// Non-interactive mode
@@ -228,9 +227,9 @@ Key Features:
 				nonInteractiveCtx, timeoutCancel = context.WithTimeout(ctx, timeoutDuration)
 				defer timeoutCancel()
 			}
-			_err := runNonInteractive(nonInteractiveCtx, app, prompt, parsedOutputFormat, quiet)
+			runErr := runNonInteractive(nonInteractiveCtx, app, prompt, parsedOutputFormat, quiet)
 			app.ForceShutdown()
-			return _err
+			return runErr
 		}
 
 		// Interactive mode
@@ -294,12 +293,12 @@ Key Features:
 		}
 
 		// Run the TUI
-		result, err := program.Run()
+		result, runErr := program.Run()
 		cleanup()
 
-		if err != nil {
-			logging.Error("TUI error: %v", err)
-			return fmt.Errorf("TUI error: %w", err)
+		if runErr != nil {
+			logging.Error("TUI error: %v", runErr)
+			return fmt.Errorf("TUI error: %w", runErr)
 		}
 
 		logging.Info("TUI exited with result: %v", result)
@@ -395,9 +394,9 @@ func setupSubscriptions(app *app.App, parentCtx context.Context) (chan tea.Msg, 
 
 // Execute runs the root command.
 func Execute() {
-	err := rootCmd.Execute()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+	executeErr := rootCmd.Execute()
+	if executeErr != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", executeErr)
 		os.Exit(1)
 	}
 }
@@ -431,7 +430,7 @@ func init() {
 	rootCmd.Flags().StringP("project-id", "P", "", "Custom project ID (overrides auto-detected Git/directory-based ID)")
 
 	// Register custom validation for the format flag
-	_ = rootCmd.RegisterFlagCompletionFunc("output-format", func(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	_ = rootCmd.RegisterFlagCompletionFunc("output-format", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return format.SupportedFormats, cobra.ShellCompDirectiveNoFileComp
 	})
 
@@ -470,9 +469,9 @@ func init() {
 					}
 					infos = append(infos, info)
 				}
-				data, err := json.MarshalIndent(infos, "", "  ")
-				if err != nil {
-					return fmt.Errorf("failed to marshal flows: %w", err)
+				data, jsonErr := json.MarshalIndent(infos, "", "  ")
+				if jsonErr != nil {
+					return fmt.Errorf("failed to marshal flows: %w", jsonErr)
 				}
 				fmt.Println(string(data))
 				return nil
