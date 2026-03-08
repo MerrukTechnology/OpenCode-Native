@@ -318,6 +318,9 @@ func (a *agent) processGeneration(ctx context.Context, sessionID, content string
 	var structOutput *message.ToolResult
 	structOutputIsErr := true
 	cycles := 0
+	consecutiveEmptyCycles := 0
+	const maxCycles = 20                // Prevent infinite loops
+	const maxConsecutiveEmptyCycles = 3 // Exit if model keeps returning empty tool inputs
 
 	// Suspend to get lazy tools
 	toolSet := a.resolveTools()
@@ -442,6 +445,45 @@ func (a *agent) processGeneration(ctx context.Context, sessionID, content string
 			}
 
 			msgHistory = append(msgHistory, agentMessage, *toolResults)
+
+			// Check for rate limiting issues: if all tool results have empty input, increment counter
+			if toolResults != nil {
+				emptyCount := 0
+				for _, part := range toolResults.Parts {
+					if tc, ok := part.(message.TextContent); ok {
+						if strings.Contains(tc.Text, "empty tool input") || strings.Contains(tc.Text, "rate limiting") {
+							emptyCount++
+						}
+					}
+				}
+				if emptyCount > 0 {
+					consecutiveEmptyCycles++
+					logging.Warn("Detected consecutive empty tool results (rate limited)", "cycle", cycles, "consecutive", consecutiveEmptyCycles)
+				} else {
+					consecutiveEmptyCycles = 0
+				}
+			}
+
+			// Prevent infinite loops: exit if max cycles reached
+			if cycles >= maxCycles {
+				logging.Error("Max cycles reached, terminating tool use loop", "cycles", cycles, "maxCycles", maxCycles)
+				return AgentEvent{
+					Type:    AgentEventTypeResponse,
+					Message: agentMessage,
+					Done:    true,
+				}
+			}
+
+			// Exit early if model keeps returning empty tool inputs (likely rate limited)
+			if consecutiveEmptyCycles >= maxConsecutiveEmptyCycles {
+				logging.Error("Consecutive empty tool results detected, likely rate limited", "consecutive", consecutiveEmptyCycles, "cycle", cycles)
+				return AgentEvent{
+					Type:    AgentEventTypeResponse,
+					Message: agentMessage,
+					Done:    true,
+				}
+			}
+
 			continue
 		}
 		return AgentEvent{
