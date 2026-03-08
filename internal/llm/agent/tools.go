@@ -45,7 +45,19 @@ var (
 		tools.PlanTaskToolName,
 		tools.UpdateStepToolName,
 	}
+
+	// Shared task service instance for PlanTaskTool and UpdateStepTool
+	taskService     task.Service
+	taskServiceOnce sync.Once
 )
+
+// getTaskService returns a shared task service instance.
+func getTaskService() task.Service {
+	taskServiceOnce.Do(func() {
+		taskService = task.NewInMemoryTaskService()
+	})
+	return taskService
+}
 
 // NewToolSet dynamically builds the tool slice for an agent based on its
 // registry info. Only tools that pass registry.IsToolEnabled are included.
@@ -99,9 +111,9 @@ func NewToolSet(
 		case TaskToolName:
 			return NewAgentTool(sessions, permissions, reg, factory)
 		case tools.PlanTaskToolName:
-			return tools.NewPlanTaskTool(task.NewInMemoryTaskService())
+			return tools.NewPlanTaskTool(getTaskService())
 		case tools.UpdateStepToolName:
-			return tools.NewUpdateStepTool(task.NewInMemoryTaskService())
+			return tools.NewUpdateStepTool(getTaskService())
 		default:
 			return nil
 		}
