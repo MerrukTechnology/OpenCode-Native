@@ -523,6 +523,20 @@ func (a *agent) streamAndHandleEvents(ctx context.Context, sessionID string, msg
 				continue
 			}
 
+			// Guard against empty input - model may have returned malformed response due to rate limiting
+			if toolCall.Input == "" {
+				logging.Warn("Tool call received empty input (likely rate limited)", "tool", toolCall.Name,
+					"ID", toolCall.ID,
+				)
+				toolResults[i] = message.ToolResult{
+					ToolCallID: toolCall.ID,
+					Name:       toolCall.Name,
+					Content:    "Error: model returned empty tool input (possible rate limiting)",
+					IsError:    true,
+				}
+				continue
+			}
+
 			now := time.Now()
 
 			// TODO: add parallelism so tool calls can run concurrently (at least for Task tool)

@@ -370,14 +370,18 @@ func (s *lspService) restartLSPClient(ctx context.Context, name string) {
 	if exists {
 		delete(s.clients, name)
 	}
-	s.mu.Unlock()
 
+	// Shutdown old client while still holding lock to prevent race with concurrent operations
 	if exists && oldClient != nil {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		_ = oldClient.Shutdown(shutdownCtx)
+		if err := oldClient.Shutdown(shutdownCtx); err != nil {
+			logging.Warn("Failed to shutdown old LSP client during restart",
+				"client", name, "error", err)
+		}
 		cancel()
 	}
 
 	s.startLSPServer(ctx, name, server)
+	s.mu.Unlock()
 	logging.Info("Successfully restarted LSP client", "client", name)
 }
