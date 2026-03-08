@@ -17,8 +17,6 @@ var (
 	ErrNoSteps          = errors.New("flow has no steps")
 	ErrInvalidYAML      = errors.New("invalid flow YAML")
 	ErrInvalidPredicate = errors.New("invalid predicate")
-	// TODO(#): Implement cycle detection in step graph validation
-	// Use DFS or Tarjan's algorithm to detect circular dependencies
 	ErrCycleDetected = errors.New("cycle detected in step graph")
 )
 
@@ -109,8 +107,8 @@ func (c *Conflicts) Error() string {
 		}
 		resultSb2.WriteString(resultSB12.String())
 	}
-	result += resultSb2.String()
 	result += resultSB1.String()
+	result += resultSb2.String()
 	return result
 }
 
