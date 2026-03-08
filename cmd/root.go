@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"github.com/MerrukTechnology/OpenCode-Native/internal/app"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/config"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/db"
+	"github.com/MerrukTechnology/OpenCode-Native/internal/flow"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/format"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/logging"
 	"github.com/MerrukTechnology/OpenCode-Native/internal/pubsub"
@@ -431,4 +433,115 @@ func init() {
 	_ = rootCmd.RegisterFlagCompletionFunc("output-format", func(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return format.SupportedFormats, cobra.ShellCompDirectiveNoFileComp
 	})
+
+	// Add flow list command
+	flowListCmd := &cobra.Command{
+		Use:   "list",
+		Short: "List all available flows",
+		Long:  "List all discovered flows with their status, including conflicts and validation errors.",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			verbose, _ := cmd.Flags().GetBool("verbose")
+			jsonOutput, _ := cmd.Flags().GetBool("json")
+
+			flows := flow.All()
+			conflicts := flow.GetConflicts()
+
+			if jsonOutput {
+				infos := make([]flow.Flow, 0, len(flows))
+				for _, f := range flows {
+					info := flow.Flow{
+						ID:          f.ID,
+						Name:        f.Name,
+						Description: f.Description,
+						Disabled:    f.Disabled,
+						Steps:       len(f.Spec.Steps),
+						Location:    f.Location,
+						HasConflict: false,
+					}
+					if conflicts != nil {
+						for _, c := range conflicts.Conflicts {
+							if c.ID == f.ID {
+								info.HasConflict = true
+								info.Locations = c.Locations
+								break
+							}
+						}
+					}
+					infos = append(infos, info)
+				}
+				data, err := json.MarshalIndent(infos, "", "  ")
+				if err != nil {
+					return fmt.Errorf("failed to marshal flows: %w", err)
+				}
+				fmt.Println(string(data))
+				return nil
+			}
+
+			// Text output
+			if len(flows) == 0 {
+				fmt.Println("No flows found.")
+				return nil
+			}
+
+			fmt.Printf("Found %d flow(s):\n\n", len(flows))
+
+			// Build conflict lookup
+			conflictMap := make(map[string][]string)
+			if conflicts != nil {
+				for _, c := range conflicts.Conflicts {
+					conflictMap[c.ID] = c.Locations
+				}
+			}
+
+			for _, f := range flows {
+				fmt.Printf("• %s", f.ID)
+				if f.Disabled {
+					fmt.Printf(" [DISABLED]")
+				}
+				if _, ok := conflictMap[f.ID]; ok {
+					fmt.Printf(" [CONFLICT]")
+				}
+				fmt.Println()
+
+				if f.Name != "" {
+					fmt.Printf("  Name: %s\n", f.Name)
+				}
+				if f.Description != "" {
+					fmt.Printf("  Description: %s\n", f.Description)
+				}
+				fmt.Printf("  Steps: %d\n", len(f.Spec.Steps))
+
+				if verbose {
+					fmt.Printf("  Location: %s\n", f.Location)
+				}
+
+				if locs, ok := conflictMap[f.ID]; ok {
+					fmt.Printf("  Conflict locations:")
+					for _, loc := range locs {
+						fmt.Printf(" %s", loc)
+					}
+					fmt.Println()
+				}
+				fmt.Println()
+			}
+
+			// Show conflict summary
+			if len(conflictMap) > 0 {
+				fmt.Printf("⚠ %d conflict(s) detected. Use --json for details.\n", len(conflictMap))
+			}
+
+			return nil
+		},
+	}
+	flowListCmd.Flags().BoolP("verbose", "v", false, "Show detailed information including file locations")
+	flowListCmd.Flags().Bool("json", false, "Output in JSON format")
+
+	// Add flow command group
+	flowCmd := &cobra.Command{
+		Use:   "flow",
+		Short: "Manage and run flows",
+		Long:  "Commands for managing and executing flows.",
+	}
+	flowCmd.AddCommand(flowListCmd)
+	rootCmd.AddCommand(flowCmd)
 }

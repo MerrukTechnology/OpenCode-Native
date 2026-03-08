@@ -154,6 +154,15 @@ opencode -F my-flow -p "PROJ-1234" --args-file flow-args.json
 
 # Fresh start (delete previous state)
 opencode -F my-flow -s my-prefix -D -p "restart"
+
+# List all available flows
+opencode flow list
+
+# List flows with detailed information
+opencode flow list --verbose
+
+# List flows in JSON format
+opencode flow list --json
 ```
 
 ### Flags
@@ -427,6 +436,28 @@ steps:
       Implement the changes now that all blockers are resolved.
       ${args.prompt}
 ```
+
+### Cycle detection
+
+Flows are directed acyclic graphs (DAGs). The system validates that no cycles exist in the step graph before execution. Cycles can occur through:
+
+- **Direct cycle**: Step A routes to itself via rules
+- **Self-loop**: Step A's fallback routes back to step A
+- **Indirect cycle**: A → B → C → A
+
+When a cycle is detected, the flow fails to load with a clear error message indicating the cycle path.
+
+To diagnose cycle issues, use the flow list command:
+
+```bash
+# List all flows with locations
+opencode flow list --verbose
+
+# Export to JSON for programmatic analysis
+opencode flow list --json
+```
+
+The validation runs automatically when flows are discovered. Project-level flows take precedence over global flows with the same ID. If duplicate flow IDs are found, a warning is logged and the first-discovered flow is used.
 
 ## See Also
 

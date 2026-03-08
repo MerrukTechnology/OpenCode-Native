@@ -24,12 +24,15 @@ var (
 
 // Flow represents a discovered flow definition.
 type Flow struct {
-	ID          string
-	Name        string
-	Disabled    bool
-	Description string
-	Spec        FlowSpec
-	Location    string
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Disabled    bool     `json:"disabled"`
+	Steps       int      `json:"steps"`
+	Spec        FlowSpec `json:"spec,omitempty"`
+	Location    string   `json:"location"`
+	HasConflict bool     `json:"has_conflict"`
+	Locations   []string `json:"conflict_locations,omitempty"`
 }
 
 // FlowSession controls session behavior at the flow level.
@@ -97,14 +100,16 @@ func (c *Conflicts) Error() string {
 	}
 	result := "duplicate flow IDs found:"
 	var resultSB1 strings.Builder
+	var resultSb2 strings.Builder
 	for _, conflict := range c.Conflicts {
 		resultSB1.WriteString("\n  - " + conflict.ID + ":")
-		var resultSB2 strings.Builder
+		var resultSB12 strings.Builder
 		for _, loc := range conflict.Locations {
-			resultSB2.WriteString("\n    - " + loc)
+			resultSB12.WriteString("\n    - " + loc)
 		}
-		result += resultSB2.String()
+		resultSb2.WriteString(resultSB12.String())
 	}
+	result += resultSb2.String()
 	result += resultSB1.String()
 	return result
 }

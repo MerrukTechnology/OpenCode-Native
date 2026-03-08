@@ -158,9 +158,15 @@ func discoverProjectFlows() []Flow {
 	cfg := config.Get()
 	var result []Flow
 
+	// If config is not loaded, use current working directory as fallback
+	workingDir := "."
+	if cfg != nil {
+		workingDir = cfg.WorkingDir
+	}
+
 	projectDirs := []string{
-		filepath.Join(cfg.WorkingDir, ".opencode", "flows"),
-		filepath.Join(cfg.WorkingDir, ".agents", "flows"),
+		filepath.Join(workingDir, ".opencode", "flows"),
+		filepath.Join(workingDir, ".agents", "flows"),
 	}
 
 	for _, dir := range projectDirs {
