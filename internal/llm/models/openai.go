@@ -9,13 +9,18 @@ const (
 	GPT45Preview ModelID = "gpt-4.5-preview"
 	GPT4o        ModelID = "gpt-4o"
 	GPT4oMini    ModelID = "gpt-4o-mini"
+	GPT5         ModelID = "gpt-5"
+	GPT5Pro      ModelID = "gpt-5-pro"
+	GPT5Mini     ModelID = "gpt-5-mini"
+	GPT52Pro     ModelID = "gpt-5.2-pro"
+	GPT53Codex   ModelID = "gpt-5.3-codex"
 	O1           ModelID = "o1"
 	O1Pro        ModelID = "o1-pro"
 	O1Mini       ModelID = "o1-mini"
 	O3           ModelID = "o3"
+	O3Pro        ModelID = "o3-pro"
 	O3Mini       ModelID = "o3-mini"
 	O4Mini       ModelID = "o4-mini"
-	GPT5         ModelID = "gpt-5"
 )
 
 var OpenAIModels = map[ModelID]Model{
@@ -190,6 +195,76 @@ var OpenAIModels = map[ModelID]Model{
 		CostPer1MOut:        10,
 		ContextWindow:       400_000,
 		DefaultMaxTokens:    128_000,
+		CanReason:           true,
+		SupportsAttachments: true,
+	},
+	GPT5Pro: {
+		ID:                  GPT5Pro,
+		Name:                "GPT 5 Pro",
+		Provider:            ProviderOpenAI,
+		APIModel:            "gpt-5-pro",
+		CostPer1MIn:         2.50,
+		CostPer1MInCached:   0.25,
+		CostPer1MOutCached:  0.0,
+		CostPer1MOut:        10,
+		ContextWindow:       400_000,
+		DefaultMaxTokens:    128_000,
+		CanReason:           true,
+		SupportsAttachments: true,
+	},
+	GPT5Mini: {
+		ID:                  GPT5Mini,
+		Name:                "GPT 5 mini",
+		Provider:            ProviderOpenAI,
+		APIModel:            "gpt-5-mini",
+		CostPer1MIn:         0.30,
+		CostPer1MInCached:   0.03,
+		CostPer1MOutCached:  0.0,
+		CostPer1MOut:        1.20,
+		ContextWindow:       400_000,
+		DefaultMaxTokens:    128_000,
+		CanReason:           true,
+		SupportsAttachments: true,
+	},
+	GPT52Pro: {
+		ID:                  GPT52Pro,
+		Name:                "GPT 5.2 Pro",
+		Provider:            ProviderOpenAI,
+		APIModel:            "gpt-5.2-pro",
+		CostPer1MIn:         3.00,
+		CostPer1MInCached:   0.30,
+		CostPer1MOutCached:  0.0,
+		CostPer1MOut:        15.00,
+		ContextWindow:       800_000,
+		DefaultMaxTokens:    128_000,
+		CanReason:           true,
+		SupportsAttachments: true,
+	},
+	GPT53Codex: {
+		ID:                  GPT53Codex,
+		Name:                "GPT 5.3 Codex",
+		Provider:            ProviderOpenAI,
+		APIModel:            "gpt-5.3-codex",
+		CostPer1MIn:         3.50,
+		CostPer1MInCached:   0.35,
+		CostPer1MOutCached:  0.0,
+		CostPer1MOut:        17.50,
+		ContextWindow:       800_000,
+		DefaultMaxTokens:    128_000,
+		CanReason:           true,
+		SupportsAttachments: true,
+	},
+	O3Pro: {
+		ID:                  O3Pro,
+		Name:                "o3 pro",
+		Provider:            ProviderOpenAI,
+		APIModel:            "o3-pro",
+		CostPer1MIn:         20.00,
+		CostPer1MInCached:   5.00,
+		CostPer1MOutCached:  0.0,
+		CostPer1MOut:        80.00,
+		ContextWindow:       200_000,
+		DefaultMaxTokens:    100_000,
 		CanReason:           true,
 		SupportsAttachments: true,
 	},
