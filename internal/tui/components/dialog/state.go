@@ -33,16 +33,16 @@ type DialogState map[string]bool
 // NewDialogState creates a new DialogState with all dialogs hidden.
 func NewDialogState() DialogState {
 	return DialogState{
-		DialogPermissions:     false,
-		DialogHelp:            false,
-		DialogQuit:            false,
-		DialogSession:         false,
-		DialogDeleteSession:   false,
-		DialogCommand:         false,
-		DialogModel:           false,
-		DialogInit:            false,
-		DialogFilepicker:      false,
-		DialogTheme:           false,
+		DialogPermissions:    false,
+		DialogHelp:           false,
+		DialogQuit:           false,
+		DialogSession:        false,
+		DialogDeleteSession:  false,
+		DialogCommand:        false,
+		DialogModel:          false,
+		DialogInit:           false,
+		DialogFilepicker:     false,
+		DialogTheme:          false,
 		DialogMultiArguments: false,
 	}
 }

@@ -568,7 +568,7 @@ func (a *agent) streamAndHandleEvents(ctx context.Context, sessionID string, msg
 			// Guard against empty or malformed input
 			// The provider layer (kilo accumulator + other providers) already validated,
 			// but we keep defense-in-depth for safety.
-			if !tools.IsValidToolInput(toolCall.Input) {  // ← NEW SHARED HELPER
+			if !tools.IsValidToolInput(toolCall.Input) {
 				toolCallInput := ""
 				if len(toolCall.Input) > 200 {
 					toolCallInput = toolCall.Input[:200] + "..."

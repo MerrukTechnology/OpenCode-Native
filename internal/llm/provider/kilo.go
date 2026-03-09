@@ -684,9 +684,9 @@ type kiloImage struct {
 }
 
 type toolCallAccumulator struct {
-    ID        string
-    Name      string
-    Arguments strings.Builder  // ← this is the key
+	ID        string
+	Name      string
+	Arguments strings.Builder // ← this is the key
 }
 
 func (a *toolCallAccumulator) Append(delta string) {
@@ -696,5 +696,5 @@ func (a *toolCallAccumulator) Append(delta string) {
 }
 
 func (a *toolCallAccumulator) Complete() string {
-    return a.Arguments.String()
+	return a.Arguments.String()
 }

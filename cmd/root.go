@@ -302,8 +302,8 @@ Key Features:
 		}
 
 		logging.Info("TUI exited with result",
-			"result", result,      // clean, searchable
-			"error",  runErr,      // or "run_err" if you prefer
+			"result", result, // clean, searchable
+			"error", runErr, // or "run_err" if you prefer
 		)
 		return nil
 	},
