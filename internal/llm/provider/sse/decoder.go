@@ -6,6 +6,7 @@ package sse
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"io"
 	"strings"
 
@@ -74,11 +75,14 @@ func (d *KiloDecoder) parse(body io.Reader, eventChan chan<- SSEEvent) {
 	// usage comes in a chunk before the final [DONE]
 	var accumulatedUsage TokenUsage
 
+	// Map Index -> ID to handle chunks that only have Index
+	activeToolIDs := make(map[int]string)
+
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			if err != io.EOF {
-				eventChan <- SSEEvent{Type: EventError, Error: err}
+				eventChan <- SSEEvent{Type: EventError, Error: fmt.Errorf("read error: %w", err)}
 			}
 			return
 		}
@@ -90,112 +94,131 @@ func (d *KiloDecoder) parse(body io.Reader, eventChan chan<- SSEEvent) {
 			continue
 		}
 
-		// 2. Extract standard data lines
-		if !strings.HasPrefix(line, "data: ") {
-			// Not SSE format - log this for debugging (could be normal JSON response)
-			logging.Warn("Kilo SSE: Received non-SSE data", "line", line)
-			continue
-		}
-
-		data := strings.TrimPrefix(line, "data: ")
-		if data == "[DONE]" {
-			break
-		}
-
-		// 3. Unmarshal
-		var streamResp kiloStreamResponse
-		if err := json.Unmarshal([]byte(data), &streamResp); err != nil {
-			// Always log malformed JSON to help debug tool call issues
-			logging.Warn("Kilo SSE: Malformed JSON in stream", "data", data, "error", err.Error())
-			continue
-		}
-
-		// 4. Handle Usage (Critical: This often comes in a chunk with 0 choices)
-		if streamResp.Usage != nil {
-			accumulatedUsage = TokenUsage{
-				InputTokens:  streamResp.Usage.PromptTokens,
-				OutputTokens: streamResp.Usage.CompletionTokens,
-				TotalTokens:  streamResp.Usage.TotalTokens,
+		// 2. Extract events (Handles Kilo's concatenated data: bug)
+		events := extractSSEDataEvents(line)
+		if len(events) == 0 {
+			// Not SSE format or empty
+			if d.cfg.Debug && !strings.HasPrefix(line, "data: ") {
+				logging.Warn("Kilo SSE: Received non-SSE data", "line", truncate(line, 200))
 			}
-			// If this chunk has no choices, it's likely a final usage update.
-			// We can emit a partial complete or store it for the finish event.
-		}
-
-		// 5. If no choices, skip delta processing (but we captured usage above)
-		if len(streamResp.Choices) == 0 {
 			continue
 		}
 
-		choice := streamResp.Choices[0]
-		delta := choice.Delta
+		// 3. Process each extracted chunk
+		for _, data := range events {
+			if data == "[DONE]" {
+				// We need to return here to close the reader and channel completely
+				return
+			}
 
-		// --- Handle Content ---
-		// Check for null content explicitly to avoid sending "null" strings
-		if delta.Content != nil && *delta.Content != "" {
-			eventChan <- SSEEvent{Type: EventContentDelta, Content: *delta.Content}
-		}
-
-		// --- Handle Reasoning/Thinking ---
-		if delta.Reasoning != "" {
-			eventChan <- SSEEvent{Type: EventThinkingDelta, Thinking: delta.Reasoning}
-		}
-
-		// --- Handle Tool Calls ---
-		for _, tc := range delta.ToolCalls {
-			if tc == nil {
+			// Unmarshal
+			var streamResp kiloStreamResponse
+			if err := json.Unmarshal([]byte(data), &streamResp); err != nil {
+				// Always log malformed JSON to help debug tool call issues
+				logging.Warn("Kilo SSE: Malformed JSON in stream", "data", truncate(data, 200), "error", err.Error())
 				continue
 			}
-			idx := tc.Index
 
-			// Case A: ID is present -> Start of tool call
-			if tc.ID != "" {
-				toolCall := &message.ToolCall{
-					ID:    tc.ID,
-					Name:  tc.Function.Name,
-					Type:  "function",
-					Index: idx,
+			// 4. Handle Usage (Critical: This often comes in a chunk with 0 choices)
+			if streamResp.Usage != nil {
+				accumulatedUsage = TokenUsage{
+					InputTokens:  streamResp.Usage.PromptTokens,
+					OutputTokens: streamResp.Usage.CompletionTokens,
+					TotalTokens:  streamResp.Usage.TotalTokens,
 				}
-				eventChan <- SSEEvent{Type: EventToolUseStart, ToolCall: toolCall}
-				// Always log tool use start for debugging
-				logging.Debug("Kilo SSE: ToolUseStart", "id", tc.ID, "name", tc.Function.Name, "index", idx)
 			}
 
-			// Case B: Arguments are present (even empty string) -> Delta
-			if tc.Function != nil {
-				// We explicitly allow empty string arguments to pass through
-				// so the accumulator knows the field exists
-				eventChan <- SSEEvent{
-					Type: EventToolUseDelta,
-					ToolCall: &message.ToolCall{
+			// 5. If no choices, skip delta processing (but we captured usage above)
+			if len(streamResp.Choices) == 0 {
+				continue
+			}
+
+			choice := streamResp.Choices[0]
+			delta := choice.Delta
+
+			// --- Handle Content ---
+			// Check for null content explicitly to avoid sending "null" strings
+			if delta.Content != nil && *delta.Content != "" {
+				eventChan <- SSEEvent{Type: EventContentDelta, Content: *delta.Content}
+			}
+
+			// --- Handle Reasoning/Thinking ---
+			if delta.Reasoning != "" {
+				eventChan <- SSEEvent{Type: EventThinkingDelta, Thinking: delta.Reasoning}
+			}
+
+			// --- Handle Tool Calls ---
+			for _, tc := range delta.ToolCalls {
+				if tc == nil {
+					continue
+				}
+				idx := tc.Index
+
+				// Case A: ID is present -> Start of tool call
+				if tc.ID != "" {
+					activeToolIDs[idx] = tc.ID
+					toolCall := &message.ToolCall{
+						ID:    tc.ID,
+						Name:  tc.Function.Name,
+						Type:  "function",
 						Index: idx,
-						Input: tc.Function.Arguments,
+					}
+					eventChan <- SSEEvent{Type: EventToolUseStart, ToolCall: toolCall}
+
+					if d.cfg.Debug {
+						logging.Debug("Kilo SSE: ToolUseStart", "id", tc.ID, "name", tc.Function.Name, "index", idx)
+					}
+				}
+
+				// Case B: Arguments are present (even empty string) -> Delta
+				if tc.Function != nil {
+					id := tc.ID
+					if id == "" {
+						id = activeToolIDs[idx]
+					}
+					if id == "" && len(activeToolIDs) > 0 {
+						// Fallback to the last active ID if we missed it
+						id = activeToolIDs[len(activeToolIDs)-1]
+					}
+
+					// We explicitly allow empty string arguments to pass through
+					// so the accumulator knows the field exists
+					eventChan <- SSEEvent{
+						Type: EventToolUseDelta,
+						ToolCall: &message.ToolCall{
+							ID:    id,
+							Index: idx,
+							Input: tc.Function.Arguments,
+						},
+					}
+
+					if d.cfg.Debug {
+						logging.Debug("Kilo SSE: ToolUseDelta", "index", idx, "input", tc.Function.Arguments)
+					}
+				}
+			}
+
+			// --- Handle Finish Reason ---
+			if choice.FinishReason != "" {
+				fr := message.FinishReasonEndTurn
+				switch choice.FinishReason {
+				case "tool_calls":
+					fr = message.FinishReasonToolUse
+				case "length":
+					fr = message.FinishReasonMaxTokens
+				case "stop":
+					fr = message.FinishReasonEndTurn
+				}
+
+				eventChan <- SSEEvent{
+					Type: EventComplete,
+					Response: &SSECompleteResponse{
+						FinishReason: fr,
+						Usage:        accumulatedUsage,
 					},
 				}
-				// Always log tool use delta for debugging
-				logging.Debug("Kilo SSE: ToolUseDelta", "index", idx, "input", tc.Function.Arguments)
 			}
-		}
-
-		// --- Handle Finish Reason ---
-		if choice.FinishReason != "" {
-			fr := message.FinishReasonEndTurn
-			switch choice.FinishReason {
-			case "tool_calls":
-				fr = message.FinishReasonToolUse
-			case "length":
-				fr = message.FinishReasonMaxTokens
-			case "stop":
-				fr = message.FinishReasonEndTurn
-			}
-
-			eventChan <- SSEEvent{
-				Type: EventComplete,
-				Response: &SSECompleteResponse{
-					FinishReason: fr,
-					Usage:        accumulatedUsage,
-				},
-			}
-		}
+		} // End of events loop
 	}
 }
 
@@ -213,6 +236,9 @@ func extractSSEDataEvents(rawLine string) []string {
 	for {
 		data = strings.TrimSpace(data)
 		if data == "" || data == "[DONE]" {
+			if data == "[DONE]" {
+				events = append(events, "[DONE]")
+			}
 			break
 		}
 
@@ -225,7 +251,7 @@ func extractSSEDataEvents(rawLine string) []string {
 
 		// prefix contains everything before "data: " - that's one event
 		chunk := strings.TrimSpace(prefix)
-		if chunk != "" && chunk != "[DONE]" {
+		if chunk != "" {
 			events = append(events, chunk)
 		}
 		// rest contains everything after "data: " - continue processing

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -460,17 +461,15 @@ func (k *kiloClient) send(ctx context.Context, messages []message.Message, tools
 					activeAccumulators[id] = &toolCallAccumulator{}
 					toolCallOrder = append(toolCallOrder, id)
 					// Store Index -> ID mapping for delta events
-					if idx > 0 {
-						indexToID[idx] = id
+					indexToID[idx] = id
 
-						// Flush any pending deltas that arrived before this Start event
-						if pending, ok := pendingDeltas[idx]; ok {
-							for _, pendingInput := range pending {
-								activeAccumulators[id].Append(pendingInput)
-							}
-							delete(pendingDeltas, idx)
-							logging.Debug("Kilo: Flushed pending deltas", "index", idx, "id", id, "count", len(pending))
+					// Flush any pending deltas that arrived before this Start event
+					if pending, ok := pendingDeltas[idx]; ok {
+						for _, pendingInput := range pending {
+							activeAccumulators[id].Append(pendingInput)
 						}
+						delete(pendingDeltas, idx)
+						logging.Debug("Kilo: Flushed pending deltas", "index", idx, "id", id, "count", len(pending))
 					}
 					if cfg.Debug {
 						logging.Debug("🔧 Kilo: ToolUseStart", "id", id, "name", event.ToolCall.Name, "index", event.ToolCall.Index)
@@ -479,7 +478,7 @@ func (k *kiloClient) send(ctx context.Context, messages []message.Message, tools
 			}
 
 		case EventToolUseDelta:
-			if event.ToolCall != nil && event.ToolCall.Index > 0 {
+			if event.ToolCall != nil {
 				id := event.ToolCall.ID
 				idx := event.ToolCall.Index
 
@@ -555,7 +554,7 @@ func (k *kiloClient) send(ctx context.Context, messages []message.Message, tools
 
 	// If all tool calls have empty input, this is likely rate limiting
 	if hasBadInput && len(finalToolCalls) > 0 {
-		return nil, fmt.Errorf("kilo: model returned empty or invalid tool arguments (rate limit or streaming error)")
+		return nil, errors.New("kilo: model returned empty or invalid tool arguments (rate limit or streaming error)")
 	}
 
 	if len(finalToolCalls) > 0 && finishReason == message.FinishReasonEndTurn {
