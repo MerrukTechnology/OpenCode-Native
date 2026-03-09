@@ -92,6 +92,8 @@ func (d *KiloDecoder) parse(body io.Reader, eventChan chan<- SSEEvent) {
 
 		// 2. Extract standard data lines
 		if !strings.HasPrefix(line, "data: ") {
+			// Not SSE format - log this for debugging (could be normal JSON response)
+			logging.Warn("Kilo SSE: Received non-SSE data", "line", line)
 			continue
 		}
 
@@ -103,9 +105,8 @@ func (d *KiloDecoder) parse(body io.Reader, eventChan chan<- SSEEvent) {
 		// 3. Unmarshal
 		var streamResp kiloStreamResponse
 		if err := json.Unmarshal([]byte(data), &streamResp); err != nil {
-			if d.cfg.Debug {
-				logging.Warn("Kilo: Malformed JSON", "data", data)
-			}
+			// Always log malformed JSON to help debug tool call issues
+			logging.Warn("Kilo SSE: Malformed JSON in stream", "data", data, "error", err.Error())
 			continue
 		}
 
@@ -155,6 +156,8 @@ func (d *KiloDecoder) parse(body io.Reader, eventChan chan<- SSEEvent) {
 					Index: idx,
 				}
 				eventChan <- SSEEvent{Type: EventToolUseStart, ToolCall: toolCall}
+				// Always log tool use start for debugging
+				logging.Debug("Kilo SSE: ToolUseStart", "id", tc.ID, "name", tc.Function.Name, "index", idx)
 			}
 
 			// Case B: Arguments are present (even empty string) -> Delta
@@ -168,6 +171,8 @@ func (d *KiloDecoder) parse(body io.Reader, eventChan chan<- SSEEvent) {
 						Input: tc.Function.Arguments,
 					},
 				}
+				// Always log tool use delta for debugging
+				logging.Debug("Kilo SSE: ToolUseDelta", "index", idx, "input", tc.Function.Arguments)
 			}
 		}
 

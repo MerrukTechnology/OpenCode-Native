@@ -565,15 +565,23 @@ func (a *agent) streamAndHandleEvents(ctx context.Context, sessionID string, msg
 				continue
 			}
 
-			// Guard against empty input - model may have returned malformed response due to rate limiting
-			if toolCall.Input == "" {
-				logging.Warn("Tool call received empty input (likely rate limited)", "tool", toolCall.Name,
+			// Guard against empty or malformed input
+			// The provider layer (kilo accumulator + other providers) already validated,
+			// but we keep defense-in-depth for safety.
+			if !tools.IsValidToolInput(toolCall.Input) {  // ← NEW SHARED HELPER
+				toolCallInput := ""
+				if len(toolCall.Input) > 200 {
+					toolCallInput = toolCall.Input[:200] + "..."
+				}
+				logging.Warn("Tool call received empty or malformed input",
+					"tool", toolCall.Name,
 					"ID", toolCall.ID,
+					"input_preview", toolCallInput,
 				)
 				toolResults[i] = message.ToolResult{
 					ToolCallID: toolCall.ID,
 					Name:       toolCall.Name,
-					Content:    "Error: model returned empty tool input (possible rate limiting)",
+					Content:    "Error: model returned empty or malformed tool input (possible rate limiting or provider streaming issue)",
 					IsError:    true,
 				}
 				continue

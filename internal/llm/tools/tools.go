@@ -165,3 +165,11 @@ func GetAgentID(ctx context.Context) config.AgentName {
 	}
 	return ""
 }
+
+// IsValidToolInput checks if the input is valid JSON and not empty
+func IsValidToolInput(input string) bool {
+	if input == "" {
+		return false // we treat empty as bad (rate-limit case)
+	}
+	return json.Valid([]byte(input))
+}

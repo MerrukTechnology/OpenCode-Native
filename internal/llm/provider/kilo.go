@@ -75,7 +75,14 @@ func (k *kiloAPIClient) createChatRequest(model string, messages []message.Messa
 		req.Tools = k.convertTools(tools)
 	}
 
-	return json.Marshal(req)
+	// Log the raw request payload for debugging
+	payloadJSON, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+	// Log as INFO so it's always visible (not just in debug mode)
+	logging.Info("Kilo: Raw Request Payload", "payload", string(payloadJSON))
+	return payloadJSON, nil
 }
 
 // convertMessages maps internal messages to Kilo's strict schema.
@@ -229,8 +236,15 @@ func (k *kiloAPIClient) StreamChat(ctx context.Context, payload []byte) <-chan P
 
 			// Use the KiloDecoder from sse package for SSE parsing
 			decoder := sse.NewKiloDecoder()
+			sseEventCount := 0
 			for sseEvent := range decoder.Parse(resp.Body) {
+				sseEventCount++
 				eventChan <- convertSSEEvent(sseEvent)
+			}
+			// If no SSE events were received, the response might be non-SSE (normal JSON)
+			// Log this for debugging
+			if sseEventCount == 0 {
+				logging.Warn("Kilo SDK: No SSE events received, response might be non-SSE JSON")
 			}
 			resp.Body.Close()
 			return
@@ -400,7 +414,7 @@ func newKiloClient(opts providerClientOptions) KiloClient {
 	}
 }
 
-// THE SEND METHOD - FIXED ACCUMULATION LOGIC
+// THE SEND METHOD - NOW WITH SHARED-STYLE ACCUMULATOR + JSON VALIDATION
 func (k *kiloClient) send(ctx context.Context, messages []message.Message, tools []tools.BaseTool) (*ProviderResponse, error) {
 	// Re-use stream logic for unified handling
 	eventChan := k.stream(ctx, messages, tools)
@@ -409,8 +423,12 @@ func (k *kiloClient) send(ctx context.Context, messages []message.Message, tools
 
 	// Map ID -> ToolCall
 	activeToolCalls := make(map[string]*message.ToolCall)
-	// Map ID -> Builder (Accumulator)
-	activeToolBuilders := make(map[string]*strings.Builder)
+	// Map ID -> toolCallAccumulator
+	activeAccumulators := make(map[string]*toolCallAccumulator) // ← shared-style accumulator
+	// Map Index -> ID (for delta events that only have Index)
+	indexToID := make(map[int]string)
+	// Buffer for deltas that arrive before Start event
+	pendingDeltas := make(map[int][]string)
 	// Order tracking
 	toolCallOrder := make([]string, 0)
 
@@ -431,6 +449,7 @@ func (k *kiloClient) send(ctx context.Context, messages []message.Message, tools
 		case EventToolUseStart:
 			if event.ToolCall != nil && event.ToolCall.ID != "" {
 				id := event.ToolCall.ID
+				idx := event.ToolCall.Index
 
 				if _, exists := activeToolCalls[id]; !exists {
 					activeToolCalls[id] = &message.ToolCall{
@@ -438,24 +457,53 @@ func (k *kiloClient) send(ctx context.Context, messages []message.Message, tools
 						Name: event.ToolCall.Name,
 						Type: "function",
 					}
-					activeToolBuilders[id] = &strings.Builder{}
+					activeAccumulators[id] = &toolCallAccumulator{}
 					toolCallOrder = append(toolCallOrder, id)
+					// Store Index -> ID mapping for delta events
+					if idx > 0 {
+						indexToID[idx] = id
+
+						// Flush any pending deltas that arrived before this Start event
+						if pending, ok := pendingDeltas[idx]; ok {
+							for _, pendingInput := range pending {
+								activeAccumulators[id].Append(pendingInput)
+							}
+							delete(pendingDeltas, idx)
+							logging.Debug("Kilo: Flushed pending deltas", "index", idx, "id", id, "count", len(pending))
+						}
+					}
 					if cfg.Debug {
-						logging.Debug("🔧 Kilo: ToolUseStart", "id", id, "name", event.ToolCall.Name)
+						logging.Debug("🔧 Kilo: ToolUseStart", "id", id, "name", event.ToolCall.Name, "index", event.ToolCall.Index)
 					}
 				}
 			}
 
 		case EventToolUseDelta:
-			if event.ToolCall != nil && event.ToolCall.ID != "" {
+			if event.ToolCall != nil && event.ToolCall.Index > 0 {
 				id := event.ToolCall.ID
-				// Since we rely on SSE decoder for ID resolution, we can trust ID exists
-				if builder, exists := activeToolBuilders[id]; exists {
-					builder.WriteString(event.ToolCall.Input)
+				idx := event.ToolCall.Index
+
+				// If ID is not in the delta, look it up using Index
+				if id == "" {
+					id = indexToID[idx]
+				}
+
+				// CRITICAL FIX: If we still don't have an ID, this delta arrived BEFORE the Start event.
+				// Create a temporary ID based on Index to buffer this delta until Start arrives.
+				// Use format: "_pending_index_<idx>" to identify pending deltas.
+				if id == "" {
+					// Create pending buffer for this index
+					pendingDeltas[idx] = append(pendingDeltas[idx], event.ToolCall.Input)
+					logging.Debug("Kilo: Buffered delta until Start", "index", idx, "input", event.ToolCall.Input)
+					continue
+				}
+
+				if acc, exists := activeAccumulators[id]; exists {
+					acc.Append(event.ToolCall.Input)
 				} else {
-					// Fallback if Start wasn't caught (unlikely with this setup)
-					activeToolBuilders[id] = &strings.Builder{}
-					activeToolBuilders[id].WriteString(event.ToolCall.Input)
+					// Fallback if Start wasn't caught - create builder now
+					activeAccumulators[id] = &toolCallAccumulator{}
+					activeAccumulators[id].Append(event.ToolCall.Input)
 					activeToolCalls[id] = &message.ToolCall{ID: id, Type: "function"}
 					toolCallOrder = append(toolCallOrder, id)
 				}
@@ -477,19 +525,37 @@ func (k *kiloClient) send(ctx context.Context, messages []message.Message, tools
 	}
 
 	// Finalize tool calls in the order they were started
+	// Finalize with JSON validation
 	var finalToolCalls []message.ToolCall
+	var hasBadInput bool
 	for _, id := range toolCallOrder {
 		if tc, ok := activeToolCalls[id]; ok {
 			// Use string builder for final input
-			if builder, ok := activeToolBuilders[id]; ok {
-				tc.Input = builder.String()
+			if acc, ok := activeAccumulators[id]; ok {
+				tc.Input = acc.Complete()
 			}
 			tc.Finished = true
-			if cfg.Debug {
-				logging.Debug("🔧 Kilo: FINAL ToolCall", "id", id, "name", tc.Name, "json", tc.Input)
+
+			// CRITICAL: Validate it's real JSON
+			if tc.Input != "" {
+				if !json.Valid([]byte(tc.Input)) {
+					hasBadInput = true
+					logging.Warn("Kilo: Invalid JSON in tool arguments", "id", id, "name", tc.Name, "raw", tc.Input)
+				}
+			} else {
+				hasBadInput = true
+				logging.Warn("Kilo: Empty tool arguments (rate-limit or bad model)", "id", id, "name", tc.Name)
 			}
+
+			// Always log the final tool call JSON for debugging
+			logging.Info("Kilo: Final ToolCall", "id", id, "name", tc.Name, "json", tc.Input)
 			finalToolCalls = append(finalToolCalls, *tc)
 		}
+	}
+
+	// If all tool calls have empty input, this is likely rate limiting
+	if hasBadInput && len(finalToolCalls) > 0 {
+		return nil, fmt.Errorf("kilo: model returned empty or invalid tool arguments (rate limit or streaming error)")
 	}
 
 	if len(finalToolCalls) > 0 && finishReason == message.FinishReasonEndTurn {
@@ -616,4 +682,20 @@ type kiloContentPart struct {
 
 type kiloImage struct {
 	URL string `json:"url"`
+}
+
+type toolCallAccumulator struct {
+    ID        string
+    Name      string
+    Arguments strings.Builder  // ← this is the key
+}
+
+func (a *toolCallAccumulator) Append(delta string) {
+	if delta != "" {
+		a.Arguments.WriteString(delta)
+	}
+}
+
+func (a *toolCallAccumulator) Complete() string {
+    return a.Arguments.String()
 }
