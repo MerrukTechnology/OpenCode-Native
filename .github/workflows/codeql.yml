@@ -86,7 +86,7 @@ jobs:
           go-version: '1.24.x'
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@b207e52793e67a85c21e5e0e8f6b42f0c634489b
+        uses: golangci/golangci-lint-action@2d7e7b678591ee3321638e5c5621ca689628daa4
         with:
           version: latest
           # This enables SARIF output so results show in GitHub Security tab
